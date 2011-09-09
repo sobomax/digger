@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <stdlib.h>
 #include "def.h"
 #include "hardware.h"
 
