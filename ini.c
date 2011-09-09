@@ -138,7 +138,7 @@ void GetINIString(char *section,char *key,char *def,char *dest,
 int32_t GetINIInt(char *section,char *key,int32_t def,char *filename)
 {
   char buf[80];
-  sprintf(buf,"%li",def);
+  sprintf(buf,"%i",def);
   GetINIString(section,key,buf,buf,80,filename);
   return atol(buf);
 }
@@ -147,7 +147,7 @@ void WriteINIInt(char *section,char *key,int32_t value,
                             char *filename)
 {
   char buf[80];
-  sprintf(buf,"%li",value);
+  sprintf(buf,"%i",value);
   WriteINIString(section,key,buf,filename);
 }
 

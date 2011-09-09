@@ -355,15 +355,15 @@ void recsavedrf(void)
       }
       init[3]=0;
       if (scoret<100000l)
-        sprintf(nambuf,"%s%li",init,scoret);
+        sprintf(nambuf,"%s%i",init,scoret);
       else
         if (init[2]=='_')
-          sprintf(nambuf,"%c%c%li",init[0],init[1],scoret);
+          sprintf(nambuf,"%c%c%i",init[0],init[1],scoret);
         else
           if (init[0]=='_')
-            sprintf(nambuf,"%c%c%li",init[1],init[2],scoret);
+            sprintf(nambuf,"%c%c%i",init[1],init[2],scoret);
           else
-            sprintf(nambuf,"%c%c%li",init[0],init[2],scoret);
+            sprintf(nambuf,"%c%c%i",init[0],init[2],scoret);
 #ifndef ARM
       strcat(nambuf,".drf");
 #endif

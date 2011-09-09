@@ -640,7 +640,7 @@ void parsecmd(int argc,char *argv[])
         gs=true;
       }
       if (word[1]=='I' || word[1]=='i')
-        sscanf(word+i,"%u",&startlev);
+        sscanf(word+i,"%hi",&startlev);
       if (word[1]=='U' || word[1]=='u')
         unlimlives=true;
 #ifndef _WINDOWS        
@@ -713,7 +713,7 @@ void parsecmd(int argc,char *argv[])
           redefkeyb(false);
       }
       if (word[1]=='A' || word[1]=='a') {
-        sscanf(word+i,"%u,%x,%u,%u,%u,%u",&sound_device,&sound_port,&sound_irq,
+        sscanf(word+i,"%hu,%hx,%hu,%hu,%hu,%hu",&sound_device,&sound_port,&sound_irq,
                &sound_dma,&sound_rate,&sound_length);
         killsound();
         volume=1;
