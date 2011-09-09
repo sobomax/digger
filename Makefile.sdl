@@ -1,5 +1,5 @@
 CC	?= gcc
-CFLAGS	+= -O -g -pipe -Wall -D_SDL
+CFLAGS	+= -O -g -pipe -Wall
 OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o sound.o \
 			newsnd.o ini.o input.o monster.o bags.o alpha.o vgagrafx.o \
 			title_gz.o icon.o sdl_kbd.o sdl_vid.o sdl_timer.o sdl_snd.o
@@ -42,7 +42,7 @@ digger$(ESUFFIX): $(OBJS)
 	$(CC) -o digger$(ESUFFIX) $(OBJS) $(LIBS)
 
 $(OBJS): %.o: %.c
-	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -c -D_SDL -std=gnu99 $(CFLAGS) $< -o $@
 
 clean:
 	rm -f $(OBJS) digger$(ESUFFIX)
