@@ -394,7 +394,7 @@ void monai(Sint4 mon)
 
   /* Collision with Digger */
 
-  if (clfirst[4]!=-1 && isalive())
+  if (clfirst[4]!=-1 && isalive()) {
     if (bonusmode) {
       killmon(mon);
       i=clfirst[4];
@@ -413,6 +413,7 @@ void monai(Sint4 mon)
         i=clcoll[i];
       }
     }
+  }
 
   /* Update co-ordinates */
 

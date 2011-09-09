@@ -159,11 +159,12 @@ void writecurscore(int col)
 void drawscores(void)
 {
   writenum(scdat[0].score,0,0,6,3);
-  if (nplayers==2 || diggers==2)
+  if (nplayers==2 || diggers==2) {
     if (scdat[1].score<100000l)
       writenum(scdat[1].score,236,0,6,3);
     else
       writenum(scdat[1].score,248,0,6,3);
+  }
 }
 
 void addscore(int n,Sint4 score)

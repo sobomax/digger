@@ -602,11 +602,12 @@ void parsecmd(int argc,char *argv[])
       if (word[1]=='L' || word[1]=='l' || word[1]=='R' || word[1]=='r' ||
           word[1]=='P' || word[1]=='p' || word[1]=='S' || word[1]=='s' ||
           word[1]=='E' || word[1]=='e' || word[1]=='G' || word[1]=='g' ||
-          word[1]=='A' || word[1]=='a' || word[1]=='I' || word[1]=='i')
+          word[1]=='A' || word[1]=='a' || word[1]=='I' || word[1]=='i') {
         if (word[2]==':')
           i=3;
         else
           i=2;
+      }
       if (word[1]=='L' || word[1]=='l') {
         j=0;
         while (word[i]!=0)
@@ -705,11 +706,12 @@ void parsecmd(int argc,char *argv[])
         ginit();
         gpal(0);
       }
-      if (word[1]=='K' || word[1]=='k')
+      if (word[1]=='K' || word[1]=='k') {
         if (word[2]=='A' || word[2]=='a')
           redefkeyb(TRUE);
         else
           redefkeyb(FALSE);
+      }
       if (word[1]=='A' || word[1]=='a') {
         sscanf(word+i,"%u,%x,%u,%u,%u,%u",&sound_device,&sound_port,&sound_irq,
                &sound_dma,&sound_rate,&sound_length);

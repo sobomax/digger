@@ -262,10 +262,11 @@ void bcollides(int spr)
     next=-1;
     for (spc=firstt[i];spc<lastt[i];spc++)
       if (sprenf[spc] && spc!=spr)
-        if (bcollide(spr,spc))
+        if (bcollide(spr,spc)) {
           if (next==-1)
             first[i]=next=spc;
           else
             coll[next=(coll[next]=spc)]=-1;
+	}
   }
 }

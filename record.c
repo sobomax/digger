@@ -337,11 +337,12 @@ void recsavedrf(void)
   char nambuf[80],init[4];
   if (!drfvalid)
     return;
-  if (gotname)
+  if (gotname) {
     if ((recf=fopen(rname,"wt"))==NULL)
       gotname=FALSE;
     else
       gotfile=TRUE;
+  }
   if (!gotname) {
     if (nplayers==2)
       recf=fopen(DEFAULTSN,"wt"); /* Should get a name, really */
