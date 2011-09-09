@@ -1,7 +1,6 @@
 #include "def.h"
 
-char copyright[]="Portions Copyright(c) 1983 Windmill Software
-Inc.";
+char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.";
 
 Sint textoffdat[16]={
    72,   0, -72,-72,
