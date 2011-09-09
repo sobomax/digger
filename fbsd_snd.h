@@ -1,2 +1,2 @@
-#define wave_device_available FALSE
+#define wave_device_available false
 

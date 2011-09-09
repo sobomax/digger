@@ -1,23 +1,23 @@
 void setretr(bool f);
-void movedrawspr(Sint4 n,Sint4 x,Sint4 y);
-void erasespr(Sint4 n);
-void createspr(Sint4 n,Sint4 ch,Uint3 *mov,Sint4 wid,Sint4 hei,Sint4 bwid,
-               Sint4 bhei);
-void initspr(Sint4 n,Sint4 ch,Sint4 wid,Sint4 hei,Sint4 bwid,Sint4 bhei);
-void drawspr(Sint4 n,Sint4 x,Sint4 y);
-void initmiscspr(Sint4 x,Sint4 y,Sint4 wid,Sint4 hei);
+void movedrawspr(int16_t n,int16_t x,int16_t y);
+void erasespr(int16_t n);
+void createspr(int16_t n,int16_t ch,uint8_t *mov,int16_t wid,int16_t hei,int16_t bwid,
+               int16_t bhei);
+void initspr(int16_t n,int16_t ch,int16_t wid,int16_t hei,int16_t bwid,int16_t bhei);
+void drawspr(int16_t n,int16_t x,int16_t y);
+void initmiscspr(int16_t x,int16_t y,int16_t wid,int16_t hei);
 void getis(void);
-void drawmiscspr(Sint4 x,Sint4 y,Sint4 ch,Sint4 wid,Sint4 hei);
+void drawmiscspr(int16_t x,int16_t y,int16_t ch,int16_t wid,int16_t hei);
 
 extern void (*ginit)(void);
 extern void (*gclear)(void);
-extern void (*gpal)(Sint4 pal);
-extern void (*ginten)(Sint4 inten);
-extern void (*gputi)(Sint4 x,Sint4 y,Uint3 *p,Sint4 w,Sint4 h);
-extern void (*ggeti)(Sint4 x,Sint4 y,Uint3 *p,Sint4 w,Sint4 h);
-extern void (*gputim)(Sint4 x,Sint4 y,Sint4 ch,Sint4 w,Sint4 h);
-extern Sint4 (*ggetpix)(Sint4 x,Sint4 y);
+extern void (*gpal)(int16_t pal);
+extern void (*ginten)(int16_t inten);
+extern void (*gputi)(int16_t x,int16_t y,uint8_t *p,int16_t w,int16_t h);
+extern void (*ggeti)(int16_t x,int16_t y,uint8_t *p,int16_t w,int16_t h);
+extern void (*gputim)(int16_t x,int16_t y,int16_t ch,int16_t w,int16_t h);
+extern int16_t (*ggetpix)(int16_t x,int16_t y);
 extern void (*gtitle)(void);
-extern void (*gwrite)(Sint4 x,Sint4 y,Sint4 ch,Sint4 c);
+extern void (*gwrite)(int16_t x,int16_t y,int16_t ch,int16_t c);
 
 extern int first[TYPES],coll[SPRITES];

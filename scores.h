@@ -12,13 +12,13 @@ void scoreoctave(int n);
 void scoregold(int n);
 void scorebonus(int n);
 void scoreeatm(int n,int msc);
-void addscore(int n,Sint4 score);
+void addscore(int n,int16_t score);
 
 #ifdef INTDRF
-Sint5 getscore0(void);
+int32_t getscore0(void);
 #endif
 
-extern Uint4 bonusscore;
-extern Sint5 scoret;
+extern uint16_t bonusscore;
+extern int32_t scoret;
 
 extern char scoreinit[11][4];

@@ -5,23 +5,23 @@
 #include "device.h"
 #include "hardware.h"
 
-void fill_audio(void *udata, Uint8 *stream, int len);
+void fill_audio(void *udata, uint8_t *stream, int len);
 samp getsample(void);
 
 samp *buf;
-Uint4 bsize;
+uint16_t bsize;
 
-bool wave_device_available = FALSE;
+bool wave_device_available = false;
 
 bool initsounddevice(void)
 {
-	return(TRUE);
+	return(true);
 }
 
-bool setsounddevice(int base, int irq, int dma, Uint4 samprate, Uint4 bufsize)
+bool setsounddevice(int base, int irq, int dma, uint16_t samprate, uint16_t bufsize)
 {
 	SDL_AudioSpec wanted;
-	bool result = FALSE;
+	bool result = false;
 	
 	wanted.freq = samprate;
 	wanted.samples = bufsize;
@@ -36,13 +36,13 @@ bool setsounddevice(int base, int irq, int dma, Uint4 samprate, Uint4 bufsize)
 
 	if ((SDL_Init(SDL_INIT_AUDIO)) >= 0)
 		if ((SDL_OpenAudio(&wanted, NULL)) >= 0)
-			result = TRUE;
-	if (result == FALSE)
+			result = true;
+	if (result == false)
 		fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
 	else {
 		buf = malloc(bufsize);
 		bsize = bufsize;
-		wave_device_available = TRUE;
+		wave_device_available = true;
 	}
 
 #ifdef _VGL
@@ -52,7 +52,7 @@ bool setsounddevice(int base, int irq, int dma, Uint4 samprate, Uint4 bufsize)
 	return(result);
 }
 
-void fill_audio(void *udata, Uint8 *stream, int len)
+void fill_audio(void *udata, uint8_t *stream, int len)
 {
 	int i;
 

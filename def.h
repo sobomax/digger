@@ -14,26 +14,8 @@
 #define UNIX
 #endif
 
-#ifdef TRUE
-#undef TRUE
-#endif
-
-#ifdef FALSE
-#undef FALSE
-#endif
-
-#define TRUE -1
-#define FALSE 0
-typedef int bool;
-
-typedef signed char Sint3;
-typedef unsigned char Uint3;
-typedef signed short int Sint4;
-typedef unsigned short int Uint4;
-typedef signed int Sint;
-typedef unsigned int Uint;
-typedef signed long int Sint5;
-typedef unsigned long int Uint5;
+#include <stdint.h>
+#include <stdbool.h>
 
 #define DIR_NONE -1
 #define DIR_RIGHT 0

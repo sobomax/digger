@@ -11,24 +11,24 @@
 #include <SDL.h>
 #endif
 
-bool escape=FALSE,firepflag=FALSE,aleftpressed=FALSE,arightpressed=FALSE,
-     auppressed=FALSE,adownpressed=FALSE,start=FALSE,af1pressed=FALSE;
-bool fire2pflag=FALSE,aleft2pressed=FALSE,aright2pressed=FALSE,
-     aup2pressed=FALSE,adown2pressed=FALSE,af12pressed=FALSE;
+bool escape=false,firepflag=false,aleftpressed=false,arightpressed=false,
+     auppressed=false,adownpressed=false,start=false,af1pressed=false;
+bool fire2pflag=false,aleft2pressed=false,aright2pressed=false,
+     aup2pressed=false,adown2pressed=false,af12pressed=false;
 
-Sint4 akeypressed;
+int16_t akeypressed;
 
-Sint4 dynamicdir=-1,dynamicdir2=-1,staticdir=-1,staticdir2=-1,joyx=0,joyy=0;
+int16_t dynamicdir=-1,dynamicdir2=-1,staticdir=-1,staticdir2=-1,joyx=0,joyy=0;
 
-bool joybut1=FALSE,joybut2=FALSE;
+bool joybut1=false,joybut2=false;
 
-Sint4 keydir=0,keydir2=0,jleftthresh=0,jupthresh=0,jrightthresh=0,
+int16_t keydir=0,keydir2=0,jleftthresh=0,jupthresh=0,jrightthresh=0,
       jdownthresh=0,joyanax=0,joyanay=0;
 
-bool joyflag=FALSE,pausef=FALSE;
+bool joyflag=false,pausef=false;
 
-bool krdf[17]={FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,
-               FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE};
+bool krdf[17]={false,false,false,false,false,false,false,false,false,false,
+               false,false,false,false,false,false,false};
 
 
 #ifdef ARM
@@ -71,11 +71,11 @@ int keycodes[17][5]={{134,0,-2,-2,-2},   /* 1 Right */
 void findkey(int kn)
 {
   int k=0,i,j;
-  bool f=FALSE;
+  bool f=false;
   do {
     for (i=130;i<256 && !f;i++)
       if (_kernel_osbyte(129,i,255)&0xff==0xff)
-        f=TRUE;
+        f=true;
     gretrace();
     if (kbhit())
       k=getkey();
@@ -98,7 +98,7 @@ void findkey(int kn)
     keycodes[kn][i++]=k-('A'-'a'); /* lower case */
     keycodes[kn][i++]=k-'@'; /* ctrl code */
   }
-  krdf[kn]=TRUE;
+  krdf[kn]=true;
 }
 
 #else
@@ -225,9 +225,9 @@ int keycodes[17][5]={{SDLK_RIGHT,-2,-2,-2,-2},		/* 1 Right */
 
 #else
 
-bool leftpressed=FALSE,rightpressed=FALSE,uppressed=FALSE,downpressed=FALSE,
-     f1pressed=FALSE,left2pressed=FALSE,right2pressed=FALSE,up2pressed=FALSE,
-     down2pressed=FALSE,f12pressed=FALSE;
+bool leftpressed=false,rightpressed=false,uppressed=false,downpressed=false,
+     f1pressed=false,left2pressed=false,right2pressed=false,up2pressed=false,
+     down2pressed=false,f12pressed=false;
 
 /* Default key codes */
 
@@ -256,7 +256,7 @@ int keycodes[17][5]={{0x4d,0xcd,0x14d,-2,-2}, /* 1 Right */
 #endif
 
 
-Uint4 scancode;
+uint16_t scancode;
 
 int pki;
 
@@ -271,13 +271,13 @@ bool *flagp[10]={
    breaks set and release flags, these "variables" are actually macros linking
    to these flags (they are each only read once).
 */
-void processkey(Uint4 key)
+void processkey(uint16_t key)
 {
   for (pki=0;pki<10;pki++) {
     if (key==keycodes[pki][0]) /* Make */
-      *flagp[pki]=TRUE;
+      *flagp[pki]=true;
     if (key==keycodes[pki][1]) /* Break */
-      *flagp[pki]=FALSE;
+      *flagp[pki]=false;
   }
   scancode=key;
 }
@@ -313,7 +313,7 @@ void findkey(int kn)
     keycodes[kn][i++]=k-('A'-'a'); /* lower case */
     keycodes[kn][i]=k-'@'; /* ctrl code */
   }
-  krdf[kn]=TRUE;
+  krdf[kn]=true;
 }
 #else /* SDL & FBSD */
 void findkey(int kn) { keycodes[kn][0] = getkey(); }
@@ -339,32 +339,32 @@ void checkkeyb(void)
                     &af1pressed,&aright2pressed,&aup2pressed,&aleft2pressed,
                     &adown2pressed,&af12pressed};
   if (leftpressed)
-    aleftpressed=TRUE;
+    aleftpressed=true;
   if (rightpressed)
-    arightpressed=TRUE;
+    arightpressed=true;
   if (uppressed)
-    auppressed=TRUE;
+    auppressed=true;
   if (downpressed)
-    adownpressed=TRUE;
+    adownpressed=true;
   if (f1pressed)
-    af1pressed=TRUE;
+    af1pressed=true;
   if (left2pressed)
-    aleft2pressed=TRUE;
+    aleft2pressed=true;
   if (right2pressed)
-    aright2pressed=TRUE;
+    aright2pressed=true;
   if (up2pressed)
-    aup2pressed=TRUE;
+    aup2pressed=true;
   if (down2pressed)
-    adown2pressed=TRUE;
+    adown2pressed=true;
   if (f12pressed)
-    af12pressed=TRUE;
+    af12pressed=true;
 
   while (kbhit()) {
     akeypressed=getkey();
     for (i=0;i<10;i++)
       for (j=2;j<5;j++)
         if (akeypressed==keycodes[i][j])
-          *aflagp[i]=TRUE;
+          *aflagp[i]=true;
     for (i=10;i<17;i++)
       for (j=0;j<5;j++)
         if (akeypressed==keycodes[i][j])
@@ -372,8 +372,8 @@ void checkkeyb(void)
     switch (k) {
       case 10: /* Cheat! */
         if (!gauntlet) {
-          playing=FALSE;
-          drfvalid=FALSE;
+          playing=false;
+          drfvalid=false;
         }
         break;
       case 11: /* Increase speed */
@@ -390,15 +390,15 @@ void checkkeyb(void)
         soundflag=!soundflag;
         break;
       case 15: /* Exit */
-        escape=TRUE;
+        escape=true;
         break;
       case 16: /* Pause */
-        pausef=TRUE;
+        pausef=true;
     }
     if (akeypressed==ASCIIF8) /* Save DRF */
-      savedrf=TRUE;
+      savedrf=true;
     if (akeypressed!=27 && akeypressed!='n' && akeypressed!='N')
-      start=TRUE;                                /* Change number of players */
+      start=true;                                /* Change number of players */
   }
 }
 
@@ -410,7 +410,7 @@ void readjoy(void)
 
 void detectjoy(void)
 {
-  joyflag=FALSE;
+  joyflag=false;
   staticdir=dynamicdir=DIR_NONE;
 }
 
@@ -420,38 +420,38 @@ void flushkeybuf(void)
 {
   while (kbhit())
     getkey();
-  aleftpressed=arightpressed=auppressed=adownpressed=af1pressed=FALSE;
-  aleft2pressed=aright2pressed=aup2pressed=adown2pressed=af12pressed=FALSE;
+  aleftpressed=arightpressed=auppressed=adownpressed=af1pressed=false;
+  aleft2pressed=aright2pressed=aup2pressed=adown2pressed=af12pressed=false;
 }
 
 void clearfire(int n)
 {
   if (n==0)
-    af1pressed=FALSE;
+    af1pressed=false;
   else
-    af12pressed=FALSE;
+    af12pressed=false;
 }
 
-bool oupressed=FALSE,odpressed=FALSE,olpressed=FALSE,orpressed=FALSE;
-bool ou2pressed=FALSE,od2pressed=FALSE,ol2pressed=FALSE,or2pressed=FALSE;
+bool oupressed=false,odpressed=false,olpressed=false,orpressed=false;
+bool ou2pressed=false,od2pressed=false,ol2pressed=false,or2pressed=false;
 
 void readdir(int n)
 {
-  Sint4 j;
-  bool u=FALSE,d=FALSE,l=FALSE,r=FALSE;
-  bool u2=FALSE,d2=FALSE,l2=FALSE,r2=FALSE;
+  int16_t j;
+  bool u=false,d=false,l=false,r=false;
+  bool u2=false,d2=false,l2=false,r2=false;
 
   if (n==0) {
-    if (auppressed || uppressed) { u=TRUE; auppressed=FALSE; }
-    if (adownpressed || downpressed) { d=TRUE; adownpressed=FALSE; }
-    if (aleftpressed || leftpressed) { l=TRUE; aleftpressed=FALSE; }
-    if (arightpressed || rightpressed) { r=TRUE; arightpressed=FALSE; }
+    if (auppressed || uppressed) { u=true; auppressed=false; }
+    if (adownpressed || downpressed) { d=true; adownpressed=false; }
+    if (aleftpressed || leftpressed) { l=true; aleftpressed=false; }
+    if (arightpressed || rightpressed) { r=true; arightpressed=false; }
     if (f1pressed || af1pressed) {
-      firepflag=TRUE;
-      af1pressed=FALSE;
+      firepflag=true;
+      af1pressed=false;
     }
     else
-      firepflag=FALSE;
+      firepflag=false;
     if (u && !oupressed)
       staticdir=dynamicdir=DIR_UP;
     if (d && !odpressed)
@@ -480,16 +480,16 @@ void readdir(int n)
     staticdir=DIR_NONE;
   }
   else {
-    if (aup2pressed || up2pressed) { u2=TRUE; aup2pressed=FALSE; }
-    if (adown2pressed || down2pressed) { d2=TRUE; adown2pressed=FALSE; }
-    if (aleft2pressed || left2pressed) { l2=TRUE; aleft2pressed=FALSE; }
-    if (aright2pressed || right2pressed) { r2=TRUE; aright2pressed=FALSE; }
+    if (aup2pressed || up2pressed) { u2=true; aup2pressed=false; }
+    if (adown2pressed || down2pressed) { d2=true; adown2pressed=false; }
+    if (aleft2pressed || left2pressed) { l2=true; aleft2pressed=false; }
+    if (aright2pressed || right2pressed) { r2=true; aright2pressed=false; }
     if (f12pressed || af12pressed) {
-      fire2pflag=TRUE;
-      af12pressed=FALSE;
+      fire2pflag=true;
+      af12pressed=false;
     }
     else
-      fire2pflag=FALSE;
+      fire2pflag=false;
     if (u2 && !ou2pressed)
       staticdir2=dynamicdir2=DIR_UP;
     if (d2 && !od2pressed)
@@ -531,9 +531,9 @@ void readdir(int n)
     joyx=joyanax>>2;
     joyy=joyanay>>2;
     if (joybut1)
-      firepflag=TRUE;
+      firepflag=true;
     else
-      firepflag=FALSE;
+      firepflag=false;
   }
 }
 
@@ -541,20 +541,20 @@ void readdir(int n)
    effectively if the user waggles the joystick in the title screen. */
 bool teststart(void)
 {
-  Sint4 j;
-  bool startf=FALSE;
+  int16_t j;
+  bool startf=false;
   if (joyflag) {
     readjoy();
     if (joybut1)
-      startf=TRUE;
+      startf=true;
   }
   if (start) {
-    start=FALSE;
-    startf=TRUE;
-    joyflag=FALSE;
+    start=false;
+    startf=true;
+    joyflag=false;
   }
   if (!startf)
-    return FALSE;
+    return false;
   if (joyflag) {
     joyanay=0;
     joyanax=0;
@@ -584,14 +584,14 @@ bool teststart(void)
     joyanax=joyx;
     joyanay=joyy;
   }
-  return TRUE;
+  return true;
 }
 
 /* Why the joystick reading is split between readdir and getdir like this is a
    mystery to me. */
-Sint4 getdir(int n)
+int16_t getdir(int n)
 {
-  Sint4 dir=((n==0) ? keydir : keydir2);
+  int16_t dir=((n==0) ? keydir : keydir2);
   if (joyflag) {
     dir=DIR_NONE;
     if (joyx<jleftthresh)

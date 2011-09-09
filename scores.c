@@ -18,34 +18,34 @@
 
 struct scdat
 {
-  Sint5 score,nextbs;
+  int32_t score,nextbs;
 } scdat[DIGGERS];
 
 char highbuf[10];
 
-Sint5 scorehigh[12]={0,0,0,0,0,0,0,0,0,0,0,0};
+int32_t scorehigh[12]={0,0,0,0,0,0,0,0,0,0,0,0};
 
 char scoreinit[11][4];
 
-Sint5 scoret=0;
+int32_t scoret=0;
 
 char hsbuf[36];
 
 char scorebuf[512];
 
-Uint4 bonusscore=20000;
+uint16_t bonusscore=20000;
 
-bool gotinitflag=FALSE;
+bool gotinitflag=false;
 
 void readscores(void);
 void writescores(void);
 void savescores(void);
 void getinitials(void);
-void flashywait(Sint4 n);
-Sint4 getinitial(Sint4 x,Sint4 y);
+void flashywait(int16_t n);
+int16_t getinitial(int16_t x,int16_t y);
 void shufflehigh(void);
-void writenum(Sint5 n,Sint4 x,Sint4 y,Sint4 w,Sint4 c);
-void numtostring(char *p,Sint5 n);
+void writenum(int32_t n,int16_t x,int16_t y,int16_t w,int16_t c);
+void numtostring(char *p,int32_t n);
 
 #ifdef ARM
 
@@ -66,7 +66,7 @@ void numtostring(char *p,Sint5 n);
 #endif
 
 #ifdef INTDRF
-Sint5 getscore0(void)
+int32_t getscore0(void)
 {
   return scdat[0].score;
 }
@@ -116,7 +116,7 @@ void initscores(void)
 
 void loadscores(void)
 {
-  Sint4 p=0,i,x;
+  int16_t p=0,i,x;
   readscores();
   if (gauntlet)
     p=111;
@@ -167,7 +167,7 @@ void drawscores(void)
   }
 }
 
-void addscore(int n,Sint4 score)
+void addscore(int n,int16_t score)
 {
   scdat[n].score+=score;
   if (scdat[n].score>999999l)
@@ -196,8 +196,8 @@ void addscore(int n,Sint4 score)
 
 void endofgame(void)
 {
-  Sint4 i;
-  bool initflag=FALSE;
+  int16_t i;
+  bool initflag=false;
   for (i=0;i<diggers;i++)
     addscore(i,0);
   if (playing || !drfvalid)
@@ -224,7 +224,7 @@ void endofgame(void)
       getinitials();
       shufflehigh();
       savescores();
-      initflag=TRUE;
+      initflag=true;
     }
   }
   if (!initflag && !gauntlet) {
@@ -233,13 +233,13 @@ void endofgame(void)
     for (i=0;i<50 && !escape;i++)
       newframe();
     outtext("         ",104,0,3);
-    setretr(TRUE);
+    setretr(true);
   }
 }
 
 void showtable(void)
 {
-  Sint4 i,col;
+  int16_t i,col;
   outtext("HIGH SCORES",16,25,3);
   col=2;
   for (i=1;i<11;i++) {
@@ -255,7 +255,7 @@ void showtable(void)
 
 void savescores(void)
 {
-  Sint4 i,p=0,j;
+  int16_t i,p=0,j;
   if (gauntlet)
     p=111;
   if (diggers==2)
@@ -275,7 +275,7 @@ void savescores(void)
 
 void getinitials(void)
 {
-  Sint4 k,i;
+  int16_t k,i;
 #ifdef _WINDOWS
   pause_windows_sound_playback();
 #endif
@@ -310,18 +310,18 @@ void getinitials(void)
   gclear();
   gpal(0);
   ginten(0);
-  setretr(TRUE);
+  setretr(true);
   recputinit(scoreinit[0]);
 #ifdef _WINDOWS
   resume_windows_sound_playback();
 #endif
 }
 
-void flashywait(Sint4 n)
+void flashywait(int16_t n)
 {
-  Sint4 i,gt,cx,p=0;
-  Sint3 gap=19;
-  setretr(FALSE);
+  int16_t i,gt,cx,p=0;
+  int8_t gap=19;
+  setretr(false);
   for (i=0;i<(n<<1);i++)
     for (cx=0;cx<volume;cx++) {
       gpal(p=1-p);
@@ -334,9 +334,9 @@ void flashywait(Sint4 n)
     }
 }
 
-Sint4 getinitial(Sint4 x,Sint4 y)
+int16_t getinitial(int16_t x,int16_t y)
 {
-  Sint4 i;
+  int16_t i;
   gwrite(x,y,'_',3);
   do {
 
@@ -369,7 +369,7 @@ Sint4 getinitial(Sint4 x,Sint4 y)
 
 void shufflehigh(void)
 {
-  Sint4 i,j;
+  int16_t i,j;
   for (j=10;j>1;j--)
     if (scoret<scorehigh[j])
       break;
@@ -417,11 +417,11 @@ void scoreeatm(int n,int msc)
   addscore(n,msc*200);
 }
 
-void writenum(Sint5 n,Sint4 x,Sint4 y,Sint4 w,Sint4 c)
+void writenum(int32_t n,int16_t x,int16_t y,int16_t w,int16_t c)
 {
-  Sint4 d,xp=(w-1)*12+x;
+  int16_t d,xp=(w-1)*12+x;
   while (w>0) {
-    d=(Sint4)(n%10);
+    d=(int16_t)(n%10);
     if (w>1 || d>0)
       gwrite(xp,y,d+'0',c);
     n/=10;
@@ -430,11 +430,11 @@ void writenum(Sint5 n,Sint4 x,Sint4 y,Sint4 w,Sint4 c)
   }
 }
 
-void numtostring(char *p,Sint5 n)
+void numtostring(char *p,int32_t n)
 {
   int x;
   for (x=0;x<6;x++) {
-    p[5-x]=(Sint3)(n%10l)+'0';
+    p[5-x]=(int8_t)(n%10l)+'0';
     n/=10l;
     if (n==0l) {
       x++;

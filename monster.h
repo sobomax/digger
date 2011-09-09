@@ -1,12 +1,12 @@
 void domonsters(void);
-void incmont(Sint4 n);
+void incmont(int16_t n);
 void erasemonsters(void);
 void initmonsters(void);
-Sint4 monleft(void);
-void killmon(Sint4 mon);
-Sint4 killmonsters(int *clfirst,int *clcoll);
-void checkmonscared(Sint4 h);
-void squashmonsters(Sint4 bag,int *clfirst,int *clcoll);
+int16_t monleft(void);
+void killmon(int16_t mon);
+int16_t killmonsters(int *clfirst,int *clcoll);
+void checkmonscared(int16_t h);
+void squashmonsters(int16_t bag,int *clfirst,int *clcoll);
 void mongold(void);
 
-Sint4 getfield(Sint4 x,Sint4 y);
+int16_t getfield(int16_t x,int16_t y);

@@ -1,20 +1,20 @@
-Sint4 getlevch(Sint4 bp6,Sint4 bp8,Sint4 bpa);
+int16_t getlevch(int16_t bp6,int16_t bp8,int16_t bpa);
 void incpenalty(void);
-Sint4 levplan(void);
-Sint4 levof10(void);
+int16_t levplan(void);
+int16_t levof10(void);
 void setdead(bool df);
 void cleartopline(void);
 void finish(void);
-Sint4 randno(Sint4 n);
+int16_t randno(int16_t n);
 void game(void);
 void maininit(void);
 int mainprog(void);
 
-extern Sint4 nplayers,diggers,curplayer,startlev;
+extern int16_t nplayers,diggers,curplayer,startlev;
 extern bool levfflag;
 extern char levfname[];
 extern char pldispbuf[];
-extern Sint5 randv;
-extern Sint3 leveldat[8][10][15];
+extern int32_t randv;
+extern int8_t leveldat[8][10][15];
 extern int gtime;
 extern bool gauntlet,timeout,synchvid,unlimlives;

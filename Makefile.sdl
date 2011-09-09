@@ -42,7 +42,7 @@ digger$(ESUFFIX): $(OBJS)
 	$(CC) -o digger$(ESUFFIX) $(OBJS) $(LIBS)
 
 $(OBJS): %.o: %.c
-	$(CC) -c -D_SDL -std=gnu99 $(CFLAGS) $< -o $@
+	$(CC) -c -D_SDL -std=c99 $(CFLAGS) $< -o $@
 
 clean:
 	rm -f $(OBJS) digger$(ESUFFIX)

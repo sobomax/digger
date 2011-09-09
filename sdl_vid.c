@@ -20,17 +20,17 @@
 #include "title_gz.h"
 #include "icon.h"
 
-extern Uint3 *vgatable[];
-extern Uint3 *ascii2vga[];
+extern uint8_t *vgatable[];
+extern uint8_t *ascii2vga[];
 
-Uint3 **sprites = vgatable;
-Uint3 **alphas = ascii2vga;
+uint8_t **sprites = vgatable;
+uint8_t **alphas = ascii2vga;
 
-Sint4 xratio = 2;
-Sint4 yratio = 2;
-Sint4 yoffset = 0;
-Sint4 hratio = 2;
-Sint4 wratio = 2;
+int16_t xratio = 2;
+int16_t yratio = 2;
+int16_t yoffset = 0;
+int16_t hratio = 2;
+int16_t wratio = 2;
 #define virt2scrx(x) (x*xratio)
 #define virt2scry(y) (y*yratio+yoffset)
 #define virt2scrw(w) (w*wratio)
@@ -59,9 +59,9 @@ SDL_Color vga16_pal2i[] = \
 
 SDL_Color *npalettes[] = {vga16_pal1, vga16_pal2};
 SDL_Color *ipalettes[] = {vga16_pal1i, vga16_pal2i};
-Sint4	currpal=0;
+int16_t	currpal=0;
 
-Uint32	addflag=0;
+uint32_t	addflag=0;
 
 SDL_Surface *screen = NULL;
 
@@ -76,9 +76,9 @@ struct PendNode *First=NULL, *Last=NULL;
 
 int pendnum = 0;
 
-SDL_Surface *ch2bmap(Uint3 *sprite, Sint4 w, Sint4 h)
+SDL_Surface *ch2bmap(uint8_t *sprite, int16_t w, int16_t h)
 {
-	Sint4 realw, realh;
+	int16_t realw, realh;
 	SDL_Surface *tmp;
 
 	realw = virt2scrw(w*4);
@@ -97,18 +97,18 @@ bool setmode(void)
 {
 	if((screen = SDL_SetVideoMode(640, 400, 8, \
 	    SDL_HWSURFACE | SDL_HWPALETTE | addflag)) == NULL)
-		return(FALSE);
+		return(false);
 	else
-		return(TRUE);
+		return(true);
 }
 
 void switchmode(void)
 {
-	Uint32 saved;
+	uint32_t saved;
 	SDL_Surface *tmp = NULL;
 	SDL_Surface *oldscreen;
 	
-	vgageti(0, 0, (Uint3 *)&tmp, 80, 200);
+	vgageti(0, 0, (uint8_t *)&tmp, 80, 200);
 	oldscreen = screen;
 	saved = addflag;
 
@@ -116,9 +116,9 @@ void switchmode(void)
 		addflag = SDL_FULLSCREEN;
 	else
 		addflag = 0;
-	if(setmode() == FALSE) {
+	if(setmode() == false) {
 		addflag = saved;
-		if(setmode() == FALSE) {
+		if(setmode() == false) {
 			fprintf(stderr, "Fatal: failed to change videomode and"\
 				"fallback mode failed as well. Exitting.\n");
 			exit(1);
@@ -127,7 +127,7 @@ void switchmode(void)
 
 	SDL_SetColors(screen, tmp->format->palette->colors, 0, \
 		tmp->format->palette->ncolors);
-	vgaputi(0, 0, (Uint3 *)&tmp, 80, 200);
+	vgaputi(0, 0, (uint8_t *)&tmp, 80, 200);
 	SDL_FreeSurface(tmp);
 	SDL_FreeSurface(oldscreen);
 }
@@ -148,7 +148,7 @@ void vgainit(void)
 	}
 	SDL_WM_SetCaption("D I G G E R", NULL);
 	SDL_WM_SetIcon(tmp, NULL);
-	if(setmode() == FALSE) {
+	if(setmode() == false) {
 		fprintf(stderr, "Couldn't set 640x480x8 video mode: %s\n", SDL_GetError());
 		exit(1);
         }
@@ -159,9 +159,9 @@ void vgaclear(void)
 {
 	SDL_Surface *tmp = NULL;
 	
-	vgageti(0, 0, (Uint3 *)&tmp, 80, 200);
+	vgageti(0, 0, (uint8_t *)&tmp, 80, 200);
 	memset(tmp->pixels, 0x00, tmp->w*tmp->h);
-	vgaputi(0, 0, (Uint3 *)&tmp, 80, 200);
+	vgaputi(0, 0, (uint8_t *)&tmp, 80, 200);
 	SDL_FreeSurface(tmp);
 }
 void setpal(SDL_Color *pal)
@@ -169,7 +169,7 @@ void setpal(SDL_Color *pal)
 	SDL_SetColors(screen, pal, 0, 16);
 }
 	
-void vgainten(Sint4 inten)
+void vgainten(int16_t inten)
 {
 	if(inten == 1)
 		setpal(ipalettes[currpal]);
@@ -177,7 +177,7 @@ void vgainten(Sint4 inten)
 		setpal(npalettes[currpal]);
 }
 
-void vgapal(Sint4 pal)
+void vgapal(int16_t pal)
 {
 	setpal(npalettes[pal]);
 	currpal = pal;
@@ -197,7 +197,7 @@ void doscreenupdate(void)
 	pendnum = 0;
 }
 
-void vgaputi(Sint4 x, Sint4 y, Uint3 *p, Sint4 w, Sint4 h)
+void vgaputi(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h)
 {
 	SDL_Surface *tmp;
 	SDL_Palette *reserv;
@@ -251,7 +251,7 @@ void vgaputi(Sint4 x, Sint4 y, Uint3 *p, Sint4 w, Sint4 h)
 	pendnum++;
 }
 
-void vgageti(Sint4 x, Sint4 y, Uint3 *p, Sint4 w, Sint4 h)
+void vgageti(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h)
 {
 	SDL_Surface *tmp;
 	SDL_Rect src;
@@ -271,19 +271,19 @@ void vgageti(Sint4 x, Sint4 y, Uint3 *p, Sint4 w, Sint4 h)
 	memcpy(p, &tmp, (sizeof (SDL_Surface *)));
 }
 
-Sint4 vgagetpix(Sint4 x, Sint4 y)
+int16_t vgagetpix(int16_t x, int16_t y)
 {	
 	SDL_Surface *tmp = NULL;
-	Uint4 xi,yi;
-	Uint4 i = 0;
-	Sint4 rval = 0;
-	Uint8 *pixels;
+	uint16_t xi,yi;
+	uint16_t i = 0;
+	int16_t rval = 0;
+	uint8_t *pixels;
 
 	if ((x > 319) || (y > 199))
 	       return (0xff);
 
-	vgageti(x, y, (Uint3 *)&tmp, 1, 1);
-	pixels = (Uint8 *)tmp->pixels;
+	vgageti(x, y, (uint8_t *)&tmp, 1, 1);
+	pixels = (uint8_t *)tmp->pixels;
 	for (yi=0;yi<tmp->h;yi++)
 		for (xi=0;xi<tmp->w;xi++)
 			if (pixels[i++])
@@ -294,28 +294,28 @@ Sint4 vgagetpix(Sint4 x, Sint4 y)
 	return(rval & 0xee);
 }
 
-void vgaputim(Sint4 x, Sint4 y, Sint4 ch, Sint4 w, Sint4 h)
+void vgaputim(int16_t x, int16_t y, int16_t ch, int16_t w, int16_t h)
 {
 	SDL_Surface *tmp;
 	SDL_Surface *mask;
 	SDL_Surface *scr = NULL;
-	Uint8   *tmp_pxl, *mask_pxl, *scr_pxl;
-	Sint4 realsize;
-	Sint4 i;
+	uint8_t   *tmp_pxl, *mask_pxl, *scr_pxl;
+	int16_t realsize;
+	int16_t i;
 
 	tmp = ch2bmap(sprites[ch*2], w, h);
 	mask = ch2bmap(sprites[ch*2+1], w, h);
-	vgageti(x, y, (Uint3 *)&scr, w, h);
+	vgageti(x, y, (uint8_t *)&scr, w, h);
 	realsize = scr->w * scr->h;
-	tmp_pxl = (Uint8 *)tmp->pixels;
-	mask_pxl = (Uint8 *)mask->pixels;
-	scr_pxl = (Uint8 *)scr->pixels;
+	tmp_pxl = (uint8_t *)tmp->pixels;
+	mask_pxl = (uint8_t *)mask->pixels;
+	scr_pxl = (uint8_t *)scr->pixels;
 	for(i=0;i<realsize;i++)
 		if(tmp_pxl[i] != 0xff)
 			scr_pxl[i] = (scr_pxl[i] & mask_pxl[i]) | \
 				tmp_pxl[i];
 
-	vgaputi(x, y, (Uint3 *)&scr, w, h);
+	vgaputi(x, y, (uint8_t *)&scr, w, h);
 	tmp->pixels = NULL;   /* We should NULL'ify these ppointers, or the VGLBitmapDestroy */
 	mask->pixels = NULL;  /* will shoot itself in the foot by trying to dellocate statically */
 	SDL_FreeSurface(tmp);/* allocated arrays */
@@ -323,13 +323,13 @@ void vgaputim(Sint4 x, Sint4 y, Sint4 ch, Sint4 w, Sint4 h)
 	SDL_FreeSurface(scr);
 }
 
-void vgawrite(Sint4 x, Sint4 y, Sint4 ch, Sint4 c)
+void vgawrite(int16_t x, int16_t y, int16_t ch, int16_t c)
 {
 	SDL_Surface *tmp;
-	Uint8 *copy;
-	Uint8 color;
-	Sint4 w=3, h=12, size;
-	Sint4 i;
+	uint8_t *copy;
+	uint8_t color;
+	int16_t w=3, h=12, size;
+	int16_t i;
 
 	if(((ch - 32) >= 0x5f) || (ch < 32))
 		return;
@@ -362,7 +362,7 @@ void vgawrite(Sint4 x, Sint4 y, Sint4 ch, Sint4 c)
 		copy[i] = color;
 	}
 	tmp->pixels = copy;
-	vgaputi(x, y, (Uint3 *)&tmp, w, h);
+	vgaputi(x, y, (uint8_t *)&tmp, w, h);
 	SDL_FreeSurface(tmp);
 }
 
@@ -370,9 +370,9 @@ void vgatitle(void)
 {
 	SDL_Surface *tmp=NULL;
 
-	vgageti(0, 0, (Uint3 *)&tmp, 80, 200);
+	vgageti(0, 0, (uint8_t *)&tmp, 80, 200);
 	gettitle(tmp->pixels);
-	vgaputi(0, 0, (Uint3 *)&tmp, 80, 200);
+	vgaputi(0, 0, (uint8_t *)&tmp, 80, 200);
 	SDL_FreeSurface(tmp);
 }
 
@@ -400,10 +400,10 @@ void savescreen(void)
 void cgainit(void) {}
 void cgaclear(void) {}
 void cgatitle(void) {}
-void cgawrite(Sint4 x, Sint4 y, Sint4 ch, Sint4 c) {}
-void cgaputim(Sint4 x, Sint4 y, Sint4 ch, Sint4 w, Sint4 h) {}
-void cgageti(Sint4 x, Sint4 y, Uint3 *p, Sint4 w, Sint4 h) {}
-void cgaputi(Sint4 x, Sint4 y, Uint3 *p, Sint4 w, Sint4 h) {}
-void cgapal(Sint4 pal) {}
-void cgainten(Sint4 inten) {}
-Sint4 cgagetpix(Sint4 x, Sint4 y) {return(0);}
+void cgawrite(int16_t x, int16_t y, int16_t ch, int16_t c) {}
+void cgaputim(int16_t x, int16_t y, int16_t ch, int16_t w, int16_t h) {}
+void cgageti(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h) {}
+void cgaputi(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h) {}
+void cgapal(int16_t pal) {}
+void cgainten(int16_t inten) {}
+int16_t cgagetpix(int16_t x, int16_t y) {return(0);}

@@ -3,52 +3,52 @@
 #include "sprite.h"
 #include "hardware.h"
 
-bool retrflag=TRUE;
+bool retrflag=true;
 
 bool sprrdrwf[SPRITES+1];
 bool sprrecf[SPRITES+1];
 bool sprenf[SPRITES];
-Sint4 sprch[SPRITES+1];
-Uint3 *sprmov[SPRITES];
-Sint4 sprx[SPRITES+1];
-Sint4 spry[SPRITES+1];
-Sint4 sprwid[SPRITES+1];
-Sint4 sprhei[SPRITES+1];
-Sint4 sprbwid[SPRITES];
-Sint4 sprbhei[SPRITES];
-Sint4 sprnch[SPRITES];
-Sint4 sprnwid[SPRITES];
-Sint4 sprnhei[SPRITES];
-Sint4 sprnbwid[SPRITES];
-Sint4 sprnbhei[SPRITES];
+int16_t sprch[SPRITES+1];
+uint8_t *sprmov[SPRITES];
+int16_t sprx[SPRITES+1];
+int16_t spry[SPRITES+1];
+int16_t sprwid[SPRITES+1];
+int16_t sprhei[SPRITES+1];
+int16_t sprbwid[SPRITES];
+int16_t sprbhei[SPRITES];
+int16_t sprnch[SPRITES];
+int16_t sprnwid[SPRITES];
+int16_t sprnhei[SPRITES];
+int16_t sprnbwid[SPRITES];
+int16_t sprnbhei[SPRITES];
 
 void clearrdrwf(void);
 void clearrecf(void);
-void setrdrwflgs(Sint4 n);
-bool collide(Sint4 bx,Sint4 si);
-bool bcollide(Sint4 bx,Sint4 si);
+void setrdrwflgs(int16_t n);
+bool collide(int16_t bx,int16_t si);
+bool bcollide(int16_t bx,int16_t si);
 void putims(void);
 void putis(void);
 void bcollides(int bx);
 
 void (*ginit)(void)=vgainit;
 void (*gclear)(void)=vgaclear;
-void (*gpal)(Sint4 pal)=vgapal;
-void (*ginten)(Sint4 inten)=vgainten;
-void (*gputi)(Sint4 x,Sint4 y,Uint3 *p,Sint4 w,Sint4 h)=vgaputi;
-void (*ggeti)(Sint4 x,Sint4 y,Uint3 *p,Sint4 w,Sint4 h)=vgageti;
-void (*gputim)(Sint4 x,Sint4 y,Sint4 ch,Sint4 w,Sint4 h)=vgaputim;
-Sint4 (*ggetpix)(Sint4 x,Sint4 y)=vgagetpix;
+void (*gpal)(int16_t pal)=vgapal;
+void (*ginten)(int16_t inten)=vgainten;
+void (*gputi)(int16_t x,int16_t y,uint8_t *p,int16_t w,int16_t h)=vgaputi;
+void (*ggeti)(int16_t x,int16_t y,uint8_t *p,int16_t w,int16_t h)=vgageti;
+void (*gputim)(int16_t x,int16_t y,int16_t ch,int16_t w,int16_t h)=vgaputim;
+int16_t (*ggetpix)(int16_t x,int16_t y)=vgagetpix;
 void (*gtitle)(void)=vgatitle;
-void (*gwrite)(Sint4 x,Sint4 y,Sint4 ch,Sint4 c)=vgawrite;
+void (*gwrite)(int16_t x,int16_t y,int16_t ch,int16_t c)=vgawrite;
 
 void setretr(bool f)
 {
   retrflag=f;
 }
 
-void createspr(Sint4 n,Sint4 ch,Uint3 *mov,Sint4 wid,Sint4 hei,Sint4 bwid,
-               Sint4 bhei)
+void createspr(int16_t n,int16_t ch,uint8_t *mov,int16_t wid,int16_t hei,int16_t bwid,
+               int16_t bhei)
 {
   sprnch[n]=sprch[n]=ch;
   sprmov[n]=mov;
@@ -56,10 +56,10 @@ void createspr(Sint4 n,Sint4 ch,Uint3 *mov,Sint4 wid,Sint4 hei,Sint4 bwid,
   sprnhei[n]=sprhei[n]=hei;
   sprnbwid[n]=sprbwid[n]=bwid;
   sprnbhei[n]=sprbhei[n]=bhei;
-  sprenf[n]=FALSE;
+  sprenf[n]=false;
 }
 
-void movedrawspr(Sint4 n,Sint4 x,Sint4 y)
+void movedrawspr(int16_t n,int16_t x,int16_t y)
 {
   sprx[n]=x&-4;
   spry[n]=y;
@@ -72,25 +72,25 @@ void movedrawspr(Sint4 n,Sint4 x,Sint4 y)
   setrdrwflgs(n);
   putis();
   ggeti(sprx[n],spry[n],sprmov[n],sprwid[n],sprhei[n]);
-  sprenf[n]=TRUE;
-  sprrdrwf[n]=TRUE;
+  sprenf[n]=true;
+  sprrdrwf[n]=true;
   putims();
 }
 
-void erasespr(Sint4 n)
+void erasespr(int16_t n)
 {
   if (!sprenf[n])
     return;
   gputi(sprx[n],spry[n],sprmov[n],sprwid[n],sprhei[n]);
-  sprenf[n]=FALSE;
+  sprenf[n]=false;
   clearrdrwf();
   setrdrwflgs(n);
   putims();
 }
 
-void drawspr(Sint4 n,Sint4 x,Sint4 y)
+void drawspr(int16_t n,int16_t x,int16_t y)
 {
-  Sint4 t1,t2,t3,t4;
+  int16_t t1,t2,t3,t4;
   x&=-4;
   clearrdrwf();
   setrdrwflgs(n);
@@ -108,9 +108,9 @@ void drawspr(Sint4 n,Sint4 x,Sint4 y)
   sprwid[n]=t3;
   spry[n]=t2;
   sprx[n]=t1;
-  sprrdrwf[n]=TRUE;
+  sprrdrwf[n]=true;
   putis();
-  sprenf[n]=TRUE;
+  sprenf[n]=true;
   sprx[n]=x;
   spry[n]=y;
   sprch[n]=sprnch[n];
@@ -123,7 +123,7 @@ void drawspr(Sint4 n,Sint4 x,Sint4 y)
   bcollides(n);
 }
 
-void initspr(Sint4 n,Sint4 ch,Sint4 wid,Sint4 hei,Sint4 bwid,Sint4 bhei)
+void initspr(int16_t n,int16_t ch,int16_t wid,int16_t hei,int16_t bwid,int16_t bhei)
 {
   sprnch[n]=ch;
   sprnwid[n]=wid;
@@ -132,7 +132,7 @@ void initspr(Sint4 n,Sint4 ch,Sint4 wid,Sint4 hei,Sint4 bwid,Sint4 bhei)
   sprnbhei[n]=bhei;
 }
 
-void initmiscspr(Sint4 x,Sint4 y,Sint4 wid,Sint4 hei)
+void initmiscspr(int16_t x,int16_t y,int16_t wid,int16_t hei)
 {
   sprx[SPRITES]=x;
   spry[SPRITES]=y;
@@ -145,14 +145,14 @@ void initmiscspr(Sint4 x,Sint4 y,Sint4 wid,Sint4 hei)
 
 void getis(void)
 {
-  Sint4 i;
+  int16_t i;
   for (i=0;i<SPRITES;i++)
     if (sprrdrwf[i])
       ggeti(sprx[i],spry[i],sprmov[i],sprwid[i],sprhei[i]);
   putims();
 }
 
-void drawmiscspr(Sint4 x,Sint4 y,Sint4 ch,Sint4 wid,Sint4 hei)
+void drawmiscspr(int16_t x,int16_t y,int16_t ch,int16_t wid,int16_t hei)
 {
   sprx[SPRITES]=x&-4;
   spry[SPRITES]=y;
@@ -165,70 +165,70 @@ void drawmiscspr(Sint4 x,Sint4 y,Sint4 ch,Sint4 wid,Sint4 hei)
 
 void clearrdrwf(void)
 {
-  Sint4 i;
+  int16_t i;
   clearrecf();
   for (i=0;i<SPRITES+1;i++)
-    sprrdrwf[i]=FALSE;
+    sprrdrwf[i]=false;
 }
 
 void clearrecf(void)
 {
-  Sint4 i;
+  int16_t i;
   for (i=0;i<SPRITES+1;i++)
-    sprrecf[i]=FALSE;
+    sprrecf[i]=false;
 }
 
-void setrdrwflgs(Sint4 n)
+void setrdrwflgs(int16_t n)
 {
-  Sint4 i;
+  int16_t i;
   if (!sprrecf[n]) {
-    sprrecf[n]=TRUE;
+    sprrecf[n]=true;
     for (i=0;i<SPRITES;i++)
       if (sprenf[i] && i!=n) {
         if (collide(i,n)) {
-          sprrdrwf[i]=TRUE;
+          sprrdrwf[i]=true;
           setrdrwflgs(i);
         }
       }
   }
 }
 
-bool collide(Sint4 bx,Sint4 si)
+bool collide(int16_t bx,int16_t si)
 {
   if (sprx[bx]>=sprx[si]) {
     if (sprx[bx]>(sprwid[si]<<2)+sprx[si]-1)
-      return FALSE;
+      return false;
   }
   else
     if (sprx[si]>(sprwid[bx]<<2)+sprx[bx]-1)
-      return FALSE;
+      return false;
   if (spry[bx]>=spry[si]) {
     if (spry[bx]<=sprhei[si]+spry[si]-1)
-      return TRUE;
-    return FALSE;
+      return true;
+    return false;
   }
   if (spry[si]<=sprhei[bx]+spry[bx]-1)
-    return TRUE;
-  return FALSE;
+    return true;
+  return false;
 }
 
-bool bcollide(Sint4 bx,Sint4 si)
+bool bcollide(int16_t bx,int16_t si)
 {
   if (sprx[bx]>=sprx[si]) {
     if (sprx[bx]+sprbwid[bx]>(sprwid[si]<<2)+sprx[si]-sprbwid[si]-1)
-      return FALSE;
+      return false;
   }
   else
     if (sprx[si]+sprbwid[si]>(sprwid[bx]<<2)+sprx[bx]-sprbwid[bx]-1)
-      return FALSE;
+      return false;
   if (spry[bx]>=spry[si]) {
     if (spry[bx]+sprbhei[bx]<=sprhei[si]+spry[si]-sprbhei[si]-1)
-      return TRUE;
-    return FALSE;
+      return true;
+    return false;
   }
   if (spry[si]+sprbhei[si]<=sprhei[bx]+spry[bx]-sprbhei[bx]-1)
-    return TRUE;
-  return FALSE;
+    return true;
+  return false;
 }
 
 void putims(void)

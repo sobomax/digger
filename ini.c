@@ -135,7 +135,7 @@ void GetINIString(char *section,char *key,char *def,char *dest,
   fclose(fp);
 }
 
-Sint5 GetINIInt(char *section,char *key,Sint5 def,char *filename)
+int32_t GetINIInt(char *section,char *key,int32_t def,char *filename)
 {
   char buf[80];
   sprintf(buf,"%li",def);
@@ -143,7 +143,7 @@ Sint5 GetINIInt(char *section,char *key,Sint5 def,char *filename)
   return atol(buf);
 }
 
-void WriteINIInt(char *section,char *key,Sint5 value,
+void WriteINIInt(char *section,char *key,int32_t value,
                             char *filename)
 {
   char buf[80];
@@ -158,7 +158,7 @@ bool GetINIBool(char *section,char *key,bool def,char *filename)
   GetINIString(section,key,buf,buf,80,filename);
   strupr(buf);
   if (buf[0]=='T')
-    return TRUE;
+    return true;
   else
     return atoi(buf);
 }

@@ -8,7 +8,7 @@
 
 #include "def.h"
 
-extern Uint5 ftime;
+extern uint32_t ftime;
 long int account = 0;
 long int slept = 0;
 int i = 0;
@@ -20,13 +20,13 @@ void inittimer(void)
 	FIXME("inittimer called");
 }
 
-Sint5 getlrt(void)
+int32_t getlrt(void)
 {
 	FIXME("getlrt called");
 	return(0);
 }
 
-Uint5 gethrt(void)
+uint32_t gethrt(void)
 {
 	long int diff;
 	int was_error;
@@ -57,7 +57,7 @@ Uint5 gethrt(void)
 	return(0);
 }
 
-Sint5 getkips(void)
+int32_t getkips(void)
 {
 	FIXME("getkips called");
 	return(0);
@@ -93,22 +93,22 @@ void s0setspkrt2(void)
 	FIXME("s0setspkrt2 called");
 }
 
-void s0settimer0(Sint4 t0v)
+void s0settimer0(int16_t t0v)
 {
 	FIXME("s0settimer0 called");
 }
 
-void s0settimer2(Sint4 t0v)
+void s0settimer2(int16_t t0v)
 {
 	FIXME("s0settimer2 called");
 }
 
-void s0timer0(Sint4 t0v)
+void s0timer0(int16_t t0v)
 {
 	FIXME("s0timer0 called");
 }
 
-void s0timer2(Sint4 t0v)
+void s0timer2(int16_t t0v)
 {
 	FIXME("s0timer2 called");
 }

@@ -7,8 +7,8 @@
 #include "hardware.h"
 
 #define KBLEN		30
-Sint4 kbuffer[KBLEN];
-Sint4 klen=0;
+int16_t kbuffer[KBLEN];
+int16_t klen=0;
 bool states[256];
 
 const int quertycodes[48+1]={41, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,\
@@ -23,7 +23,7 @@ const char chars[48] =    {'`','1','2','3','4','5','6','7','8','9','0','-','=',\
 void initkeyb(void)
 {
 	VGLKeyboardInit(VGL_CODEKEYS);
-	memset(states, FALSE, (sizeof states));
+	memset(states, false, (sizeof states));
 }
 
 void restorekeyb(void)
@@ -33,33 +33,33 @@ void restorekeyb(void)
 
 void ProcessKbd(void)
 {
-	Sint4 result, i;
+	int16_t result, i;
 	bool isasymbol;
 	bool state;
 
 	while((result = VGLKeyboardGetCh()) != 0) {
 
 		if(result < 128)
-			state = TRUE;
+			state = true;
 		else {
-			state = FALSE;
+			state = false;
 			result -= 128;
 		}
 
-		isasymbol = FALSE;
+		isasymbol = false;
 		for(i=0;quertycodes[i]!=0;i++)
 			if(result == quertycodes[i]) {
 				result = chars[i];
-				isasymbol = TRUE;
+				isasymbol = true;
 				break;
 			}
 
-		if (isasymbol == FALSE)
+		if (isasymbol == false)
 			result+=128;
 
 		states[result] = state;
 
-		if(state == TRUE)
+		if(state == true)
 			continue;
 
 		if(klen == KBLEN) /* Buffer is full, drop some pieces */
@@ -74,11 +74,11 @@ bool GetAsyncKeyState(int key)
 	return(states[key]);
 }
 
-Sint4 getkey(void)
+int16_t getkey(void)
 {
-	Sint4 result;
+	int16_t result;
 	
-	while(kbhit() != TRUE)
+	while(kbhit() != true)
 		gethrt();
 	result = kbuffer[0];
 	memcpy(kbuffer, kbuffer + 1, --klen);
@@ -91,8 +91,8 @@ bool kbhit(void)
 	ProcessKbd();
 
 	if (klen > 0)
-		return(TRUE);
+		return(true);
 	else
-		return(FALSE);
+		return(false);
 }
 

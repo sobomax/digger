@@ -8,33 +8,33 @@
 #include "digger.h"
 #include "sound.h"
 
-Sint4 field1[MSIZE],field2[MSIZE],field[MSIZE];
+int16_t field1[MSIZE],field2[MSIZE],field[MSIZE];
 
 #ifdef _WINDOWS
-Uint3 monbufs[MONSTERS][960],bagbufs[BAGS][960],bonusbufs[BONUSES][960],
+uint8_t monbufs[MONSTERS][960],bagbufs[BAGS][960],bonusbufs[BONUSES][960],
       diggerbufs[DIGGERS][960],firebufs[FIREBALLS][256];
 #else
-Uint3 monbufs[MONSTERS][480],bagbufs[BAGS][480],bonusbufs[BONUSES][480],
+uint8_t monbufs[MONSTERS][480],bagbufs[BAGS][480],bonusbufs[BONUSES][480],
       diggerbufs[DIGGERS][480],firebufs[FIREBALLS][128];
 #endif
 
-Uint4 bitmasks[12]={0xfffe,0xfffd,0xfffb,0xfff7,0xffef,0xffdf,0xffbf,0xff7f,
+uint16_t bitmasks[12]={0xfffe,0xfffd,0xfffb,0xfff7,0xffef,0xffdf,0xffbf,0xff7f,
                     0xfeff,0xfdff,0xfbff,0xf7ff};
 
-Sint4 monspr[MONSTERS];
-Sint4 monspd[MONSTERS];
+int16_t monspr[MONSTERS];
+int16_t monspd[MONSTERS];
 
-Sint4 digspr[DIGGERS],digspd[DIGGERS],firespr[FIREBALLS];
+int16_t digspr[DIGGERS],digspd[DIGGERS],firespr[FIREBALLS];
 
-void drawlife(Sint4 t,Sint4 x,Sint4 y);
+void drawlife(int16_t t,int16_t x,int16_t y);
 void createdbfspr(void);
 void initdbfspr(void);
-void drawbackg(Sint4 l);
+void drawbackg(int16_t l);
 void drawfield(void);
 
-void outtext(char *p,Sint4 x,Sint4 y,Sint4 c)
+void outtext(char *p,int16_t x,int16_t y,int16_t c)
 {
-  Sint4 i;
+  int16_t i;
   for (i=0;p[i];i++) {
     gwrite(x,y,p[i],c);
     x+=12;
@@ -43,7 +43,7 @@ void outtext(char *p,Sint4 x,Sint4 y,Sint4 c)
 
 void makefield(void)
 {
-  Sint4 c,x,y;
+  int16_t c,x,y;
   for (x=0;x<MWIDTH;x++)
     for (y=0;y<MHEIGHT;y++) {
       field[y*MWIDTH+x]=-1;
@@ -61,14 +61,14 @@ void makefield(void)
 
 void drawstatics(void)
 {
-  Sint4 x,y;
+  int16_t x,y;
   for (x=0;x<MWIDTH;x++)
     for (y=0;y<MHEIGHT;y++)
       if (curplayer==0)
         field[y*MWIDTH+x]=field1[y*MWIDTH+x];
       else
         field[y*MWIDTH+x]=field2[y*MWIDTH+x];
-  setretr(TRUE);
+  setretr(true);
   gpal(0);
   ginten(0);
   drawbackg(levplan());
@@ -77,7 +77,7 @@ void drawstatics(void)
 
 void savefield(void)
 {
-  Sint4 x,y;
+  int16_t x,y;
   for (x=0;x<MWIDTH;x++)
     for (y=0;y<MHEIGHT;y++)
       if (curplayer==0)
@@ -88,7 +88,7 @@ void savefield(void)
 
 void drawfield(void)
 {
-  Sint4 x,y,xp,yp;
+  int16_t x,y,xp,yp;
   for (x=0;x<MWIDTH;x++)
     for (y=0;y<MHEIGHT;y++)
       if ((field[y*MWIDTH+x]&0x2000)==0) {
@@ -120,9 +120,9 @@ void drawfield(void)
       }
 }
 
-void eatfield(Sint4 x,Sint4 y,Sint4 dir)
+void eatfield(int16_t x,int16_t y,int16_t dir)
 {
-  Sint4 h=(x-12)/20,xr=((x-12)%20)/4,v=(y-18)/18,yr=((y-18)%18)/3;
+  int16_t h=(x-12)/20,xr=((x-12)%20)/4,v=(y-18)/18,yr=((y-18)%18)/3;
   incpenalty();
   switch (dir) {
     case DIR_RIGHT:
@@ -165,7 +165,7 @@ void eatfield(Sint4 x,Sint4 y,Sint4 dir)
 
 void creatembspr(void)
 {
-  Sint4 i;
+  int16_t i;
   for (i=0;i<BAGS;i++)
     createspr(FIRSTBAG+i,62,bagbufs[i],4,15,0,0);
   for (i=0;i<MONSTERS;i++)
@@ -187,7 +187,7 @@ void initmbspr(void)
   initdbfspr();
 }
 
-void drawmon(Sint4 n,bool nobf,Sint4 dir,Sint4 x,Sint4 y)
+void drawmon(int16_t n,bool nobf,int16_t dir,int16_t x,int16_t y)
 {
   monspr[n]+=monspd[n];
   if (monspr[n]==2 || monspr[n]==0)
@@ -209,7 +209,7 @@ void drawmon(Sint4 n,bool nobf,Sint4 dir,Sint4 x,Sint4 y)
   drawspr(FIRSTMONSTER+n,x,y);
 }
 
-void drawmondie(Sint4 n,bool nobf,Sint4 dir,Sint4 x,Sint4 y)
+void drawmondie(int16_t n,bool nobf,int16_t dir,int16_t x,int16_t y)
 {
   if (nobf)
     initspr(FIRSTMONSTER+n,72,4,15,0,0);
@@ -224,25 +224,25 @@ void drawmondie(Sint4 n,bool nobf,Sint4 dir,Sint4 x,Sint4 y)
   drawspr(FIRSTMONSTER+n,x,y);
 }
 
-void drawgold(Sint4 n,Sint4 t,Sint4 x,Sint4 y)
+void drawgold(int16_t n,int16_t t,int16_t x,int16_t y)
 {
   initspr(FIRSTBAG+n,t+62,4,15,0,0);
   drawspr(FIRSTBAG+n,x,y);
 }
 
-void drawlife(Sint4 t,Sint4 x,Sint4 y)
+void drawlife(int16_t t,int16_t x,int16_t y)
 {
   drawmiscspr(x,y,t+110,4,12);
 }
 
-void drawemerald(Sint4 x,Sint4 y)
+void drawemerald(int16_t x,int16_t y)
 {
   initmiscspr(x,y,4,10);
   drawmiscspr(x,y,108,4,10);
   getis();
 }
 
-void eraseemerald(Sint4 x,Sint4 y)
+void eraseemerald(int16_t x,int16_t y)
 {
   initmiscspr(x,y,4,10);
   drawmiscspr(x,y,109,4,10);
@@ -283,51 +283,51 @@ void initdbfspr(void)
     initspr(i,82,2,8,0,0);
 }
 
-void drawrightblob(Sint4 x,Sint4 y)
+void drawrightblob(int16_t x,int16_t y)
 {
   initmiscspr(x+16,y-1,2,18);
   drawmiscspr(x+16,y-1,102,2,18);
   getis();
 }
 
-void drawleftblob(Sint4 x,Sint4 y)
+void drawleftblob(int16_t x,int16_t y)
 {
   initmiscspr(x-8,y-1,2,18);
   drawmiscspr(x-8,y-1,104,2,18);
   getis();
 }
 
-void drawtopblob(Sint4 x,Sint4 y)
+void drawtopblob(int16_t x,int16_t y)
 {
   initmiscspr(x-4,y-6,6,6);
   drawmiscspr(x-4,y-6,103,6,6);
   getis();
 }
 
-void drawbottomblob(Sint4 x,Sint4 y)
+void drawbottomblob(int16_t x,int16_t y)
 {
   initmiscspr(x-4,y+15,6,6);
   drawmiscspr(x-4,y+15,105,6,6);
   getis();
 }
 
-void drawfurryblob(Sint4 x,Sint4 y)
+void drawfurryblob(int16_t x,int16_t y)
 {
   initmiscspr(x-4,y+15,6,8);
   drawmiscspr(x-4,y+15,107,6,8);
   getis();
 }
 
-void drawsquareblob(Sint4 x,Sint4 y)
+void drawsquareblob(int16_t x,int16_t y)
 {
   initmiscspr(x-4,y+17,6,6);
   drawmiscspr(x-4,y+17,106,6,6);
   getis();
 }
 
-void drawbackg(Sint4 l)
+void drawbackg(int16_t l)
 {
-  Sint4 x,y;
+  int16_t x,y;
   for (y=14;y<200;y+=4) {
     fillbuffer();
     for (x=0;x<320;x+=20)
@@ -335,7 +335,7 @@ void drawbackg(Sint4 l)
   }
 }
 
-void drawfire(int n,Sint4 x,Sint4 y,Sint4 t)
+void drawfire(int n,int16_t x,int16_t y,int16_t t)
 {
   int nn=(n==0) ? 0 : 32;
   if (t==0) {
@@ -349,14 +349,14 @@ void drawfire(int n,Sint4 x,Sint4 y,Sint4 t)
   drawspr(FIRSTFIREBALL+n,x,y);
 }
 
-void drawbonus(Sint4 x,Sint4 y)
+void drawbonus(int16_t x,int16_t y)
 {
   int n=0;
   initspr(FIRSTBONUS+n,81,4,15,0,0);
   movedrawspr(FIRSTBONUS+n,x,y);
 }
 
-void drawdigger(int n,Sint4 t,Sint4 x,Sint4 y,bool f)
+void drawdigger(int n,int16_t t,int16_t x,int16_t y,bool f)
 {
   int nn=(n==0) ? 0 : 31;
   digspr[n]+=digspd[n];
@@ -381,10 +381,10 @@ void drawdigger(int n,Sint4 t,Sint4 x,Sint4 y,bool f)
 
 void drawlives(void)
 {
-  Sint4 l,n,g;
+  int16_t l,n,g;
   char buf[10];
   if (gauntlet) {
-    g=(Sint4)(cgtime/1193181l);
+    g=(int16_t)(cgtime/1193181l);
     sprintf(buf,"%3i:%02i",g/60,g%60);
     outtext(buf,124,0,3);
     return;

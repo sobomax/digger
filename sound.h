@@ -1,13 +1,13 @@
 void initsound(void);
 void soundstop(void);
-void music(Sint4 tune);
+void music(int16_t tune);
 void musicoff(void);
 void soundlevdone(void);
 void sound1up(void);
 void soundpause(void);
 void soundpauseoff(void);
 void setsoundt2(void);
-void sett2val(Sint4 t2v);
+void sett2val(int16_t t2v);
 void startint8(void);
 void stopint8(void);
 void soundbonus(void);
@@ -30,12 +30,12 @@ void soundint(void);
 
 /*
 void soundoff(void);
-void timer2(Uint4 t2v);
+void timer2(uint16_t t2v);
 */
 
 extern bool soundflag,musicflag;
-extern Sint4 volume,timerrate;
-extern Uint4 timercount;
+extern int16_t volume,timerrate;
+extern uint16_t timercount;
 
 extern void (*setupsound)(void);
 extern void (*killsound)(void);
@@ -44,9 +44,9 @@ extern void (*initint8)(void);
 extern void (*restoreint8)(void);
 extern void (*soundoff)(void);
 extern void (*setspkrt2)(void);
-extern void (*settimer0)(Uint4 t0v);
-extern void (*timer0)(Uint4 t0v);
-extern void (*settimer2)(Uint4 t2v);
-extern void (*timer2)(Uint4 t2v);
+extern void (*settimer0)(uint16_t t0v);
+extern void (*timer0)(uint16_t t0v);
+extern void (*settimer2)(uint16_t t2v);
+extern void (*timer2)(uint16_t t2v);
 extern void (*soundkillglob)(void);
 

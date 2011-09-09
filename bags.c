@@ -10,37 +10,37 @@
 #include "scores.h"
 
 struct bag {
-  Sint4 x,y,h,v,xr,yr,dir,wt,gt,fallh;
+  int16_t x,y,h,v,xr,yr,dir,wt,gt,fallh;
   bool wobbling,unfallen,exist;
 } bagdat1[BAGS],bagdat2[BAGS],bagdat[BAGS];
 
-Sint4 pushcount=0,goldtime=0;
+int16_t pushcount=0,goldtime=0;
 
-void updatebag(Sint4 bag);
-void baghitground(Sint4 bag);
-bool pushbag(Sint4 bag,Sint4 dir);
-void removebag(Sint4 bn);
-void getgold(Sint4 bag);
+void updatebag(int16_t bag);
+void baghitground(int16_t bag);
+bool pushbag(int16_t bag,int16_t dir);
+void removebag(int16_t bn);
+void getgold(int16_t bag);
 
 void initbags(void)
 {
-  Sint4 bag,x,y;
+  int16_t bag,x,y;
   pushcount=0;
   goldtime=150-levof10()*10;
   for (bag=0;bag<BAGS;bag++)
-    bagdat[bag].exist=FALSE;
+    bagdat[bag].exist=false;
   bag=0;
   for (x=0;x<MWIDTH;x++)
     for (y=0;y<MHEIGHT;y++)
       if (getlevch(x,y,levplan())=='B')
         if (bag<BAGS) {
-          bagdat[bag].exist=TRUE;
+          bagdat[bag].exist=true;
           bagdat[bag].gt=0;
           bagdat[bag].fallh=0;
           bagdat[bag].dir=DIR_NONE;
-          bagdat[bag].wobbling=FALSE;
+          bagdat[bag].wobbling=false;
           bagdat[bag].wt=15;
-          bagdat[bag].unfallen=TRUE;
+          bagdat[bag].unfallen=true;
           bagdat[bag].x=x*20+12;
           bagdat[bag].y=y*18+18;
           bagdat[bag].h=x;
@@ -56,7 +56,7 @@ void initbags(void)
 
 void drawbags(void)
 {
-  Sint4 bag;
+  int16_t bag;
   for (bag=0;bag<BAGS;bag++) {
     if (curplayer==0)
       memcpy(&bagdat[bag],&bagdat1[bag],sizeof(struct bag));
@@ -69,13 +69,13 @@ void drawbags(void)
 
 void cleanupbags(void)
 {
-  Sint4 bag;
+  int16_t bag;
   soundfalloff();
   for (bag=0;bag<BAGS;bag++) {
     if (bagdat[bag].exist && ((bagdat[bag].h==7 && bagdat[bag].v==9) ||
         bagdat[bag].xr!=0 || bagdat[bag].yr!=0 || bagdat[bag].gt!=0 ||
         bagdat[bag].fallh!=0 || bagdat[bag].wobbling)) {
-      bagdat[bag].exist=FALSE;
+      bagdat[bag].exist=false;
       erasespr(bag+FIRSTBAG);
     }
     if (curplayer==0)
@@ -87,8 +87,8 @@ void cleanupbags(void)
 
 void dobags(void)
 {
-  Sint4 bag;
-  bool soundfalloffflag=TRUE,soundwobbleoffflag=TRUE;
+  int16_t bag;
+  bool soundfalloffflag=true,soundwobbleoffflag=true;
   for (bag=0;bag<BAGS;bag++)
     if (bagdat[bag].exist) {
       if (bagdat[bag].gt!=0) {
@@ -118,9 +118,9 @@ void dobags(void)
     }
   for (bag=0;bag<BAGS;bag++) {
     if (bagdat[bag].dir==DIR_DOWN && bagdat[bag].exist)
-      soundfalloffflag=FALSE;
+      soundfalloffflag=false;
     if (bagdat[bag].dir!=DIR_DOWN && bagdat[bag].wobbling && bagdat[bag].exist)
-      soundwobbleoffflag=FALSE;
+      soundwobbleoffflag=false;
   }
   if (soundfalloffflag)
     soundfalloff();
@@ -128,11 +128,11 @@ void dobags(void)
     soundwobbleoff();
 }
 
-Sint4 wblanim[4]={2,0,1,0};
+int16_t wblanim[4]={2,0,1,0};
 
-void updatebag(Sint4 bag)
+void updatebag(int16_t bag)
 {
-  Sint4 x,h,xr,y,v,yr,wbl;
+  int16_t x,h,xr,y,v,yr,wbl;
   x=bagdat[bag].x;
   h=bagdat[bag].h;
   xr=bagdat[bag].xr;
@@ -159,11 +159,11 @@ void updatebag(Sint4 bag)
         else
           if ((getfield(h,v+1)&0xfdf)!=0xfdf)
             if (!checkdiggerunderbag(h,v+1))
-              bagdat[bag].wobbling=TRUE;
+              bagdat[bag].wobbling=true;
       }
       else {
         bagdat[bag].wt=15;
-        bagdat[bag].wobbling=FALSE;
+        bagdat[bag].wobbling=false;
       }
       break;
     case DIR_RIGHT:
@@ -197,7 +197,7 @@ void updatebag(Sint4 bag)
   }
 }
 
-void baghitground(Sint4 bag)
+void baghitground(int16_t bag)
 {
   int clfirst[TYPES],clcoll[SPRITES],i;
   if (bagdat[bag].dir==DIR_DOWN && bagdat[bag].fallh>1)
@@ -206,7 +206,7 @@ void baghitground(Sint4 bag)
     bagdat[bag].fallh=0;
   bagdat[bag].dir=DIR_NONE;
   bagdat[bag].wt=15;
-  bagdat[bag].wobbling=FALSE;
+  bagdat[bag].wobbling=false;
   drawgold(bag,0,bagdat[bag].x,bagdat[bag].y);
   for (i=0;i<TYPES;i++)
     clfirst[i]=first[i];
@@ -220,18 +220,18 @@ void baghitground(Sint4 bag)
   }
 }
 
-bool pushbag(Sint4 bag,Sint4 dir)
+bool pushbag(int16_t bag,int16_t dir)
 {
-  Sint4 x,y,h,v,ox,oy;
+  int16_t x,y,h,v,ox,oy;
   int clfirst[TYPES],clcoll[SPRITES],i;
-  bool push=TRUE,digf;
+  bool push=true,digf;
   ox=x=bagdat[bag].x;
   oy=y=bagdat[bag].y;
   h=bagdat[bag].h;
   v=bagdat[bag].v;
   if (bagdat[bag].gt!=0) {
     getgold(bag);
-    return TRUE;
+    return true;
   }
   if (bagdat[bag].dir==DIR_DOWN && (dir==DIR_RIGHT || dir==DIR_LEFT)) {
     drawgold(bag,3,x,y);
@@ -252,7 +252,7 @@ bool pushbag(Sint4 bag,Sint4 dir)
   }
   if ((x==292 && dir==DIR_RIGHT) || (x==12 && dir==DIR_LEFT) ||
       (y==180 && dir==DIR_DOWN) || (y==18 && dir==DIR_UP))
-    push=FALSE;
+    push=false;
   if (push) {
     switch (dir) {
       case DIR_RIGHT:
@@ -263,7 +263,7 @@ bool pushbag(Sint4 bag,Sint4 dir)
         break;
       case DIR_DOWN:
         if (bagdat[bag].unfallen) {
-          bagdat[bag].unfallen=FALSE;
+          bagdat[bag].unfallen=false;
           drawsquareblob(x,y);
           drawtopblob(x,y+21);
         }
@@ -293,7 +293,7 @@ bool pushbag(Sint4 bag,Sint4 dir)
       case DIR_RIGHT:
       case DIR_LEFT:
         bagdat[bag].wt=15;
-        bagdat[bag].wobbling=FALSE;
+        bagdat[bag].wobbling=false;
         drawgold(bag,0,x,y);
         for (i=0;i<TYPES;i++)
           clfirst[i]=first[i];
@@ -307,13 +307,13 @@ bool pushbag(Sint4 bag,Sint4 dir)
             y=oy;
             drawgold(bag,0,ox,oy);
             incpenalty();
-            push=FALSE;
+            push=false;
           }
         i=clfirst[4];
-        digf=FALSE;
+        digf=false;
         while (i!=-1) {
           if (digalive(i-FIRSTDIGGER+curplayer))
-            digf=TRUE;
+            digf=true;
           i=clcoll[i];
         }
         if (digf || clfirst[2]!=-1) {
@@ -321,7 +321,7 @@ bool pushbag(Sint4 bag,Sint4 dir)
           y=oy;
           drawgold(bag,0,ox,oy);
           incpenalty();
-          push=FALSE;
+          push=false;
         }
     }
     if (push)
@@ -338,13 +338,13 @@ bool pushbag(Sint4 bag,Sint4 dir)
   return push;
 }
 
-bool pushbags(Sint4 dir,int *clfirst,int *clcoll)
+bool pushbags(int16_t dir,int *clfirst,int *clcoll)
 {
-  bool push=TRUE;
+  bool push=true;
   int next=clfirst[1];
   while (next!=-1) {
     if (!pushbag(next-FIRSTBAG,dir))
-      push=FALSE;
+      push=false;
     next=clcoll[next];
   }
   return push;
@@ -352,22 +352,22 @@ bool pushbags(Sint4 dir,int *clfirst,int *clcoll)
 
 bool pushudbags(int *clfirst,int *clcoll)
 {
-  bool push=TRUE;
+  bool push=true;
   int next=clfirst[1];
   while (next!=-1) {
     if (bagdat[next-FIRSTBAG].gt!=0)
       getgold(next-FIRSTBAG);
     else
-      push=FALSE;
+      push=false;
     next=clcoll[next];
   }
   return push;
 }
 
-void removebag(Sint4 bag)
+void removebag(int16_t bag)
 {
   if (bagdat[bag].exist) {
-    bagdat[bag].exist=FALSE;
+    bagdat[bag].exist=false;
     erasespr(bag+FIRSTBAG);
   }
 }
@@ -377,12 +377,12 @@ bool bagexist(int bag)
   return bagdat[bag].exist;
 }
 
-Sint4 bagy(Sint4 bag)
+int16_t bagy(int16_t bag)
 {
   return bagdat[bag].y;
 }
 
-Sint4 getbagdir(Sint4 bag)
+int16_t getbagdir(int16_t bag)
 {
   if (bagdat[bag].exist)
     return bagdat[bag].dir;
@@ -398,9 +398,9 @@ void removebags(int *clfirst,int *clcoll)
   }
 }
 
-Sint4 getnmovingbags(void)
+int16_t getnmovingbags(void)
 {
-  Sint4 bag,n=0;
+  int16_t bag,n=0;
   for (bag=0;bag<BAGS;bag++)
     if (bagdat[bag].exist && bagdat[bag].gt<10 &&
         (bagdat[bag].gt!=0 || bagdat[bag].wobbling))
@@ -408,9 +408,9 @@ Sint4 getnmovingbags(void)
   return n;
 }
 
-void getgold(Sint4 bag)
+void getgold(int16_t bag)
 {
-  bool f=TRUE;
+  bool f=true;
   int i;
   drawgold(bag,6,bagdat[bag].x,bagdat[bag].y);
   incpenalty();
@@ -420,7 +420,7 @@ void getgold(Sint4 bag)
       scoregold(i-FIRSTDIGGER+curplayer);
       soundgold();
       digresettime(i-FIRSTDIGGER+curplayer);
-      f=FALSE;
+      f=false;
     }
     i=coll[i];
   }
