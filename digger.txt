@@ -340,11 +340,18 @@ A: It does, it just doesn't do what you think it does. Unlimited lives does not
    you an hour's play with as many lives as you like, after which time you will
    probably be bored anyway.
 
-
 Q: Is this legal?
 
-A: Strictly speaking, no. According to intellectual property law, a work
-   copyrighted by a company continues to be copyrighted for 75 years.
+A: Yes! Recently the original author of Digger, Rob Sleath, contacted me.
+   He no longer owns the copyright to Digger (or the other games) but he did
+   retain the right to use the code for development of other products. He
+   considers Digger Remastered to be another product, and has granted me
+   copyright to Digger Remastered, which I have chosen to license under the
+   GNU GPL.
+
+   My distributing of the original games is, strictly speaking, not legal.
+   According to intellectual property law, a work copyrighted by a company
+   continues to be copyrighted for 75 years.
 
    I have no moral objections to violating Windmill software's copyright by
    re-releasing the game, and I feel you should have no moral objections to
