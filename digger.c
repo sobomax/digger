@@ -204,7 +204,7 @@ void dodigger(void)
 
 void updatefire(int n)
 {
-  Sint4 pix;
+  Sint4 pix=0;
   int clfirst[TYPES],clcoll[SPRITES],i;
   bool clflag;
   if (digdat[n].notfiring) {

@@ -321,7 +321,7 @@ int main(int argc,char *argv[])
 
 int mainprog(void)
 {
-  Sint4 frame,t,x;
+  Sint4 frame,t,x=0;
   loadscores();
 #ifdef _WINDOWS
   show_main_menu();
@@ -592,7 +592,7 @@ Uint4 sound_device,sound_port,sound_irq,sound_dma,sound_rate,sound_length;
 void parsecmd(int argc,char *argv[])
 {
   char *word;
-  Sint4 arg,i,j,speedmul;
+  Sint4 arg,i=0,j,speedmul;
   bool sf,gs=FALSE,norepf=FALSE;
   FILE *levf;
 

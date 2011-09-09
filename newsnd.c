@@ -176,7 +176,7 @@ bool subcarry(Uint4 *dest,Uint4 sub)
 samp getsample(void)
 {
   bool f=FALSE,t2sw0;
-  Uint4 spkrt2,noi8,complicate=0,not2;
+  Uint4 spkrt2=0,noi8=0,complicate=0,not2=0;
 
   if (subcarry(&t2v,rate)) {
     not2=t2v+rate; /* Amount of time that went by before change */
