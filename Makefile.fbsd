@@ -1,0 +1,34 @@
+PROG=		digger
+
+SRCS=		main.c digger.c drawing.c sprite.c scores.c record.c sound.c \
+		newsnd.c ini.c input.c monster.c bags.c alpha.c vgagrafx.c \
+		title_gz.c
+
+CFLAGS+=	-DFREEBSD
+
+LDADD+=		-lz
+
+SDL_CONFIG?=	sdl-config
+
+.if !defined(SDL)
+CFLAGS+=	-D_VGL
+LDADD+=		-lvgl 
+SRCS+=		fbsd_sup.c fbsd_vid.c fbsd_kbd.c fbsd_timer.c
+.if defined(SOUND)
+SRCS+=		sdl_snd.c
+SDL_CFLAGS!=	${SDL_CONFIG} --cflags
+SDL_LDFLAGS!=	${SDL_CONFIG} --libs
+CFLAGS+=	-D_SDL_SOUND ${SDL_CFLAGS}
+LDADD+=		${SDL_LDFLAGS}
+.else	# NO SOUND
+SRCS+=		fbsd_snd.c
+.endif	# SOUND
+.else	# SDL
+CFLAGS+=	-D_SDL `${SDL_CONFIG} --cflags`
+LDADD+=		`${SDL_CONFIG} --libs`
+SRCS+=		fbsd_sup.c sdl_vid.c sdl_timer.c sdl_kbd.c sdl_snd.c icon.c
+.endif
+
+MAN1=
+
+.include <bsd.prog.mk>
