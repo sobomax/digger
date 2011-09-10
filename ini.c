@@ -108,7 +108,11 @@ void GetINIString(char *section,char *key,char *def,char *dest,
 {
   FILE *fp;
   char s1[80],s2[80],s3[80];
-  strcpy(dest,def);
+  /* FIXME: no sense in copying from to the same destination as source,
+   * figure out what is really attempted here
+   */
+  if (dest != def)
+    strcpy(dest,def);
   fp=fopen(filename,"rb");
   if (fp==NULL)
     return;
