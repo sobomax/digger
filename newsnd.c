@@ -15,19 +15,19 @@
    If DMA is used, doubling the buffer so the data is always continguous, and
    giving half of the buffer at once to the DMA driver may be a good idea. */
 
-samp *buffer;
+uint8_t *buffer;
 uint16_t firsts,last,size;           /* data available to output device */
 
 int rate;
 uint16_t t0rate,t2rate,t2new,t0v,t2v;
 int16_t i8pulse=0;
 bool t2f=false,t2sw,i8flag=false;
-samp lut[257];
+uint8_t lut[257];
 uint16_t pwlut[51];
 
 extern int16_t spkrmode,pulsewidth;
 
-samp getsample(void);
+uint8_t getsample(void);
 
 /* Initialise circular buffer and PC speaker emulator
 
@@ -52,7 +52,7 @@ void soundinitglob(int port,int irq,int dma,uint16_t bufsize,uint16_t samprate)
   int i;
   setsounddevice(port,irq,dma,samprate,bufsize);
 #ifndef _WINDOWS
-  buffer=malloc((bufsize<<1)*sizeof(samp));
+  buffer=malloc((bufsize<<1)*sizeof(uint8_t));
 #endif
   rate=(int)(0x1234ddul/(uint32_t)samprate);
   firsts=0;
@@ -60,7 +60,7 @@ void soundinitglob(int port,int irq,int dma,uint16_t bufsize,uint16_t samprate)
   size=bufsize<<1;
   t2sw=false;     /* As it should be left */
   for (i=0;i<=rate;i++)
-    lut[i]=(samp)(MIN_SAMP+(i*(MAX_SAMP-MIN_SAMP))/rate);
+    lut[i]=(uint8_t)(MIN_SAMP+(i*(MAX_SAMP-MIN_SAMP))/rate);
   for (i=1;i<=50;i++)
     pwlut[i]=(16+i*18)>>2; /* Counted timer ticks in original */
 }
@@ -173,7 +173,7 @@ bool subcarry(uint16_t *dest,uint16_t sub)
    be a little more complicated, but its much faster.
 */
 
-samp getsample(void)
+uint8_t getsample(void)
 {
   bool f=false,t2sw0;
   uint16_t spkrt2=0,noi8=0,complicate=0,not2=0;

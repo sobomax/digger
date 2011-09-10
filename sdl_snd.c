@@ -6,9 +6,9 @@
 #include "hardware.h"
 
 void fill_audio(void *udata, uint8_t *stream, int len);
-samp getsample(void);
+uint8_t getsample(void);
 
-samp *buf;
+uint8_t *buf;
 uint16_t bsize;
 
 bool wave_device_available = false;
