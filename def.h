@@ -61,11 +61,13 @@
 #define INI_KEY_SETTINGS "Keys"
 #endif
 
-#ifdef _WINDOWS
+/* using lesser buffer size will break ie. alsa on linux, no reason to use
+ * lesser size anyways...
+ */
 #define DEFAULT_BUFFER 2048
+#ifdef _WINDOWS
 #define DEF_SND_DEV 1
 #else
-#define DEFAULT_BUFFER 128
 #ifdef ARM
 #define DEF_SND_DEV 1
 #else
