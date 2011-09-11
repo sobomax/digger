@@ -65,19 +65,19 @@ void s0setspkrt2(void)
 {
 }
 
-void s0settimer0(int16_t t0v)
+void s0settimer0(uint16_t t0v)
 {
 }
 
-void s0settimer2(int16_t t0v)
+void s0settimer2(uint16_t t0v)
 {
 }
 
-void s0timer0(int16_t t0v)
+void s0timer0(uint16_t t0v)
 {
 }
 
-void s0timer2(int16_t t0v)
+void s0timer2(uint16_t t0v)
 {
 }
 
