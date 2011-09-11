@@ -201,19 +201,19 @@ void vgaputi(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h)
 {
 	SDL_Surface *tmp;
 	SDL_Palette *reserv;
-	struct PendNode *new, *ptr;
+	struct PendNode *newn, *ptr;
 
-	new = malloc(sizeof (struct PendNode));
-	memset(new, 0x00, (sizeof (struct PendNode)));
-	new->rect.x = virt2scrx(x);
-	new->rect.y = virt2scry(y);
-	new->rect.w = virt2scrw(w*4);
-	new->rect.h = virt2scrh(h);
+	newn = malloc(sizeof (struct PendNode));
+	memset(newn, 0x00, (sizeof (struct PendNode)));
+	newn->rect.x = virt2scrx(x);
+	newn->rect.y = virt2scry(y);
+	newn->rect.w = virt2scrw(w*4);
+	newn->rect.h = virt2scrh(h);
 
 	memcpy(&tmp, p, (sizeof (SDL_Surface *)));
 	reserv = tmp->format->palette;
 	tmp->format->palette = screen->format->palette;
-	SDL_BlitSurface(tmp, NULL, screen, &new->rect);
+	SDL_BlitSurface(tmp, NULL, screen, &newn->rect);
 	tmp->format->palette = reserv;
 /* 
  * Following piece of code comparing already pending updates with current with
@@ -221,33 +221,33 @@ void vgaputi(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h)
  */ 
 	
 	for(ptr=First;ptr!=NULL;ptr=ptr->nextnode) {
-		if((new->rect.x >= ptr->rect.x) &&
-		   (new->rect.y >= ptr->rect.y) &&
-		   ((new->rect.x+new->rect.w) <= (ptr->rect.x+ptr->rect.w)) &&
-		   ((new->rect.y+new->rect.h) <= (ptr->rect.y+ptr->rect.h))) {
-			free(new);
+		if((newn->rect.x >= ptr->rect.x) &&
+		   (newn->rect.y >= ptr->rect.y) &&
+		   ((newn->rect.x+newn->rect.w) <= (ptr->rect.x+ptr->rect.w)) &&
+		   ((newn->rect.y+newn->rect.h) <= (ptr->rect.y+ptr->rect.h))) {
+			free(newn);
 			return;
-		} else if((new->rect.x <= ptr->rect.x) &&
-		   (new->rect.y <= ptr->rect.y) &&
-		   ((new->rect.x+new->rect.w) >= (ptr->rect.x+ptr->rect.w)) &&
-		   ((new->rect.y+new->rect.h) >= (ptr->rect.y+ptr->rect.h))) {
-			ptr->rect.x = new->rect.x;
-			ptr->rect.y = new->rect.y;
-			ptr->rect.w = new->rect.w;
-			ptr->rect.h = new->rect.h;
-			free(new);
+		} else if((newn->rect.x <= ptr->rect.x) &&
+		   (newn->rect.y <= ptr->rect.y) &&
+		   ((newn->rect.x+newn->rect.w) >= (ptr->rect.x+ptr->rect.w)) &&
+		   ((newn->rect.y+newn->rect.h) >= (ptr->rect.y+ptr->rect.h))) {
+			ptr->rect.x = newn->rect.x;
+			ptr->rect.y = newn->rect.y;
+			ptr->rect.w = newn->rect.w;
+			ptr->rect.h = newn->rect.h;
+			free(newn);
 			return;
 		}
 	}
 			
 	if (pendnum == 0)
-		First = new;
+		First = newn;
 	else {
-		Last->nextnode = new;
-		new->prevnode = Last;
+		Last->nextnode = newn;
+		newn->prevnode = Last;
 	}
 	
-	Last = new;
+	Last = newn;
 	pendnum++;
 }
 
