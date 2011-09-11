@@ -712,10 +712,9 @@ void parsecmd(int argc,char *argv[])
         else
           redefkeyb(false);
       }
-      if (word[1]=='A' || word[1]=='a') {
+      if (word[1]=='A' || word[1]=='a')
         sscanf(word+i,"%hu,%hx,%hu,%hu,%hu,%hu",&sound_device,&sound_port,&sound_irq,
                &sound_dma,&sound_rate,&sound_length);
-      }
       if (word[1]=='Q' || word[1]=='q')
         quiet=true;
       if (word[1]=='V' || word[1]=='v')
