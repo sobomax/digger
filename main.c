@@ -593,7 +593,7 @@ void parsecmd(int argc,char *argv[])
 {
   char *word;
   int16_t arg,i=0,j,speedmul;
-  bool sf,gs=false,norepf=false;
+  bool sf,gs=false,norepf=false,quiet=false;
   FILE *levf;
 
   for (arg=1;arg<argc;arg++) {
@@ -715,22 +715,9 @@ void parsecmd(int argc,char *argv[])
       if (word[1]=='A' || word[1]=='a') {
         sscanf(word+i,"%hu,%hx,%hu,%hu,%hu,%hu",&sound_device,&sound_port,&sound_irq,
                &sound_dma,&sound_rate,&sound_length);
-        killsound();
-        volume=1;
-        setupsound=s1setupsound;
-        killsound=s1killsound;
-        fillbuffer=s1fillbuffer;
-        initint8=s1initint8;
-        restoreint8=s1restoreint8;
-        soundoff=s1soundoff;
-        setspkrt2=s1setspkrt2;
-        settimer0=s1settimer0;
-        timer0=s1timer0;
-        settimer2=s1settimer2;
-        timer2=s1timer2;
-        soundinitglob(sound_port,sound_irq,sound_dma,sound_length,sound_rate);
-        initsound();
       }
+      if (word[1]=='Q' || word[1]=='q')
+        quiet=true;
       if (word[1]=='V' || word[1]=='v')
         synchvid=true;
 #endif
@@ -774,6 +761,24 @@ void parsecmd(int argc,char *argv[])
         levfflag=true;
       }
     }
+  }
+
+  if (!quiet) {
+    killsound();
+    volume=1;
+    setupsound=s1setupsound;
+    killsound=s1killsound;
+    fillbuffer=s1fillbuffer;
+    initint8=s1initint8;
+    restoreint8=s1restoreint8;
+    soundoff=s1soundoff;
+    setspkrt2=s1setspkrt2;
+    settimer0=s1settimer0;
+    timer0=s1timer0;
+    settimer2=s1settimer2;
+    timer2=s1timer2;
+    soundinitglob(sound_port,sound_irq,sound_dma,sound_length,sound_rate);
+    initsound();
   }
 
   if (levfflag) {
