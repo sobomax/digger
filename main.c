@@ -22,24 +22,24 @@
 #include "win_vid.h"
 #endif
 
-struct game
+/* global variables */
+char pldispbuf[14];
+int16_t curplayer=0,nplayers=1,penalty=0,diggers=1,startlev=1;
+bool unlimlives=false, gauntlet=false,timeout=false,synchvid=false;
+int gtime=0;
+
+static struct game
 {
   int16_t level;
   bool levdone;
 } gamedat[2];
 
-char pldispbuf[14];
-
-int16_t curplayer=0,nplayers=1,penalty=0,diggers=1,startlev=1;
-
-bool levnotdrawn=false,alldead=false,unlimlives=false,started;
+static bool levnotdrawn=false,alldead=false,started;
 
 char levfname[132];
 bool levfflag=false;
-bool biosflag=false;
-int32_t delaytime=0;
-int gtime=0;
-bool gauntlet=false,timeout=false,synchvid=false;
+static bool biosflag=false;
+static int32_t delaytime=0;
 
 void shownplayers(void);
 void switchnplayers(void);

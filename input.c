@@ -11,24 +11,26 @@
 #include <SDL.h>
 #endif
 
-bool escape=false,firepflag=false,aleftpressed=false,arightpressed=false,
+/* global variables first */
+bool escape=false,firepflag=false,fire2pflag=false,pausef=false;
+bool krdf[17]={false,false,false,false,false,false,false,false,false,false,
+               false,false,false,false,false,false,false};
+
+static bool aleftpressed=false,arightpressed=false,
      auppressed=false,adownpressed=false,start=false,af1pressed=false;
-bool fire2pflag=false,aleft2pressed=false,aright2pressed=false,
+static bool aleft2pressed=false,aright2pressed=false,
      aup2pressed=false,adown2pressed=false,af12pressed=false;
 
 int16_t akeypressed;
 
-int16_t dynamicdir=-1,dynamicdir2=-1,staticdir=-1,staticdir2=-1,joyx=0,joyy=0;
+static int16_t dynamicdir=-1,dynamicdir2=-1,staticdir=-1,staticdir2=-1,joyx=0,joyy=0;
 
-bool joybut1=false,joybut2=false;
+static bool joybut1=false,joybut2=false;
 
-int16_t keydir=0,keydir2=0,jleftthresh=0,jupthresh=0,jrightthresh=0,
+static int16_t keydir=0,keydir2=0,jleftthresh=0,jupthresh=0,jrightthresh=0,
       jdownthresh=0,joyanax=0,joyanay=0;
 
-bool joyflag=false,pausef=false;
-
-bool krdf[17]={false,false,false,false,false,false,false,false,false,false,
-               false,false,false,false,false,false,false};
+static bool joyflag=false;
 
 
 #ifdef ARM
@@ -255,13 +257,14 @@ int keycodes[17][5]={{0x4d,0xcd,0x14d,-2,-2}, /* 1 Right */
 #endif
 #endif
 
-
-uint16_t scancode;
-
-int pki;
+#if !defined(_SDL) && !defined(_VGL)
+static uint16_t scancode;
+#endif
 
 #if !defined(_WINDOWS) && !defined(_SDL) && !defined(_VGL)
-bool *flagp[10]={
+static int pki;
+
+static bool *flagp[10]={
   &rightpressed,&uppressed,&leftpressed,&downpressed,&f1pressed,
   &right2pressed,&up2pressed,&left2pressed,&down2pressed,&f12pressed};
 
@@ -435,7 +438,7 @@ void clearfire(int n)
 bool oupressed=false,odpressed=false,olpressed=false,orpressed=false;
 bool ou2pressed=false,od2pressed=false,ol2pressed=false,or2pressed=false;
 
-void readdir(int n)
+void readdirect(int n)
 {
   int16_t j;
   bool u=false,d=false,l=false,r=false;
