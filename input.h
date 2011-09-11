@@ -1,7 +1,7 @@
 void detectjoy(void);
 bool teststart(void);
-void readdir(int n);
-int16_t getdir(int n);
+void readdirect(int n);
+int16_t getdirect(int n);
 void checkkeyb(void);
 void flushkeybuf(void);
 void findkey(int kn);

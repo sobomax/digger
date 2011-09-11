@@ -222,7 +222,7 @@ void game(void)
 
       flushkeybuf();
       for (i=0;i<diggers;i++)
-        readdir(i);
+        readdirect(i);
       while (!alldead && !gamedat[curplayer].levdone && !escape && !timeout) {
         penalty=0;
         dodigger();

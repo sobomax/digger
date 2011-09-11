@@ -383,8 +383,8 @@ void updatedigger(int n)
   int16_t dir,ddir,diggerox,diggeroy,nmon;
   bool push=true,bagf;
   int clfirst[TYPES],clcoll[SPRITES],i;
-  readdir(n-curplayer);
-  dir=getdir(n-curplayer);
+  readdirect(n-curplayer);
+  dir=getdirect(n-curplayer);
   if (dir==DIR_RIGHT || dir==DIR_UP || dir==DIR_LEFT || dir==DIR_DOWN)
     ddir=dir;
   else

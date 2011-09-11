@@ -590,9 +590,9 @@ bool teststart(void)
   return true;
 }
 
-/* Why the joystick reading is split between readdir and getdir like this is a
+/* Why the joystick reading is split between readdirect and getdir like this is a
    mystery to me. */
-int16_t getdir(int n)
+int16_t getdirect(int n)
 {
   int16_t dir=((n==0) ? keydir : keydir2);
   if (joyflag) {
