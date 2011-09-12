@@ -10,7 +10,7 @@
 #endif
 #endif
 
-#if defined FREEBSD || defined LINUX || defined YOUR_UNIX_LIKE_ARCH_GOING_HERE
+#if defined FREEBSD || defined LINUX || defined DARWIN || defined YOUR_UNIX_LIKE_ARCH_GOING_HERE
 #define UNIX
 #endif
 
@@ -131,7 +131,7 @@
 #define ININAME "DIGGER.INI"
 #endif
 
-#if defined FREEBSD || defined LINUX
+#if defined FREEBSD || defined LINUX || DARWIN
 #include "fbsd_sup.h"
 #endif
 
