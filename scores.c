@@ -45,7 +45,7 @@ void flashywait(int16_t n);
 int16_t getinitial(int16_t x,int16_t y);
 void shufflehigh(void);
 void writenum(int32_t n,int16_t x,int16_t y,int16_t w,int16_t c);
-void numtostring(char *p,int32_t n);
+static void numtostring(char *p,int32_t n);
 
 #ifdef ARM
 
@@ -430,7 +430,7 @@ void writenum(int32_t n,int16_t x,int16_t y,int16_t w,int16_t c)
   }
 }
 
-void numtostring(char *p,int32_t n)
+static void numtostring(char *p,int32_t n)
 {
   int x;
   for (x=0;x<6;x++) {
