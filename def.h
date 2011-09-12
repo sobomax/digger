@@ -147,7 +147,7 @@
 #elif defined _VGL
 #define DIGGER_VERSION "MS FBSD 20000407"
 #elif defined _SDL
-#define DIGGER_VERSION "MS SDL 20000407"
+#define DIGGER_VERSION "POK SDL 20110912"
 #else
 #define DIGGER_VERSION "AJ DOS 19990506"
 #endif
