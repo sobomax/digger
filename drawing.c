@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include "def.h"
 #include "drawing.h"
 #include "main.h"
@@ -36,7 +37,7 @@ void outtext(char *p,int16_t x,int16_t y,int16_t c)
 {
   int16_t i;
   for (i=0;p[i];i++) {
-    gwrite(x,y,p[i],c);
+    gwrite(x,y,isalnum(p[i]) ? p[i] : ' ',c);
     x+=12;
   }
 }
