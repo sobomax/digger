@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <strings.h>
 #include "def.h"
 #ifdef __WIN32__
 #include "win_dig.h"
