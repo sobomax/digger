@@ -561,7 +561,6 @@ void testpause(void)
 {
   int i;
   if (pausef) {
-    pausef=false;
     soundpause();
     sett2val(40);
     setsoundt2();
@@ -575,6 +574,7 @@ void testpause(void)
     drawlives();
     if (!synchvid)
       curtime=gethrt();
+    pausef=false;
   }
   else
     soundpauseoff();
