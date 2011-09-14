@@ -1,6 +1,8 @@
 #include <sys/fbio.h>
 #include <sys/kbio.h>
 #include <sys/consio.h>
+#include <sys/ioctl.h>
+#include <unistd.h>
 #include <vgl.h>
 
 #include "def.h"
@@ -20,6 +22,14 @@ const char chars[48] =    {'`','1','2','3','4','5','6','7','8','9','0','-','=',\
 			 'a','s','d','f','g','h','j','k','l',';','\'','z','x',\
 			 'c','v','b','n','m',',','.','/',' '};
 
+#define	F1KEY	(59+128)
+#define	F10KEY	(68+128)
+#define	LALTKEY	(56+128)
+#define	RALTKEY	(93+128)
+#define	altpressed	(states[LALTKEY] || states[RALTKEY])
+
+extern bool started, pausef;
+
 void initkeyb(void)
 {
 	VGLKeyboardInit(VGL_CODEKEYS);
@@ -31,33 +41,79 @@ void restorekeyb(void)
 	VGLKeyboardEnd();
 }
 
+static bool UpdateStates(Sint4* result)
+{
+	int16_t i;
+	bool isasymbol, state;
+	
+	if(*result < 128)
+		state = true;
+	else {
+		state = false;
+		*result -= 128;
+	}
+
+	isasymbol = false;
+	for(i=0;quertycodes[i]!=0;i++)
+		if(*result == quertycodes[i]) {
+			*result = chars[i];
+			isasymbol = true;
+			break;
+		}
+
+	if (isasymbol == true)
+		*result+=128;
+
+	states[*result] = state;
+	return state;
+}
+
 void ProcessKbd(void)
 {
-	int16_t result, i;
-	bool isasymbol;
+	int16_t result;
+	static bool newconsf=false;
 	bool state;
 
 	while((result = VGLKeyboardGetCh()) != 0) {
 
-		if(result < 128)
-			state = true;
-		else {
-			state = false;
-			result -= 128;
-		}
-
-		isasymbol = false;
-		for(i=0;quertycodes[i]!=0;i++)
-			if(result == quertycodes[i]) {
-				result = chars[i];
-				isasymbol = true;
-				break;
+		state=UpdateStates(&result);
+		if(newconsf==true && pausef==true) /* return to game ? */
+		  if(state==false) 
+		    continue;
+		  else newconsf=false;			/* yes */
+		
+		while(newconsf==false && state==true &&
+		      result>=F1KEY && result<=F10KEY && altpressed) {
+		    /* Alt-Fn pressed to switch consoles */
+		    int activecons=0;
+		    int newcons=result-F1KEY+1;
+		    ioctl(0, VT_GETACTIVE, &activecons);
+		    if(newcons==activecons) /* to another console ? */
+			break;
+		    
+		    newconsf=true;
+		    /* do switch */
+		    ioctl(0,VT_ACTIVATE,(caddr_t)(long)newcons); 
+		    if(started==true && pausef==false) {
+			    pausef=true;
+			    testpause(); /* force pause if game active */
+		    }
+		    else {
+		        VGLCheckSwitch(); /* game not active - just switch */
+		        /* now wait for another keyboard strike */
+			result=VGLKeyboardGetCh();
+			while(1) {
+			    if(result!=0) {
+				state=UpdateStates(&result);
+				    if(state==true)     /* ignore releases */
+					break;	
+			        }
+		    	    usleep(500);	/* don't waste CPU when idle */
+			    result=VGLKeyboardGetCh();
 			}
-
-		if (isasymbol == false)
-			result+=128;
-
-		states[result] = state;
+		    }
+		    newconsf=false; /* switched back */
+		}
 
 		if(state == true)
 			continue;
