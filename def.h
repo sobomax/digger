@@ -5,12 +5,12 @@
 #ifndef _WINDOWS
 #define _WINDOWS
 #endif
-#ifndef WIN32
-#define WIN32
+#ifndef __WIN32__
+#define __WIN32__
 #endif
 #endif
 
-#if defined FREEBSD || defined LINUX || defined DARWIN || defined YOUR_UNIX_LIKE_ARCH_GOING_HERE
+#if defined(__FreeBSD__) || defined(__linux__) || defined(__APPLE__) || defined YOUR_UNIX_LIKE_ARCH_GOING_HERE
 #define UNIX
 #endif
 
@@ -75,11 +75,11 @@
 #endif
 #endif
 
-#if !defined (_MSVC) && defined (WIN32)
+#if !defined (_MSVC) && defined (__WIN32__)
 #define _int64 LARGE_INTEGER
 #endif
 
-#ifdef WIN32
+#ifdef __WIN32__
  #if defined (RUNTIMEDYNAMICLINK) && !defined (DIRECTX)
   #define DIRECTX
  #endif
@@ -101,7 +101,7 @@
  #endif 
 #endif
 
-#if defined ARM || defined WIN32 || defined UNIX || defined MINGW
+#if defined ARM || defined(__WIN32__) || defined UNIX || defined(__MINGW32__)
 #define FLATFILE
 #endif
 
@@ -116,12 +116,12 @@
 
 #ifdef ARM
 #define ININAME "Digger:Settings"
-#elif defined FREEBSD && defined _VGL
+#elif defined(__FreeBSD__) && defined _VGL
 /* Applications using FreeBSD's console graphics running as root */
 #define ININAME "/var/games/digger/digger.rc"
 #elif defined UNIX && !defined _VGL
 /* While SDL and other X11 related apps could be runned as ordinary user */
-#ifdef FREEBSD
+#ifdef __FreeBSD__
 #include <sys/syslimits.h>
 #else /* I donno what is analog of PATH_MAX for Linux :( */
 #define PATH_MAX 1024
@@ -131,7 +131,7 @@
 #define ININAME "DIGGER.INI"
 #endif
 
-#if defined FREEBSD || defined LINUX || DARWIN
+#if defined(__FreeBSD__) || defined(__linux__) || defined(__APPLE__)
 #include "fbsd_sup.h"
 #endif
 

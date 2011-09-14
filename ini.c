@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "def.h"
-#ifdef WIN32
+#ifdef __WIN32__
 #include "win_dig.h"
 #endif
 

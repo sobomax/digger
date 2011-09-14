@@ -12,7 +12,7 @@
 #include "sprite.h"
 
 #ifndef FLATFILE
-#if defined (_WINDOWS) && !defined (WIN32)
+#if defined (_WINDOWS) && !defined (__WIN32__)
 #include <malloc.h>
 #else
 #include <alloc.h>
