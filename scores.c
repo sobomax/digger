@@ -346,8 +346,12 @@ int16_t getinitial(int16_t x,int16_t y)
 #endif
 
     for (i=0;i<40;i++) {
-      if (kbhit() && isalnum(getkey()))
-        return getkey();
+      if (kbhit()) {
+        int16_t key = getkey();
+	if (!isalnum(key))
+	  continue;
+        return key;
+      }
 #ifdef _WINDOWS
       flashywait(5);
 #else
