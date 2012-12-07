@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <SDL.h>
+#include <SDL_syswm.h>
 #include "def.h"
 #include "hardware.h"
 #include "sound.h"
@@ -15,6 +17,7 @@
 #include "main.h"
 #include "newsnd.h"
 #include "ini.h"
+#include "sdl_vid.h"
 
 #ifdef _WINDOWS
 #include "win_dig.h"
@@ -299,6 +302,9 @@ void game(void)
 
 static bool quiet=false;
 static uint16_t sound_device,sound_port,sound_irq,sound_dma,sound_rate,sound_length;
+#ifdef UNIX
+Window parent = 0;
+#endif
 
 void maininit(void)
 {
@@ -328,6 +334,19 @@ int mainprog(void)
   loadscores();
 #ifdef _WINDOWS
   show_main_menu();
+#else
+  if (parent) {
+    SDL_SysWMinfo sdlInfo;
+    SDL_VERSION( &sdlInfo.version );
+    SDL_GetWMInfo( &sdlInfo );
+    long info[2] = { 0, (1 << 0)};
+    Atom XEMBED_INFO = XInternAtom(sdlInfo.info.x11.gfxdisplay, "_XEMBED_INFO", True);
+
+    XChangeProperty (sdlInfo.info.x11.gfxdisplay, parent, XEMBED_INFO, XEMBED_INFO,
+                    32, PropModeReplace, (unsigned char *)&info, 2);
+    XReparentWindow(sdlInfo.info.x11.gfxdisplay, sdlInfo.info.x11.window, parent, 0, 0);
+    XDestroyWindow(sdlInfo.info.x11.gfxdisplay, sdlInfo.info.x11.wmwindow);
+  }
 #endif
   escape=false;
   do {
@@ -603,6 +622,9 @@ void parsecmd(int argc,char *argv[])
       if (word[1]=='L' || word[1]=='l' || word[1]=='R' || word[1]=='r' ||
           word[1]=='P' || word[1]=='p' || word[1]=='S' || word[1]=='s' ||
           word[1]=='E' || word[1]=='e' || word[1]=='G' || word[1]=='g' ||
+#ifdef UNIX
+          word[1]=='X' || word[1]=='x' ||
+#endif
           word[1]=='A' || word[1]=='a' || word[1]=='I' || word[1]=='i') {
         if (word[2]==':')
           i=3;
@@ -616,6 +638,12 @@ void parsecmd(int argc,char *argv[])
         levfname[j]=word[i];
         levfflag=true;
       }
+#ifdef UNIX
+      if (word[1] == 'X' || word[1] == 'x') {
+              parent = strtol (&word[i], 0, 0);;
+              addflag |= SDL_NOFRAME;
+      }
+#endif
       if (word[1]=='R' || word[1]=='r')
         recname(word+i);
       if (word[1]=='P' || word[1]=='p' || word[1]=='E' || word[1]=='e') {
@@ -661,7 +689,11 @@ void parsecmd(int argc,char *argv[])
                "         [/E:playback file] [/R:record file] [/O] [/K[A]] "
                                                            "[/G[:time]] [/2]\n"
                "         [/A:device,port,irq,dma,rate,length] [/V] [/U] "
-                                                               "[/I:level]\n\n"
+                                                               "[/I:level] "
+#ifdef UNIX
+                                                               "[/X:xid]"
+#endif
+                                                               "\n\n"
 #ifndef UNIX
                "/C = Use CGA graphics\n"
                "/B = Use BIOS palette functions for CGA (slow!)\n"
@@ -678,6 +710,9 @@ void parsecmd(int argc,char *argv[])
                "/A = Use alternate sound device\n"
 #ifndef UNIX
                "/V = Synchronize timing to vertical retrace\n"
+#endif
+#ifdef UNIX
+               "/X = XEmbed\n"
 #endif
                "/U = Allow unlimited lives\n"
                "/I = Start on a level other than 1\n");

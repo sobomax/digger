@@ -19,6 +19,7 @@
 #include "hardware.h"
 #include "title_gz.h"
 #include "icon.h"
+#include "sdl_vid.h"
 
 extern uint8_t *vgatable[];
 extern uint8_t *ascii2vga[];
