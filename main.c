@@ -339,11 +339,6 @@ int mainprog(void)
     SDL_SysWMinfo sdlInfo;
     SDL_VERSION( &sdlInfo.version );
     SDL_GetWMInfo( &sdlInfo );
-    long info[2] = { 0, (1 << 0)};
-    Atom XEMBED_INFO = XInternAtom(sdlInfo.info.x11.gfxdisplay, "_XEMBED_INFO", True);
-
-    XChangeProperty (sdlInfo.info.x11.gfxdisplay, parent, XEMBED_INFO, XEMBED_INFO,
-                    32, PropModeReplace, (unsigned char *)&info, 2);
     XReparentWindow(sdlInfo.info.x11.gfxdisplay, sdlInfo.info.x11.window, parent, 0, 0);
     XDestroyWindow(sdlInfo.info.x11.gfxdisplay, sdlInfo.info.x11.wmwindow);
   }
@@ -712,7 +707,7 @@ void parsecmd(int argc,char *argv[])
                "/V = Synchronize timing to vertical retrace\n"
 #endif
 #ifdef UNIX
-               "/X = XEmbed\n"
+               "/X = Embed in window\n"
 #endif
                "/U = Allow unlimited lives\n"
                "/I = Start on a level other than 1\n");
