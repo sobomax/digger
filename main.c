@@ -297,6 +297,9 @@ void game(void)
 #endif
 }
 
+static bool quiet=false;
+static uint16_t sound_device,sound_port,sound_irq,sound_dma,sound_rate,sound_length;
+
 void maininit(void)
 {
   calibrate();
@@ -313,8 +316,8 @@ void maininit(void)
 #ifndef _WINDOWS
 int main(int argc,char *argv[])
 {
-  maininit();
   parsecmd(argc,argv);
+  maininit();
   return mainprog();
 }
 #endif
@@ -587,13 +590,11 @@ void calibrate(void)
     volume=1;
 }
 
-uint16_t sound_device,sound_port,sound_irq,sound_dma,sound_rate,sound_length;
-
 void parsecmd(int argc,char *argv[])
 {
   char *word;
   int16_t arg,i=0,j,speedmul;
-  bool sf,gs=false,norepf=false,quiet=false;
+  bool sf,gs=false,norepf=false;
   FILE *levf;
 
   for (arg=1;arg<argc;arg++) {
@@ -762,24 +763,6 @@ void parsecmd(int argc,char *argv[])
     }
   }
 
-  if (!quiet) {
-    killsound();
-    volume=1;
-    setupsound=s1setupsound;
-    killsound=s1killsound;
-    fillbuffer=s1fillbuffer;
-    initint8=s1initint8;
-    restoreint8=s1restoreint8;
-    soundoff=s1soundoff;
-    setspkrt2=s1setspkrt2;
-    settimer0=s1settimer0;
-    timer0=s1timer0;
-    settimer2=s1settimer2;
-    timer2=s1timer2;
-    soundinitglob(sound_port,sound_irq,sound_dma,sound_length,sound_rate);
-    initsound();
-  }
-
   if (levfflag) {
     levf=fopen(levfname,"rb");
     if (levf==NULL) {
@@ -859,7 +842,12 @@ void inir(void)
   sound_rate=(int)GetINIInt(INI_SOUND_SETTINGS,"Rate",22050,ININAME);
   sound_length=(int)GetINIInt(INI_SOUND_SETTINGS,"BufferSize",DEFAULT_BUFFER,
                               ININAME);
+
+#ifndef UNIX
   if (sound_device==1) {
+#else
+  if (!quiet) {
+#endif
     volume=1;
     setupsound=s1setupsound;
     killsound=s1killsound;
