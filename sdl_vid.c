@@ -150,7 +150,7 @@ void vgainit(void)
 	SDL_WM_SetCaption("D I G G E R", NULL);
 	SDL_WM_SetIcon(tmp, NULL);
 	if(setmode() == false) {
-		fprintf(stderr, "Couldn't set 640x480x8 video mode: %s\n", SDL_GetError());
+		fprintf(stderr, "Couldn't set 640x400x8 video mode: %s\n", SDL_GetError());
 		exit(1);
         }
 	SDL_ShowCursor(0);
