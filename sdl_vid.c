@@ -365,6 +365,7 @@ void vgawrite(int16_t x, int16_t y, int16_t ch, int16_t c)
 	tmp->pixels = copy;
 	vgaputi(x, y, (uint8_t *)&tmp, w, h);
 	SDL_FreeSurface(tmp);
+	free(copy);
 }
 
 void vgatitle(void)
