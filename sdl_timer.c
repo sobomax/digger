@@ -1,15 +1,21 @@
 #include <SDL.h>
 
 #include "def.h"
+#include "digger_math.h"
 #ifdef _SDL
 #include "sdl_vid.h"
 #endif
 
-uint32_t prev = 0;
+static struct PFD phase_detector;
+static struct recfilter loop_error;
+
 extern uint32_t ftime;
 
 void inittimer(void)
 {
+
+    recfilter_init(&loop_error, 0.96, 0.0, 0);
+    PFD_init(&phase_detector, 0.0);
 }
 
 int32_t getlrt(void)
@@ -19,21 +25,21 @@ int32_t getlrt(void)
 
 uint32_t gethrt(void)
 {
-	int32_t diff;
+    uint32_t add_delay;
+    double eval, clk_rl, tfreq;
 
-	doscreenupdate();
+    tfreq = 1000000.0 / ftime;
+    clk_rl = (double)SDL_GetTicks() * tfreq / 1000.0;
+    eval = PFD_get_error(&phase_detector, clk_rl);
+    recfilter_apply(&loop_error, sigmoid(eval));
+    add_delay = freqoff_to_period(tfreq, 0.1, loop_error.lastval) * 1000;
+#if defined(DIGGER_DEBUG) 
+    printf("clk_rl = %f, add_delay = %d, eval = %f, loop_error.lastval = %f\n", clk_rl, add_delay, eval, loop_error.lastval);
+#endif
 
-	/* Speed controlling stuff */
-	if (prev == 0) {
-		prev = SDL_GetTicks();
-	} else {
-		diff = (ftime/1000 - (SDL_GetTicks() - prev));
-		if (diff > 0) {
-			SDL_Delay(diff);
-		}
-		prev = SDL_GetTicks();
-	}
-	return(0);
+    doscreenupdate();
+    SDL_Delay(add_delay);
+    return (0);
 }
 
 int32_t getkips(void)
