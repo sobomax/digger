@@ -183,9 +183,7 @@ void soundlevdone(void)
       continue;
 #endif
     soundlevdoneupdate();
-#if !defined _SDL && !defined _SDL_SOUND
     checkkeyb();
-#endif
     timer=timerclock;
   }
   soundlevdoneoff();
