@@ -64,18 +64,7 @@ int16_t	currpal=0;
 
 uint32_t	addflag=0;
 
-SDL_Surface *screen = NULL;
-
-/* Data structure holding pending updates */
-struct PendNode {
-	void *prevnode;
-	void *nextnode;
-	SDL_Rect rect;
-};
-
-struct PendNode *First=NULL, *Last=NULL;
-
-int pendnum = 0;
+static SDL_Surface *screen = NULL;
 
 SDL_Surface *ch2bmap(uint8_t *sprite, int16_t w, int16_t h)
 {
@@ -97,7 +86,7 @@ void graphicsoff(void)
 bool setmode(void)
 {
 	if((screen = SDL_SetVideoMode(640, 400, 8, \
-	    SDL_HWSURFACE | SDL_HWPALETTE | addflag)) == NULL)
+	    SDL_HWSURFACE | SDL_HWPALETTE | SDL_DOUBLEBUF | addflag)) == NULL)
 		return(false);
 	else
 		return(true);
@@ -186,70 +175,26 @@ void vgapal(int16_t pal)
 
 void doscreenupdate(void)
 {
-	struct PendNode *p;
 
-	for(p=First;p!=NULL;)
-	{
-		SDL_UpdateRect(screen,p->rect.x,p->rect.y,p->rect.w,p->rect.h);
-		First = p->nextnode;
-		free(p);
-		p = First;
-	}
-	pendnum = 0;
+        SDL_Flip(screen);
 }
 
 void vgaputi(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h)
 {
 	SDL_Surface *tmp;
 	SDL_Palette *reserv;
-	struct PendNode *newn, *ptr;
+        SDL_Rect rect;
 
-	newn = malloc(sizeof (struct PendNode));
-	memset(newn, 0x00, (sizeof (struct PendNode)));
-	newn->rect.x = virt2scrx(x);
-	newn->rect.y = virt2scry(y);
-	newn->rect.w = virt2scrw(w*4);
-	newn->rect.h = virt2scrh(h);
+	rect.x = virt2scrx(x);
+	rect.y = virt2scry(y);
+	rect.w = virt2scrw(w*4);
+	rect.h = virt2scrh(h);
 
 	memcpy(&tmp, p, (sizeof (SDL_Surface *)));
 	reserv = tmp->format->palette;
 	tmp->format->palette = screen->format->palette;
-	SDL_BlitSurface(tmp, NULL, screen, &newn->rect);
+	SDL_BlitSurface(tmp, NULL, screen, &rect);
 	tmp->format->palette = reserv;
-/* 
- * Following piece of code comparing already pending updates with current with
- * main goal to prevent redrawing overlapping rectangles several times.
- */ 
-	
-	for(ptr=First;ptr!=NULL;ptr=ptr->nextnode) {
-		if((newn->rect.x >= ptr->rect.x) &&
-		   (newn->rect.y >= ptr->rect.y) &&
-		   ((newn->rect.x+newn->rect.w) <= (ptr->rect.x+ptr->rect.w)) &&
-		   ((newn->rect.y+newn->rect.h) <= (ptr->rect.y+ptr->rect.h))) {
-			free(newn);
-			return;
-		} else if((newn->rect.x <= ptr->rect.x) &&
-		   (newn->rect.y <= ptr->rect.y) &&
-		   ((newn->rect.x+newn->rect.w) >= (ptr->rect.x+ptr->rect.w)) &&
-		   ((newn->rect.y+newn->rect.h) >= (ptr->rect.y+ptr->rect.h))) {
-			ptr->rect.x = newn->rect.x;
-			ptr->rect.y = newn->rect.y;
-			ptr->rect.w = newn->rect.w;
-			ptr->rect.h = newn->rect.h;
-			free(newn);
-			return;
-		}
-	}
-			
-	if (pendnum == 0)
-		First = newn;
-	else {
-		Last->nextnode = newn;
-		newn->prevnode = Last;
-	}
-	
-	Last = newn;
-	pendnum++;
 }
 
 void vgageti(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h)
