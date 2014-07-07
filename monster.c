@@ -1,5 +1,7 @@
 #include <stdlib.h>
+
 #include "def.h"
+#include "digger_types.h"
 #include "monster.h"
 #include "monster_obj.h"
 #include "main.h"

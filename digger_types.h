@@ -27,32 +27,9 @@
  *
  */
 
-#ifndef __MONSTER_OBJ_H
-#define __MONSTER_OBJ_H
+#ifndef __DIGGER_TYPES_H
+#define __DIGGER_TYPES_H
 
-struct monster_obj;
-typedef int (*method_t)(struct monster_obj *);
-
-struct monster_obj {
-    uint16_t m_id;
-    bool nobf;
-    bool alive;
-    bool zombie;
-    int16_t dir;
-    int16_t x;
-    int16_t y;
-    int16_t monspr;
-    int16_t monspd;
-    method_t pop;
-    method_t mutate;
-    method_t animate;
-    method_t damage;
-    method_t kill;
-};
-
-void monster_obj_init(struct monster_obj *mp, uint16_t m_id, bool nobf, int16_t dir, int16_t x, int16_t y);
-
-#define MON_NOBBIN true 
-#define MON_HOBBIN false
+#define CALL_METHOD(obj, method) (obj)->method(obj)
 
 #endif
