@@ -1,3 +1,6 @@
+#ifndef __MONSTER_H
+#define __MONSTER_H
+
 void domonsters(void);
 void incmont(int16_t n);
 void erasemonsters(void);
@@ -10,3 +13,5 @@ void squashmonsters(int16_t bag,int *clfirst,int *clcoll);
 void mongold(void);
 
 int16_t getfield(int16_t x,int16_t y);
+
+#endif

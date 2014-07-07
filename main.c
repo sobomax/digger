@@ -12,6 +12,7 @@
 #include "drawing.h"
 #include "digger.h"
 #include "monster.h"
+#include "monster_obj.h"
 #include "bags.h"
 #include "record.h"
 #include "main.h"
@@ -331,6 +332,7 @@ int main(int argc,char *argv[])
 int mainprog(void)
 {
   int16_t frame,t,x=0;
+  struct monster_obj nobbin, hobbin;
   loadscores();
 #ifdef _WINDOWS
   show_main_menu();
@@ -369,28 +371,39 @@ int mainprog(void)
         for (t=54;t<174;t+=12)
           outtext("            ",164,t,0);
       if (frame==50) {
-        movedrawspr(FIRSTMONSTER,292,63);
+        monster_obj_init(&nobbin, 0, MON_NOBBIN, DIR_LEFT, 292, 63);
+        CALL_METHOD(&nobbin, pop);
         x=292;
       }
       if (frame>50 && frame<=77) {
-        x-=4;
-        drawmon(0,1,DIR_LEFT,x,63);
+        nobbin.x -= 4;
       }
-      if (frame>77)
-        drawmon(0,1,DIR_RIGHT,184,63);
+      if (frame == 77) {
+        nobbin.dir = DIR_RIGHT;
+      }
+      if (frame > 50) {
+        CALL_METHOD(&nobbin, animate);
+      }
+
       if (frame==83)
         outtext("NOBBIN",216,64,2);
       if (frame==90) {
-        movedrawspr(FIRSTMONSTER+1,292,82);
-        drawmon(1,0,DIR_LEFT,292,82);
+        monster_obj_init(&hobbin, 1, MON_NOBBIN, DIR_LEFT, 292, 82);
+        CALL_METHOD(&hobbin, pop);
         x=292;
       }
       if (frame>90 && frame<=117) {
-        x-=4;
-        drawmon(1,0,DIR_LEFT,x,82);
+        hobbin.x -= 4;
       }
-      if (frame>117)
-        drawmon(1,0,DIR_RIGHT,184,82);
+      if (frame == 100) {
+        CALL_METHOD(&hobbin, mutate);
+      }
+      if (frame>117) {
+        hobbin.dir = DIR_RIGHT;
+      }
+      if (frame > 90) {
+        CALL_METHOD(&hobbin, animate);
+      }
       if (frame==123)
         outtext("HOBBIN",216,83,2);
       if (frame==130) {
@@ -420,6 +433,18 @@ int mainprog(void)
         drawbonus(184,158);
       if (frame==223)
         outtext("BONUS",216,159,2);
+      if (frame == 235) {
+          CALL_METHOD(&nobbin, damage);
+      }
+      if (frame == 239) {
+          CALL_METHOD(&nobbin, kill);
+      }
+      if (frame == 242) {
+          CALL_METHOD(&hobbin, damage);
+      }
+      if (frame == 246) {
+          CALL_METHOD(&hobbin, kill);
+      }
       newframe();
       frame++;
       if (frame>250)

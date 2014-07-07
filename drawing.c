@@ -22,9 +22,6 @@ uint8_t monbufs[MONSTERS][480],bagbufs[BAGS][480],bonusbufs[BONUSES][480],
 uint16_t bitmasks[12]={0xfffe,0xfffd,0xfffb,0xfff7,0xffef,0xffdf,0xffbf,0xff7f,
                     0xfeff,0xfdff,0xfbff,0xf7ff};
 
-int16_t monspr[MONSTERS];
-int16_t monspd[MONSTERS];
-
 int16_t digspr[DIGGERS],digspd[DIGGERS],firespr[FIREBALLS];
 
 void drawlife(int16_t t,int16_t x,int16_t y);
@@ -172,10 +169,6 @@ void creatembspr(void)
   for (i=0;i<MONSTERS;i++)
     createspr(FIRSTMONSTER+i,71,monbufs[i],4,15,0,0);
   createdbfspr();
-  for (i=0;i<MONSTERS;i++) {
-    monspr[i]=0;
-    monspd[i]=1;
-  }
 }
 
 void initmbspr(void)
@@ -186,43 +179,6 @@ void initmbspr(void)
   for (i=0;i<MONSTERS;i++)
     initspr(FIRSTMONSTER+i,71,4,15,0,0);
   initdbfspr();
-}
-
-void drawmon(int16_t n,bool nobf,int16_t dir,int16_t x,int16_t y)
-{
-  monspr[n]+=monspd[n];
-  if (monspr[n]==2 || monspr[n]==0)
-    monspd[n]=-monspd[n];
-  if (monspr[n]>2)
-    monspr[n]=2;
-  if (monspr[n]<0)
-    monspr[n]=0;
-  if (nobf)
-    initspr(FIRSTMONSTER+n,monspr[n]+69,4,15,0,0);
-  else
-    switch (dir) {
-      case DIR_RIGHT:
-        initspr(FIRSTMONSTER+n,monspr[n]+73,4,15,0,0);
-        break;
-      case DIR_LEFT:
-        initspr(FIRSTMONSTER+n,monspr[n]+77,4,15,0,0);
-    }
-  drawspr(FIRSTMONSTER+n,x,y);
-}
-
-void drawmondie(int16_t n,bool nobf,int16_t dir,int16_t x,int16_t y)
-{
-  if (nobf)
-    initspr(FIRSTMONSTER+n,72,4,15,0,0);
-  else
-    switch(dir) {
-      case DIR_RIGHT:
-        initspr(FIRSTMONSTER+n,76,4,15,0,0);
-        break;
-      case DIR_LEFT:
-        initspr(FIRSTMONSTER+n,80,4,14,0,0);
-    }
-  drawspr(FIRSTMONSTER+n,x,y);
 }
 
 void drawgold(int16_t n,int16_t t,int16_t x,int16_t y)

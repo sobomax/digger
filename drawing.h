@@ -2,7 +2,6 @@ void outtext(char *p,int16_t x,int16_t y,int16_t c);
 
 void creatembspr(void);
 void initmbspr(void);
-void drawmon(int16_t n,bool nobf,int16_t dir,int16_t x,int16_t y);
 void drawdigger(int n,int16_t t,int16_t x,int16_t y,bool f);
 void drawgold(int16_t n,int16_t t,int16_t x,int16_t y);
 void drawemerald(int16_t x,int16_t y);
@@ -18,7 +17,6 @@ void drawrightblob(int16_t x,int16_t y);
 void drawleftblob(int16_t x,int16_t y);
 void drawtopblob(int16_t x,int16_t y);
 void drawbottomblob(int16_t x,int16_t y);
-void drawmondie(int16_t n,bool nobf,int16_t dir,int16_t x,int16_t y);
 void drawfurryblob(int16_t x,int16_t y);
 void drawsquareblob(int16_t x,int16_t y);
 

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include "def.h"
 #include "monster.h"
+#include "monster_obj.h"
 #include "main.h"
 #include "sprite.h"
 #include "digger.h"
@@ -12,8 +13,9 @@
 
 struct monster
 {
-  int16_t x,y,h,v,xr,yr,dir,hdir,t,hnt,death,bag,dtime,stime,chase;
-  bool flag,nob,alive;
+  int16_t h,v,xr,yr,dir,t,hnt,death,bag,dtime,stime,chase;
+  bool flag;
+  struct monster_obj mop;
 } mondat[6];
 
 int16_t nextmonster=0,totalmonsters=0,maxmononscr=0,nextmontime=0,mongaptime=0;
@@ -83,16 +85,16 @@ void domonsters(void)
   for (i=0;i<MONSTERS;i++)
     if (mondat[i].flag) {
       if (mondat[i].hnt>10-levof10()) {
-        if (mondat[i].nob) {
-          mondat[i].nob=false;
+        if (mondat[i].mop.nobf) {
+          CALL_METHOD(&mondat[i].mop, mutate);
           mondat[i].hnt=0;
         }
       }
-      if (mondat[i].alive)
+      if (mondat[i].mop.alive)
         if (mondat[i].t==0) {
           monai(i);
           if (randno(15-levof10())==0) /* Need to split for determinism */
-            if (mondat[i].nob && mondat[i].alive)
+            if (mondat[i].mop.nobf && mondat[i].mop.alive)
               monai(i);
         }
         else
@@ -108,24 +110,20 @@ void createmonster(void)
   for (i=0;i<MONSTERS;i++)
     if (!mondat[i].flag) {
       mondat[i].flag=true;
-      mondat[i].alive=true;
       mondat[i].t=0;
-      mondat[i].nob=true;
       mondat[i].hnt=0;
       mondat[i].h=14;
       mondat[i].v=0;
-      mondat[i].x=292;
-      mondat[i].y=18;
       mondat[i].xr=0;
       mondat[i].yr=0;
       mondat[i].dir=DIR_LEFT;
-      mondat[i].hdir=DIR_LEFT;
       mondat[i].chase=chase+curplayer;
+      monster_obj_init(&mondat[i].mop, i, MON_NOBBIN, DIR_LEFT, 292, 18);
       chase=(chase+1)%diggers;
       nextmonster++;
       nextmontime=mongaptime;
       mondat[i].stime=5;
-      movedrawspr(i+FIRSTMONSTER,mondat[i].x,mondat[i].y);
+      CALL_METHOD(&mondat[i].mop, pop);
       break;
     }
 }
@@ -142,8 +140,8 @@ void monai(int16_t mon)
   int16_t monox,monoy,dir,mdirp1,mdirp2,mdirp3,mdirp4,t;
   int clcoll[SPRITES],clfirst[TYPES],i,m,dig;
   bool push,bagf;
-  monox=mondat[mon].x;
-  monoy=mondat[mon].y;
+  monox=mondat[mon].mop.x;
+  monoy=mondat[mon].mop.y;
   if (mondat[mon].xr==0 && mondat[mon].yr==0) {
 
     /* If we are here the monster needs to know which way to turn next. */
@@ -151,9 +149,9 @@ void monai(int16_t mon)
     /* Turn hobbin back into nobbin if it's had its time */
 
     if (mondat[mon].hnt>30+(levof10()<<1))
-      if (!mondat[mon].nob) {
+      if (!mondat[mon].mop.nobf) {
         mondat[mon].hnt=0;
-        mondat[mon].nob=true;
+        CALL_METHOD(&mondat[mon].mop, mutate);
       }
 
     /* Set up monster direction properties to chase Digger */
@@ -162,16 +160,16 @@ void monai(int16_t mon)
     if (!digalive(dig))
       dig=(diggers-1)-dig;
 
-    if (abs(diggery(dig)-mondat[mon].y)>abs(diggerx(dig)-mondat[mon].x)) {
-      if (diggery(dig)<mondat[mon].y) { mdirp1=DIR_UP;    mdirp4=DIR_DOWN; }
+    if (abs(diggery(dig)-mondat[mon].mop.y)>abs(diggerx(dig)-mondat[mon].mop.x)) {
+      if (diggery(dig)<mondat[mon].mop.y) { mdirp1=DIR_UP;    mdirp4=DIR_DOWN; }
                                  else { mdirp1=DIR_DOWN;  mdirp4=DIR_UP; }
-      if (diggerx(dig)<mondat[mon].x) { mdirp2=DIR_LEFT;  mdirp3=DIR_RIGHT; }
+      if (diggerx(dig)<mondat[mon].mop.x) { mdirp2=DIR_LEFT;  mdirp3=DIR_RIGHT; }
                                  else { mdirp2=DIR_RIGHT; mdirp3=DIR_LEFT; }
     }
     else {
-      if (diggerx(dig)<mondat[mon].x) { mdirp1=DIR_LEFT;  mdirp4=DIR_RIGHT; }
+      if (diggerx(dig)<mondat[mon].mop.x) { mdirp1=DIR_LEFT;  mdirp4=DIR_RIGHT; }
                                  else { mdirp1=DIR_RIGHT; mdirp4=DIR_LEFT; }
-      if (diggery(dig)<mondat[mon].y) { mdirp2=DIR_UP;    mdirp3=DIR_DOWN; }
+      if (diggery(dig)<mondat[mon].mop.y) { mdirp2=DIR_UP;    mdirp3=DIR_DOWN; }
                                  else { mdirp2=DIR_DOWN;  mdirp3=DIR_UP; }
     }
 
@@ -227,7 +225,7 @@ void monai(int16_t mon)
 
     /* Hobbins don't care about the field: they go where they want. */
 
-    if (!mondat[mon].nob)
+    if (!mondat[mon].mop.nobf)
       dir=mdirp1;
 
     /* Monsters take a time penalty for changing direction */
@@ -242,78 +240,78 @@ void monai(int16_t mon)
 
   /* If monster is about to go off edge of screen, stop it. */
 
-  if ((mondat[mon].x==292 && mondat[mon].dir==DIR_RIGHT) ||
-      (mondat[mon].x==12 && mondat[mon].dir==DIR_LEFT) ||
-      (mondat[mon].y==180 && mondat[mon].dir==DIR_DOWN) ||
-      (mondat[mon].y==18 && mondat[mon].dir==DIR_UP))
+  if ((mondat[mon].mop.x==292 && mondat[mon].dir==DIR_RIGHT) ||
+      (mondat[mon].mop.x==12 && mondat[mon].dir==DIR_LEFT) ||
+      (mondat[mon].mop.y==180 && mondat[mon].dir==DIR_DOWN) ||
+      (mondat[mon].mop.y==18 && mondat[mon].dir==DIR_UP))
     mondat[mon].dir=DIR_NONE;
 
   /* Change hdir for hobbin */
 
   if (mondat[mon].dir==DIR_LEFT || mondat[mon].dir==DIR_RIGHT)
-    mondat[mon].hdir=mondat[mon].dir;
+    mondat[mon].mop.dir=mondat[mon].dir;
 
   /* Hobbins dig */
 
-  if (!mondat[mon].nob)
-    eatfield(mondat[mon].x,mondat[mon].y,mondat[mon].dir);
+  if (!mondat[mon].mop.nobf)
+    eatfield(mondat[mon].mop.x,mondat[mon].mop.y,mondat[mon].dir);
 
   /* (Draw new tunnels) and move monster */
 
   switch (mondat[mon].dir) {
     case DIR_RIGHT:
-      if (!mondat[mon].nob)
-        drawrightblob(mondat[mon].x,mondat[mon].y);
-      mondat[mon].x+=4;
+      if (!mondat[mon].mop.nobf)
+        drawrightblob(mondat[mon].mop.x,mondat[mon].mop.y);
+      mondat[mon].mop.x+=4;
       break;
     case DIR_UP:
-      if (!mondat[mon].nob)
-        drawtopblob(mondat[mon].x,mondat[mon].y);
-      mondat[mon].y-=3;
+      if (!mondat[mon].mop.nobf)
+        drawtopblob(mondat[mon].mop.x,mondat[mon].mop.y);
+      mondat[mon].mop.y-=3;
       break;
     case DIR_LEFT:
-      if (!mondat[mon].nob)
-        drawleftblob(mondat[mon].x,mondat[mon].y);
-      mondat[mon].x-=4;
+      if (!mondat[mon].mop.nobf)
+        drawleftblob(mondat[mon].mop.x,mondat[mon].mop.y);
+      mondat[mon].mop.x-=4;
       break;
     case DIR_DOWN:
-      if (!mondat[mon].nob)
-        drawbottomblob(mondat[mon].x,mondat[mon].y);
-      mondat[mon].y+=3;
+      if (!mondat[mon].mop.nobf)
+        drawbottomblob(mondat[mon].mop.x,mondat[mon].mop.y);
+      mondat[mon].mop.y+=3;
       break;
   }
 
   /* Hobbins can eat emeralds */
 
-  if (!mondat[mon].nob)
-    hitemerald((mondat[mon].x-12)/20,(mondat[mon].y-18)/18,
-               (mondat[mon].x-12)%20,(mondat[mon].y-18)%18,
+  if (!mondat[mon].mop.nobf)
+    hitemerald((mondat[mon].mop.x-12)/20,(mondat[mon].mop.y-18)/18,
+               (mondat[mon].mop.x-12)%20,(mondat[mon].mop.y-18)%18,
                mondat[mon].dir);
 
   /* If Digger's gone, don't bother */
 
   if (!isalive()) {
-    mondat[mon].x=monox;
-    mondat[mon].y=monoy;
+    mondat[mon].mop.x=monox;
+    mondat[mon].mop.y=monoy;
   }
 
   /* If monster's just started, don't move yet */
 
   if (mondat[mon].stime!=0) {
     mondat[mon].stime--;
-    mondat[mon].x=monox;
-    mondat[mon].y=monoy;
+    mondat[mon].mop.x=monox;
+    mondat[mon].mop.y=monoy;
   }
 
   /* Increase time counter for hobbin */
 
-  if (!mondat[mon].nob && mondat[mon].hnt<100)
+  if (!mondat[mon].mop.nobf && mondat[mon].hnt<100)
     mondat[mon].hnt++;
 
   /* Draw monster */
 
   push=true;
-  drawmon(mon,mondat[mon].nob,mondat[mon].hdir,mondat[mon].x,mondat[mon].y);
+  CALL_METHOD(&mondat[mon].mop, animate);
   for (i=0;i<TYPES;i++)
     clfirst[i]=first[i];
   for (i=0;i<SPRITES;i++)
@@ -369,26 +367,26 @@ void monai(int16_t mon)
         push=false;
     if (mongotgold) /* No time penalty if monster eats gold */
       mondat[mon].t=0;
-    if (!mondat[mon].nob && mondat[mon].hnt>1)
+    if (!mondat[mon].mop.nobf && mondat[mon].hnt>1)
       removebags(clfirst,clcoll); /* Hobbins eat bags */
   }
 
   /* Increase hobbin cross counter */
 
-  if (mondat[mon].nob && clfirst[2]!=-1 && isalive())
+  if (mondat[mon].mop.nobf && clfirst[2]!=-1 && isalive())
     mondat[mon].hnt++;
 
   /* See if bags push monster back */
 
   if (!push) {
-    mondat[mon].x=monox;
-    mondat[mon].y=monoy;
-    drawmon(mon,mondat[mon].nob,mondat[mon].hdir,mondat[mon].x,mondat[mon].y);
+    mondat[mon].mop.x=monox;
+    mondat[mon].mop.y=monoy;
+    CALL_METHOD(&mondat[mon].mop, animate);
     incpenalty();
-    if (mondat[mon].nob) /* The other way to create hobbin: stuck on h-bag */
+    if (mondat[mon].mop.nobf) /* The other way to create hobbin: stuck on h-bag */
       mondat[mon].hnt++;
     if ((mondat[mon].dir==DIR_UP || mondat[mon].dir==DIR_DOWN) &&
-        mondat[mon].nob)
+        mondat[mon].mop.nobf)
       mondat[mon].dir=reversedir(mondat[mon].dir); /* If vertical, give up */
   }
 
@@ -417,20 +415,19 @@ void monai(int16_t mon)
 
   /* Update co-ordinates */
 
-  mondat[mon].h=(mondat[mon].x-12)/20;
-  mondat[mon].v=(mondat[mon].y-18)/18;
-  mondat[mon].xr=(mondat[mon].x-12)%20;
-  mondat[mon].yr=(mondat[mon].y-18)%18;
+  mondat[mon].h=(mondat[mon].mop.x-12)/20;
+  mondat[mon].v=(mondat[mon].mop.y-18)/18;
+  mondat[mon].xr=(mondat[mon].mop.x-12)%20;
+  mondat[mon].yr=(mondat[mon].mop.y-18)%18;
 }
 
 void mondie(int16_t mon)
 {
   switch (mondat[mon].death) {
     case 1:
-      if (bagy(mondat[mon].bag)+6>mondat[mon].y)
-        mondat[mon].y=bagy(mondat[mon].bag);
-      drawmondie(mon,mondat[mon].nob,mondat[mon].hdir,mondat[mon].x,
-                 mondat[mon].y);
+      if (bagy(mondat[mon].bag)+6>mondat[mon].mop.y)
+        mondat[mon].mop.y=bagy(mondat[mon].bag);
+      CALL_METHOD(&mondat[mon].mop, animate);
       incpenalty();
       if (getbagdir(mondat[mon].bag)==-1) {
         mondat[mon].dtime=1;
@@ -491,8 +488,8 @@ void checkmonscared(int16_t h)
 void killmon(int16_t mon)
 {
   if (mondat[mon].flag) {
-    mondat[mon].flag=mondat[mon].alive=false;
-    erasespr(mon+FIRSTMONSTER);
+    mondat[mon].flag = false;
+    CALL_METHOD(&mondat[mon].mop, kill);
     if (bonusmode)
       totalmonsters++;
   }
@@ -503,7 +500,7 @@ void squashmonsters(int16_t bag,int *clfirst,int *clcoll)
   int next=clfirst[2],m;
   while (next!=-1) {
     m=next-FIRSTMONSTER;
-    if (mondat[m].y>=bagy(bag))
+    if (mondat[m].mop.y>=bagy(bag))
       squashmonster(m,1,bag);
     next=clcoll[next];
   }
@@ -523,7 +520,7 @@ int16_t killmonsters(int *clfirst,int *clcoll)
 
 void squashmonster(int16_t mon,int16_t death,int16_t bag)
 {
-  mondat[mon].alive=false;
+  CALL_METHOD(&mondat[mon].mop, damage);
   mondat[mon].death=death;
   mondat[mon].bag=bag;
 }
