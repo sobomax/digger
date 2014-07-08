@@ -30,6 +30,13 @@
 #ifndef __DIGGER_TYPES_H
 #define __DIGGER_TYPES_H
 
-#define CALL_METHOD(obj, method) (obj)->method(obj)
+struct obj_position
+{
+  int16_t dir;
+  int16_t x;
+  int16_t y;
+};
+
+#define CALL_METHOD(obj, method, args...) (obj)->method(obj, ## args)
 
 #endif
