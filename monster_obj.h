@@ -31,26 +31,29 @@
 #define __MONSTER_OBJ_H
 
 struct monster_obj;
-typedef int (*method_t)(struct monster_obj *);
+struct monster_obj_private;
+struct obj_position;
+
+typedef int (*mmethod_0_t)(struct monster_obj *);
+typedef int (*mmethod_xetpos)(struct monster_obj *, struct obj_position *pos);
+typedef bool (*mmethod_getflag)(struct monster_obj *);
 
 struct monster_obj {
-    uint16_t m_id;
-    bool nobf;
-    bool alive;
-    bool zombie;
-    int16_t dir;
-    int16_t x;
-    int16_t y;
-    int16_t monspr;
-    int16_t monspd;
-    method_t pop;
-    method_t mutate;
-    method_t animate;
-    method_t damage;
-    method_t kill;
+    mmethod_0_t dtor;
+    mmethod_0_t pop;
+    mmethod_0_t mutate;
+    mmethod_0_t animate;
+    mmethod_0_t damage;
+    mmethod_0_t kill;
+    mmethod_xetpos getpos;
+    mmethod_xetpos setpos;
+    mmethod_getflag isalive;
+    mmethod_getflag isnobbin;
+    struct monster_obj_private *priv;
 };
 
-void monster_obj_init(struct monster_obj *mp, uint16_t m_id, bool nobf, int16_t dir, int16_t x, int16_t y);
+struct monster_obj *monster_obj_ctor(uint16_t m_id,
+ bool nobf, int16_t dir, int16_t x, int16_t y);
 
 #define MON_NOBBIN true 
 #define MON_HOBBIN false
