@@ -1,14 +1,19 @@
+#include <stdlib.h>
+
 #include "def.h"
+#include "digger_types.h"
 #include "sprite.h"
 #include "input.h"
 #include "hardware.h"
 #include "digger.h"
+#include "digger_obj.h"
 #include "drawing.h"
 #include "main.h"
 #include "sound.h"
 #include "monster.h"
 #include "scores.h"
 #include "bags.h"
+#include "bullet_obj.h"
 
 #ifdef _WINDOWS
 #include "win_dig.h"
@@ -16,9 +21,11 @@
 
 struct digger
 {
-  int16_t x,y,h,v,rx,ry,mdir,dir,bagtime,rechargetime,fx,fy,fdir,expsn,
+  int16_t h,v,rx,ry,mdir,bagtime,rechargetime,
         deathstage,deathbag,deathani,deathtime,emocttime,emn,msc,lives,ivt;
-  bool notfiring,alive,firepressed,dead,levdone,invin;
+  bool notfiring,firepressed,dead,levdone,invin;
+  struct digger_obj dob;
+  struct bullet_obj bob;
 } digdat[DIGGERS];
 
 int16_t startbonustimeleft=0,bonustimeleft;
@@ -34,33 +41,35 @@ void diggerdie(int n);
 void initbonusmode(void);
 void endbonusmode(void);
 bool getfirepflag(int n);
-void drawdig(int n,int d,int x,int y,bool f);
+static void drawdig(int n);
 
 void initdigger(void)
 {
   int dig;
+  int16_t dir, x, y;
+
   for (dig=curplayer;dig<diggers+curplayer;dig++) {
     if (digdat[dig].lives==0)
       continue;
     digdat[dig].v=9;
     digdat[dig].mdir=4;
     digdat[dig].h=(diggers==1) ? 7 : (8-dig*2);
-    digdat[dig].x=digdat[dig].h*20+12;
-    digdat[dig].dir=(dig==0) ? DIR_RIGHT : DIR_LEFT;
+    x = digdat[dig].h * 20 + 12;
+    dir = (dig == 0) ? DIR_RIGHT : DIR_LEFT;
     digdat[dig].rx=0;
     digdat[dig].ry=0;
     digdat[dig].bagtime=0;
-    digdat[dig].alive=true;
     digdat[dig].dead=false; /* alive !=> !dead but dead => !alive */
     digdat[dig].invin=false;
     digdat[dig].ivt=0;
     digdat[dig].deathstage=1;
-    digdat[dig].y=digdat[dig].v*18+18;
-    movedrawspr(dig+FIRSTDIGGER-curplayer,digdat[dig].x,digdat[dig].y);
+    y = digdat[dig].v * 18 + 18;
+    digger_obj_init(&digdat[dig].dob, dig - curplayer, dir, x, y);
+    CALL_METHOD(&digdat[dig].dob, pop);
     digdat[dig].notfiring=true;
     digdat[dig].emocttime=0;
+    digdat[dig].bob.expsn=0;
     digdat[dig].firepressed=false;
-    digdat[dig].expsn=0;
     digdat[dig].rechargetime=0;
     digdat[dig].emn=0;
     digdat[dig].msc=1;
@@ -125,9 +134,9 @@ void newframe(void)
 
 uint32_t cgtime;
 
-void drawdig(int n,int d,int x,int y,bool f)
+void drawdig(int n)
 {
-  drawdigger(n-curplayer,d,x,y,f);
+  CALL_METHOD(&digdat[n].dob, animate);
   if (digdat[n].invin) {
     digdat[n].ivt--;
     if (digdat[n].ivt==0)
@@ -141,6 +150,8 @@ void drawdig(int n,int d,int x,int y,bool f)
 void dodigger(void)
 {
   int n;
+  int16_t tdir;
+
   newframe();
   if (gauntlet) {
     drawlives();
@@ -149,15 +160,17 @@ void dodigger(void)
     cgtime-=ftime;
   }
   for (n=curplayer;n<diggers+curplayer;n++) {
-    if (digdat[n].expsn!=0)
+    if (digdat[n].bob.expsn!=0)
       drawexplosion(n);
     else
       updatefire(n);
     if (digvisible) {
-      if (digdat[n].alive)
+      if (digdat[n].dob.alive)
         if (digdat[n].bagtime!=0) {
-          drawdig(n,digdat[n].mdir,digdat[n].x,digdat[n].y,
-                  digdat[n].notfiring && digdat[n].rechargetime==0);
+          tdir = digdat[n].dob.dir;
+          digdat[n].dob.dir = digdat[n].mdir;
+          drawdig(n);
+          digdat[n].dob.dir = tdir;
           incpenalty();
           digdat[n].bagtime--;
         }
@@ -204,67 +217,76 @@ void dodigger(void)
 
 void updatefire(int n)
 {
-  int16_t pix=0;
+  int16_t pix=0, fx, fy;
   int clfirst[TYPES],clcoll[SPRITES],i;
   bool clflag;
   if (digdat[n].notfiring) {
-    if (digdat[n].rechargetime!=0)
+    if (digdat[n].rechargetime!=0) {
       digdat[n].rechargetime--;
-    else
-      if (getfirepflag(n-curplayer))
-        if (digdat[n].alive) {
+      if (digdat[n].rechargetime == 0) {
+        CALL_METHOD(&digdat[n].dob, recharge);
+      }
+    } else {
+      if (getfirepflag(n-curplayer)) {
+        if (digdat[n].dob.alive) {
+          CALL_METHOD(&digdat[n].dob, discharge);
           digdat[n].rechargetime=levof10()*3+60;
           digdat[n].notfiring=false;
-          switch (digdat[n].dir) {
+          switch (digdat[n].dob.dir) {
             case DIR_RIGHT:
-              digdat[n].fx=digdat[n].x+8;
-              digdat[n].fy=digdat[n].y+4;
+              fx = digdat[n].dob.x + 8;
+              fy = digdat[n].dob.y + 4;
               break;
             case DIR_UP:
-              digdat[n].fx=digdat[n].x+4;
-              digdat[n].fy=digdat[n].y;
+              fx = digdat[n].dob.x + 4;
+              fy = digdat[n].dob.y;
               break;
             case DIR_LEFT:
-              digdat[n].fx=digdat[n].x;
-              digdat[n].fy=digdat[n].y+4;
+              fx = digdat[n].dob.x;
+              fy = digdat[n].dob.y + 4;
               break;
             case DIR_DOWN:
-              digdat[n].fx=digdat[n].x+4;
-              digdat[n].fy=digdat[n].y+8;
+              fx = digdat[n].dob.x + 4;
+              fy = digdat[n].dob.y + 8;
+              break;
+            default:
+              abort();
           }
-          digdat[n].fdir=digdat[n].dir;
-          movedrawspr(FIRSTFIREBALL+n-curplayer,digdat[n].fx,digdat[n].fy);
+          bullet_obj_init(&digdat[n].bob, n - curplayer, digdat[n].dob.dir, fx, fy);
+          CALL_METHOD(&digdat[n].bob, pop);
           soundfire(n);
         }
+      }
+    }
   }
   else {
-    switch (digdat[n].fdir) {
+    switch (digdat[n].bob.dir) {
       case DIR_RIGHT:
-        digdat[n].fx+=8;
-        pix=ggetpix(digdat[n].fx,digdat[n].fy+4)|
-            ggetpix(digdat[n].fx+4,digdat[n].fy+4);
+        digdat[n].bob.x+=8;
+        pix=ggetpix(digdat[n].bob.x,digdat[n].bob.y+4)|
+            ggetpix(digdat[n].bob.x+4,digdat[n].bob.y+4);
         break;
       case DIR_UP:
-        digdat[n].fy-=7;
+        digdat[n].bob.y-=7;
         pix=0;
         for (i=0;i<7;i++)
-          pix|=ggetpix(digdat[n].fx+4,digdat[n].fy+i);
+          pix|=ggetpix(digdat[n].bob.x+4,digdat[n].bob.y+i);
         pix&=0xc0;
         break;
       case DIR_LEFT:
-        digdat[n].fx-=8;
-        pix=ggetpix(digdat[n].fx,digdat[n].fy+4)|
-            ggetpix(digdat[n].fx+4,digdat[n].fy+4);
+        digdat[n].bob.x-=8;
+        pix=ggetpix(digdat[n].bob.x,digdat[n].bob.y+4)|
+            ggetpix(digdat[n].bob.x+4,digdat[n].bob.y+4);
         break;
       case DIR_DOWN:
-        digdat[n].fy+=7;
+        digdat[n].bob.y+=7;
         pix=0;
         for (i=0;i<7;i++)
-          pix|=ggetpix(digdat[n].fx,digdat[n].fy+i);
+          pix|=ggetpix(digdat[n].bob.x,digdat[n].bob.y+i);
         pix&=0x3;
         break;       
     }
-    drawfire(n-curplayer,digdat[n].fx,digdat[n].fy,0);
+    CALL_METHOD(&digdat[n].bob, animate);
     for (i=0;i<TYPES;i++)
       clfirst[i]=first[i];
     for (i=0;i<SPRITES;i++)
@@ -274,15 +296,15 @@ void updatefire(int n)
     while (i!=-1) {
       killmon(i-FIRSTMONSTER);
       scorekill(n);
-      digdat[n].expsn=1;
+      CALL_METHOD(&digdat[n].bob, explode);
       i=clcoll[i];
     }
     i=clfirst[4];
     while (i!=-1) {
       if (i-FIRSTDIGGER+curplayer!=n && !digdat[i-FIRSTDIGGER+curplayer].invin
-          && digdat[i-FIRSTDIGGER+curplayer].alive) {
+          && digdat[i-FIRSTDIGGER+curplayer].dob.alive) {
         killdigger(i-FIRSTDIGGER+curplayer,3,0);
-        digdat[n].expsn=1;
+        CALL_METHOD(&digdat[n].bob, explode);
       }
       i=clcoll[i];
     }
@@ -292,54 +314,59 @@ void updatefire(int n)
     else
       clflag=false;
     if (clfirst[0]!=-1 || clfirst[1]!=-1 || clfirst[3]!=-1) {
-      digdat[n].expsn=1;
+      CALL_METHOD(&digdat[n].bob, explode);
       i=clfirst[3];
       while (i!=-1) {
-        if (digdat[i-FIRSTFIREBALL+curplayer].expsn==0)
-          digdat[i-FIRSTFIREBALL+curplayer].expsn=1;
+        if (digdat[i-FIRSTFIREBALL+curplayer].bob.expsn==0) {
+          CALL_METHOD(&digdat[i-FIRSTFIREBALL+curplayer].bob, explode);
+        }
         i=clcoll[i];
       }
     }
-    switch (digdat[n].fdir) {
+    switch (digdat[n].bob.dir) {
       case DIR_RIGHT:
-        if (digdat[n].fx>296)
-          digdat[n].expsn=1;
-        else
+        if (digdat[n].bob.x>296) {
+          CALL_METHOD(&digdat[n].bob, explode);
+        } else {
           if (pix!=0 && !clflag) {
-            digdat[n].expsn=1;
-            digdat[n].fx-=8;
-            drawfire(n-curplayer,digdat[n].fx,digdat[n].fy,0);
+            digdat[n].bob.x-=8;
+            CALL_METHOD(&digdat[n].bob, animate);
+            CALL_METHOD(&digdat[n].bob, explode);
           }
+        }
         break;
       case DIR_UP:
-        if (digdat[n].fy<15)
-          digdat[n].expsn=1;
-        else
+        if (digdat[n].bob.y<15) {
+          CALL_METHOD(&digdat[n].bob, explode);
+        } else {
           if (pix!=0 && !clflag) {
-            digdat[n].expsn=1;
-            digdat[n].fy+=7;
-            drawfire(n-curplayer,digdat[n].fx,digdat[n].fy,0);
+            digdat[n].bob.y+=7;
+            CALL_METHOD(&digdat[n].bob, animate);
+            CALL_METHOD(&digdat[n].bob, explode);
           }
+        }
         break;
       case DIR_LEFT:
-        if (digdat[n].fx<16)
-          digdat[n].expsn=1;
-        else
+        if (digdat[n].bob.x<16) {
+          CALL_METHOD(&digdat[n].bob, explode);
+        } else {
           if (pix!=0 && !clflag) {
-            digdat[n].expsn=1;
-            digdat[n].fx+=8;
-            drawfire(n-curplayer,digdat[n].fx,digdat[n].fy,0);
+            digdat[n].bob.x+=8;
+            CALL_METHOD(&digdat[n].bob, animate);
+            CALL_METHOD(&digdat[n].bob, explode);
           }
+        }
         break;
       case DIR_DOWN:
-        if (digdat[n].fy>183)
-          digdat[n].expsn=1;
-        else
+        if (digdat[n].bob.y>183) {
+          CALL_METHOD(&digdat[n].bob, explode);
+        } else {
           if (pix!=0 && !clflag) {
-            digdat[n].expsn=1;
-            digdat[n].fy-=7;
-            drawfire(n-curplayer,digdat[n].fx,digdat[n].fy,0);
+            digdat[n].bob.y-=7;
+            CALL_METHOD(&digdat[n].bob, animate);
+            CALL_METHOD(&digdat[n].bob, explode);
           }
+        }
     }
   }
 }
@@ -354,18 +381,17 @@ void erasediggers(void)
 
 void drawexplosion(int n)
 {
-  switch (digdat[n].expsn) {
+  switch (digdat[n].bob.expsn) {
     case 1:
       soundexplode(n);
     case 2:
     case 3:
-      drawfire(n-curplayer,digdat[n].fx,digdat[n].fy,digdat[n].expsn);
+      CALL_METHOD(&digdat[n].bob, animate);
       incpenalty();
-      digdat[n].expsn++;
+      digdat[n].bob.expsn++;
       break;
     default:
       killfire(n);
-      digdat[n].expsn=0;
   }
 }
 
@@ -373,7 +399,7 @@ void killfire(int n)
 {
   if (!digdat[n].notfiring) {
     digdat[n].notfiring=true;
-    erasespr(FIRSTFIREBALL+n-curplayer);
+    CALL_METHOD(&digdat[n].bob, kill);
     soundfireoff(n);
   }
 }
@@ -390,42 +416,42 @@ void updatedigger(int n)
   else
     ddir=DIR_NONE;
   if (digdat[n].rx==0 && (ddir==DIR_UP || ddir==DIR_DOWN))
-    digdat[n].dir=digdat[n].mdir=ddir;
+    digdat[n].dob.dir=digdat[n].mdir=ddir;
   if (digdat[n].ry==0 && (ddir==DIR_RIGHT || ddir==DIR_LEFT))
-    digdat[n].dir=digdat[n].mdir=ddir;
+    digdat[n].dob.dir=digdat[n].mdir=ddir;
   if (dir==DIR_NONE)
     digdat[n].mdir=DIR_NONE;
   else
-    digdat[n].mdir=digdat[n].dir;
-  if ((digdat[n].x==292 && digdat[n].mdir==DIR_RIGHT) ||
-      (digdat[n].x==12 && digdat[n].mdir==DIR_LEFT) ||
-      (digdat[n].y==180 && digdat[n].mdir==DIR_DOWN) ||
-      (digdat[n].y==18 && digdat[n].mdir==DIR_UP))
+    digdat[n].mdir=digdat[n].dob.dir;
+  if ((digdat[n].dob.x==292 && digdat[n].mdir==DIR_RIGHT) ||
+      (digdat[n].dob.x==12 && digdat[n].mdir==DIR_LEFT) ||
+      (digdat[n].dob.y==180 && digdat[n].mdir==DIR_DOWN) ||
+      (digdat[n].dob.y==18 && digdat[n].mdir==DIR_UP))
     digdat[n].mdir=DIR_NONE;
-  diggerox=digdat[n].x;
-  diggeroy=digdat[n].y;
+  diggerox=digdat[n].dob.x;
+  diggeroy=digdat[n].dob.y;
   if (digdat[n].mdir!=DIR_NONE)
     eatfield(diggerox,diggeroy,digdat[n].mdir);
   switch (digdat[n].mdir) {
     case DIR_RIGHT:
-      drawrightblob(digdat[n].x,digdat[n].y);
-      digdat[n].x+=4;
+      drawrightblob(digdat[n].dob.x,digdat[n].dob.y);
+      digdat[n].dob.x+=4;
       break;
     case DIR_UP:
-      drawtopblob(digdat[n].x,digdat[n].y);
-      digdat[n].y-=3;
+      drawtopblob(digdat[n].dob.x,digdat[n].dob.y);
+      digdat[n].dob.y-=3;
       break;
     case DIR_LEFT:
-      drawleftblob(digdat[n].x,digdat[n].y);
-      digdat[n].x-=4;
+      drawleftblob(digdat[n].dob.x,digdat[n].dob.y);
+      digdat[n].dob.x-=4;
       break;
     case DIR_DOWN:
-      drawbottomblob(digdat[n].x,digdat[n].y);
-      digdat[n].y+=3;
+      drawbottomblob(digdat[n].dob.x,digdat[n].dob.y);
+      digdat[n].dob.y+=3;
       break;
   }
-  if (hitemerald((digdat[n].x-12)/20,(digdat[n].y-18)/18,
-                 (digdat[n].x-12)%20,(digdat[n].y-18)%18,
+  if (hitemerald((digdat[n].dob.x-12)/20,(digdat[n].dob.y-18)/18,
+                 (digdat[n].dob.x-12)%20,(digdat[n].dob.y-18)%18,
                  digdat[n].mdir)) {
     if (digdat[n].emocttime==0)
       digdat[n].emn=0;
@@ -440,8 +466,7 @@ void updatedigger(int n)
     }
     digdat[n].emocttime=9;
   }
-  drawdig(n,digdat[n].dir,digdat[n].x,digdat[n].y,
-          digdat[n].notfiring && digdat[n].rechargetime==0);
+  drawdig(n);
   for (i=0;i<TYPES;i++)
     clfirst[i]=first[i];
   for (i=0;i<SPRITES;i++)
@@ -467,15 +492,15 @@ void updatedigger(int n)
       if (!pushudbags(clfirst,clcoll))
         push=false;
     if (!push) { /* Strange, push not completely defined */
-      digdat[n].x=diggerox;
-      digdat[n].y=diggeroy;
-      drawdig(n,digdat[n].mdir,digdat[n].x,digdat[n].y,
-              digdat[n].notfiring && digdat[n].rechargetime==0);
+      digdat[n].dob.x=diggerox;
+      digdat[n].dob.y=diggeroy;
+      digdat[n].dob.dir = digdat[n].mdir;
+      drawdig(n);
       incpenalty();
-      digdat[n].dir=reversedir(digdat[n].mdir);
+      digdat[n].dob.dir=reversedir(digdat[n].mdir);
     }
   }
-  if (clfirst[2]!=-1 && bonusmode && digdat[n].alive)
+  if (clfirst[2]!=-1 && bonusmode && digdat[n].dob.alive)
     for (nmon=killmonsters(clfirst,clcoll);nmon!=0;nmon--) {
       soundeatm();
       sceatm(n);
@@ -484,10 +509,10 @@ void updatedigger(int n)
     scorebonus(n);
     initbonusmode();
   }
-  digdat[n].h=(digdat[n].x-12)/20;
-  digdat[n].rx=(digdat[n].x-12)%20;
-  digdat[n].v=(digdat[n].y-18)/18;
-  digdat[n].ry=(digdat[n].y-18)%18;
+  digdat[n].h=(digdat[n].dob.x-12)/20;
+  digdat[n].rx=(digdat[n].dob.x-12)%20;
+  digdat[n].v=(digdat[n].dob.y-18)/18;
+  digdat[n].ry=(digdat[n].dob.y-18)%18;
 }
 
 void sceatm(int n)
@@ -504,16 +529,16 @@ void diggerdie(int n)
   bool alldead;
   switch (digdat[n].deathstage) {
     case 1:
-      if (bagy(digdat[n].deathbag)+6>digdat[n].y)
-        digdat[n].y=bagy(digdat[n].deathbag)+6;
-      drawdigger(n-curplayer,15,digdat[n].x,digdat[n].y,false);
+      if (bagy(digdat[n].deathbag)+6>digdat[n].dob.y)
+        digdat[n].dob.y=bagy(digdat[n].deathbag)+6;
+      drawdigger(n-curplayer,15,digdat[n].dob.x,digdat[n].dob.y,false);
       incpenalty();
       if (getbagdir(digdat[n].deathbag)+1==0) {
         soundddie();
         digdat[n].deathtime=5;
         digdat[n].deathstage=2;
         digdat[n].deathani=0;
-        digdat[n].y-=6;
+        digdat[n].dob.y-=6;
       }
       break;
     case 2:
@@ -523,7 +548,7 @@ void diggerdie(int n)
       }
       if (digdat[n].deathani==0)
         music(2);
-      drawdigger(n-curplayer,14-digdat[n].deathani,digdat[n].x,digdat[n].y,
+      drawdigger(n-curplayer,14-digdat[n].deathani,digdat[n].dob.x,digdat[n].dob.y,
                  false);
       for (i=0;i<TYPES;i++)
         clfirst[i]=first[i];
@@ -551,8 +576,8 @@ void diggerdie(int n)
       break;
     case 5:
       if (digdat[n].deathani>=0 && digdat[n].deathani<=6) {
-        drawdigger(n-curplayer,15,digdat[n].x,
-                   digdat[n].y-deatharc[digdat[n].deathani],false);
+        drawdigger(n-curplayer,15,digdat[n].dob.x,
+                   digdat[n].dob.y-deatharc[digdat[n].deathani],false);
         if (digdat[n].deathani==6 && !isalive())
           musicoff();
         incpenalty();
@@ -588,23 +613,23 @@ void diggerdie(int n)
               digdat[n].v=9;
               digdat[n].mdir=4;
               digdat[n].h=(diggers==1) ? 7 : (8-n*2);
-              digdat[n].x=digdat[n].h*20+12;
-              digdat[n].dir=(n==0) ? DIR_RIGHT : DIR_LEFT;
+              digdat[n].dob.x=digdat[n].h*20+12;
+              digdat[n].dob.dir=(n==0) ? DIR_RIGHT : DIR_LEFT;
               digdat[n].rx=0;
               digdat[n].ry=0;
               digdat[n].bagtime=0;
-              digdat[n].alive=true;
+              digdat[n].dob.alive=true;
               digdat[n].dead=false;
               digdat[n].invin=true;
               digdat[n].ivt=50;
               digdat[n].deathstage=1;
-              digdat[n].y=digdat[n].v*18+18;
+              digdat[n].dob.y=digdat[n].v*18+18;
               erasespr(n+FIRSTDIGGER-curplayer);
-              movedrawspr(n+FIRSTDIGGER-curplayer,digdat[n].x,digdat[n].y);
+              CALL_METHOD(&digdat[n].dob, pop);
               digdat[n].notfiring=true;
               digdat[n].emocttime=0;
               digdat[n].firepressed=false;
-              digdat[n].expsn=0;
+              digdat[n].bob.expsn=0;
               digdat[n].rechargetime=0;
               digdat[n].emn=0;
               digdat[n].msc=1;
@@ -667,10 +692,10 @@ bool checkdiggerunderbag(int16_t h,int16_t v)
 {
   int n;
   for (n=curplayer;n<diggers+curplayer;n++)
-    if (digdat[n].alive)
+    if (digdat[n].dob.alive)
       if (digdat[n].mdir==DIR_UP || digdat[n].mdir==DIR_DOWN)
-        if ((digdat[n].x-12)/20==h)
-          if ((digdat[n].y-18)/18==v || (digdat[n].y-18)/18+1==v)
+        if ((digdat[n].dob.x-12)/20==h)
+          if ((digdat[n].dob.y-18)/18==v || (digdat[n].dob.y-18)/18+1==v)
             return true;
   return false;
 }
@@ -680,7 +705,7 @@ void killdigger(int n,int16_t stage,int16_t bag)
   if (digdat[n].invin)
     return;
   if (digdat[n].deathstage<2 || digdat[n].deathstage>4) {
-    digdat[n].alive=false;
+    digdat[n].dob.alive=false;
     digdat[n].deathstage=stage;
     digdat[n].deathbag=bag;
   }
@@ -764,17 +789,17 @@ bool getfirepflag(int n)
 
 int diggerx(int n)
 {
-  return digdat[n].x;
+  return digdat[n].dob.x;
 }
 
 int diggery(int n)
 {
-  return digdat[n].y;
+  return digdat[n].dob.y;
 }
 
 bool digalive(int n)
 {
-  return digdat[n].alive;
+  return digdat[n].dob.alive;
 }
 
 void digresettime(int n)
@@ -786,7 +811,7 @@ bool isalive(void)
 {
   int i;
   for (i=curplayer;i<diggers+curplayer;i++)
-    if (digdat[i].alive)
+    if (digdat[i].dob.alive)
       return true;
   return false;
 }
