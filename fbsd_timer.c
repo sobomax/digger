@@ -7,17 +7,21 @@
 #include <vgl.h>
 
 #include "def.h"
+#include "digger_math.h"
 
 extern uint32_t ftime;
 long int account = 0;
 long int slept = 0;
 int i = 0;
 
-struct timeval *prev = NULL;
+static struct PFD phase_detector;
+static struct recfilter loop_error;
 
 void inittimer(void)
 {
 	FIXME("inittimer called");
+	recfilter_init(&loop_error, 0.96, 0.0, 0);
+	PFD_init(&phase_detector, 0.0);
 }
 
 int32_t getlrt(void)
@@ -26,34 +30,40 @@ int32_t getlrt(void)
 	return(0);
 }
 
+static double
+timespec2dtime(time_t tv_sec, long tv_nsec)
+{
+
+    return (double)tv_sec + (double)tv_nsec / 1000000000.0;
+}
+
+static double
+getdtime(void)
+{
+    struct timespec tp;
+
+    if (clock_gettime(CLOCK_UPTIME_PRECISE, &tp) == -1)
+        return (-1);
+
+    return timespec2dtime(tp.tv_sec, tp.tv_nsec);
+}
+
 uint32_t gethrt(void)
 {
-	long int diff;
-	int was_error;
-	struct timeval curr;
-	struct timespec timer, elapsed;
+	uint32_t add_delay;
+	double eval, clk_rl, tfreq;
 
 	VGLCheckSwitch();
+
 	/* Speed controlling stuff */
-	if (prev == NULL) {
-		prev = malloc(sizeof (struct timeval));
-		gettimeofday(prev, NULL);
-	} else {
-		gettimeofday(&curr, NULL);
-		diff = (ftime - (curr.tv_sec - prev->tv_sec)*1000000 - (curr.tv_usec - prev->tv_usec)) * 1000;
-		if (diff > 0) {
-			timer.tv_sec = 0;
-			timer.tv_nsec = diff;
-			do {
-				errno = 0;
-				was_error = nanosleep(&timer, &elapsed);
-				timer.tv_sec -= elapsed.tv_sec;
-				timer.tv_nsec -= elapsed.tv_nsec;
-			} while( was_error && (errno == EINTR) );
-		}
-		gettimeofday(&curr, NULL);
-		memcpy(prev, &curr, (sizeof (struct timeval)));
+	tfreq = 1000000.0 / ftime;
+	clk_rl = getdtime() * tfreq;
+	eval = PFD_get_error(&phase_detector, clk_rl);
+	if (eval != 0.0) {
+		recfilter_apply(&loop_error, sigmoid(eval));
 	}
+	add_delay = freqoff_to_period(tfreq, 1.0, loop_error.lastval) * 1000000;
+        usleep(add_delay);
 	return(0);
 }
 
