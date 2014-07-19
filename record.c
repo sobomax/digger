@@ -70,16 +70,23 @@ void openplay(char *name)
   /* The file is in two distint parts. In the first, line breaks are used as
      separators. In the second, they are ignored. This is the first. */
 
-  fgets(buf,80,playf); /* Get id string */
-  if (buf[0]!='D' || buf[1]!='R' || buf[2]!='F') {
-    fclose(playf);
-    escape=true;
-    return;
+  /* Get id string */
+  if (fgets(buf, 80, playf) == NULL) {
+    goto out_0;
   }
-  fgets(buf,80,playf); /* Get version for kludge switches */
+  if (buf[0]!='D' || buf[1]!='R' || buf[2]!='F') {
+    goto out_0;
+  }
+  /* Get version for kludge switches */
+  if (fgets(buf, 80, playf) == NULL) {
+    goto out_0;
+  }
   if (atol(buf+7)<=19981125l)
     kludge=true;
-  fgets(buf,80,playf); /* Get mode */
+  /* Get mode */
+  if (fgets(buf, 80, playf) == NULL) {
+    goto out_0;
+  }
   if (*buf=='1') {
     nplayers=1;
     x=1;
@@ -108,13 +115,19 @@ void openplay(char *name)
     x++;
   if (buf[x]=='I')
     startlev=atoi(buf+x+1);
-  fgets(buf,80,playf); /* Get bonus score */
+  /* Get bonus score */
+  if (fgets(buf, 80, playf) == NULL) {
+    goto out_0;
+  }
   bonusscore=atoi(buf);
   for (n=0;n<8;n++)
     for (y=0;y<10;y++) {
       for (x=0;x<15;x++)
         buf[x]=' ';
-      fgets(buf,80,playf); /* Get a line of map */
+      /* Get a line of map */
+      if (fgets(buf, 80, playf) == NULL) {
+        goto out_0;
+      }
       for (x=0;x<15;x++)
         leveldat[n][y][x]=buf[x];
     }
@@ -128,9 +141,7 @@ void openplay(char *name)
   fseek(playf,i,SEEK_SET);
   plb=plp=(char huge *)farmalloc(l);
   if (plb==(char huge *)NULL) {
-    fclose(playf);
-    escape=true;
-    return;
+    goto out_0;
   }
 
   for (i=0;i<l;i++) {
@@ -153,6 +164,12 @@ void openplay(char *name)
   startlev=origstartlev;
   diggers=origdiggers;
   nplayers=orignplayers;
+  return;
+out_0:
+  if (playf != NULL) {
+    fclose(playf);
+  }
+  escape = true;
 }
 
 void recstart(void)
@@ -292,6 +309,7 @@ void recinit(void)
   int x,y,l;
   recp=0;
   drfvalid=true;
+
   mprintf("DRF\n"); /* Required at start of DRF */
   if (kludge)
     mprintf("AJ DOS 19981125\n");
