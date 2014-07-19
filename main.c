@@ -1,3 +1,4 @@
+#include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -309,6 +310,11 @@ extern unsigned long x11_parent;
 
 void maininit(void)
 {
+  static int maininited = 0;
+
+  if (maininited != 0) {
+    return;
+  }
   calibrate();
   ginit();
   gpal(0);
@@ -318,6 +324,7 @@ void maininit(void)
   inir();
   initsound();
   recstart();
+  maininited = 1;
 }
 
 #ifndef _WINDOWS
@@ -635,29 +642,74 @@ void calibrate(void)
     volume=1;
 }
 
+static int
+read_levf(char *levfname)
+{
+  FILE *levf;
+
+  levf = fopen(levfname, "rb");
+  if (levf == NULL) {
+    strcat(levfname,".DLF");
+    levf = fopen(levfname,"rb");
+  }
+  if (levf == NULL) {
+      return (-1);
+  }
+  if (fread(&bonusscore, 2, 1, levf) < 2) {
+    goto eout_0;
+  }
+  if (fread(leveldat, 1200, 1, levf) <= 0) {
+    goto eout_0;
+  }
+  fclose(levf);
+  return (0);
+eout_0:
+  fclose(levf);
+  return (-1);
+}
+
+static int
+getarg(char argch, const char *allargs, bool *hasopt)
+{
+  char c;
+  const char *cp;
+
+  if (isalpha(argch)) {
+    c = toupper(argch);
+  } else {
+    c = argch;
+  }
+  for (cp = allargs; *cp != '\0'; cp++) {
+     if (c == *cp) {
+       *hasopt = (*(cp + 1) == ':') ? true : false;
+       return (c);
+     }
+  }
+  return (-1);
+}
+
 void parsecmd(int argc,char *argv[])
 {
   char *word;
+  int argch;
   int16_t arg,i=0,j,speedmul;
-  bool sf,gs=false,norepf=false;
-  FILE *levf;
+  bool sf, gs, norepf, hasopt;
+
+  gs = norepf = false;
 
   for (arg=1;arg<argc;arg++) {
     word=argv[arg];
     if (word[0]=='/' || word[0]=='-') {
-      if (word[1]=='L' || word[1]=='l' || word[1]=='R' || word[1]=='r' ||
-          word[1]=='P' || word[1]=='p' || word[1]=='S' || word[1]=='s' ||
-          word[1]=='E' || word[1]=='e' || word[1]=='G' || word[1]=='g' ||
 #ifdef UNIX
-          word[1]=='X' || word[1]=='x' ||
+      argch = getarg(word[1], "OUH?QM2BCKVL:R:P:S:E:G:X:A:I:", &hasopt);
+#else
+      argch = getarg(word[1], "OUH?QM2BCKVL:R:P:S:E:G:A:I:", &hasopt);
 #endif
-          word[1]=='A' || word[1]=='a' || word[1]=='I' || word[1]=='i') {
-        if (word[2]==':')
-          i=3;
-        else
-          i=2;
+      i = 2;
+      if (argch != -1 && hasopt && word[2] == ':') {
+        i = 3;
       }
-      if (word[1]=='L' || word[1]=='l') {
+      if (argch == 'L') {
         j=0;
         while (word[i]!=0)
           levfname[j++]=word[i++];
@@ -665,40 +717,44 @@ void parsecmd(int argc,char *argv[])
         levfflag=true;
       }
 #if defined(UNIX) && defined(_SDL)
-      if (word[1] == 'X' || word[1] == 'x') {
+      if (argch == 'X') {
               x11_parent = strtol (&word[i], 0, 0);
       }
 #endif
-      if (word[1]=='R' || word[1]=='r')
+      if (argch =='R')
         recname(word+i);
-      if (word[1]=='P' || word[1]=='p' || word[1]=='E' || word[1]=='e') {
+      if (argch =='P' || argch =='E') {
+        maininit();
         openplay(word+i);
         if (escape)
           norepf=true;
       }
-      if (word[1]=='E' || word[1]=='e') {
+      if (argch == 'E') {
         finish();
         if (escape)
           exit(0);
         exit(1);
       }
-      if ((word[1]=='O' || word[1]=='o') && !norepf) {
+      if (argch =='O' && !norepf) {
         arg=0;
         continue;
       }
-      if (word[1]=='S' || word[1]=='s') {
+      if (argch == 'S') {
         speedmul=0;
         while (word[i]!=0)
           speedmul=10*speedmul+word[i++]-'0';
         ftime=speedmul*2000l;
         gs=true;
       }
-      if (word[1]=='I' || word[1]=='i')
+      if (argch == 'I')
         sscanf(word+i,"%hi",&startlev);
-      if (word[1]=='U' || word[1]=='u')
+      if (argch == 'U')
         unlimlives=true;
 #ifndef _WINDOWS        
-      if (word[1]=='?' || word[1]=='h' || word[1]=='H') {
+      if (argch == '?' || argch == 'H' || argch == -1) {
+        if (argch == -1) {
+          fprintf(stderr, "Unknown option \"%c%c\"\n", word[0], word[1]);
+        }
         finish();
         printf("DIGGER - Copyright (c) 1983 Windmill software\n"
                "Restored 1998 by AJ Software\n"
@@ -744,14 +800,14 @@ void parsecmd(int argc,char *argv[])
         exit(1);
       }
 #endif      
-      if (word[1]=='Q' || word[1]=='q')
+      if (argch == 'Q')
         soundflag=false;
-      if (word[1]=='M' || word[1]=='m')
+      if (argch == 'M')
         musicflag=false;
-      if (word[1]=='2')
+      if (argch == '2')
         diggers=2;
 #ifndef _WINDOWS
-      if (word[1]=='B' || word[1]=='b' || word[1]=='C' || word[1]=='c') {
+      if (argch == 'B' || argch == 'C') {
         ginit=cgainit;
         gpal=cgapal;
         ginten=cgainten;
@@ -762,26 +818,26 @@ void parsecmd(int argc,char *argv[])
         gputim=cgaputim;
         gwrite=cgawrite;
         gtitle=cgatitle;
-        if (word[1]=='B' || word[1]=='b')
+        if (argch == 'B')
           biosflag=true;
         ginit();
         gpal(0);
       }
-      if (word[1]=='K' || word[1]=='k') {
+      if (argch == 'K') {
         if (word[2]=='A' || word[2]=='a')
           redefkeyb(true);
         else
           redefkeyb(false);
       }
-      if (word[1]=='A' || word[1]=='a')
+      if (argch =='A')
         sscanf(word+i,"%hu,%hx,%hu,%hu,%hu,%hu",&sound_device,&sound_port,&sound_irq,
                &sound_dma,&sound_rate,&sound_length);
-      if (word[1]=='Q' || word[1]=='q')
+      if (argch == 'Q')
         quiet=true;
-      if (word[1]=='V' || word[1]=='v')
+      if (argch == 'V')
         synchvid=true;
 #endif
-      if (word[1]=='G' || word[1]=='g') {
+      if (argch == 'G') {
         gtime=0;
         while (word[i]!=0)
           gtime=10*gtime+word[i++]-'0';
@@ -824,18 +880,8 @@ void parsecmd(int argc,char *argv[])
   }
 
   if (levfflag) {
-    levf=fopen(levfname,"rb");
-    if (levf==NULL) {
-      strcat(levfname,".DLF");
-      levf=fopen(levfname,"rb");
-    }
-    if (levf==NULL)
-      levfflag=false;
-    else {
-      fread(&bonusscore,2,1,levf);
-      fread(leveldat,1200,1,levf);
-      fclose(levf);
-    }
+    if (read_levf(levfname) != 0)
+      levfflag = false;
   }
 }
 
