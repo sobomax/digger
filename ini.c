@@ -33,25 +33,23 @@ void WriteINIString(char *section,char *key,char *value,char *filename)
   int tl;
   fp=fopen(filename,"rb");
   if (fp==NULL) {
-    fp=fopen(filename,"wb");
-    if (fp==NULL)
-      return;
-    fprintf(fp,"[%s]" NEWL,section);
-    fprintf(fp,"%s=%s" NEWL NEWL,key,value);
-    fclose(fp);
-    return;
+    goto do_write;
   }
   fseek(fp,0,2);
   tl=(int)ftell(fp);
   fseek(fp,0,0);
   buffer=(char *)malloc(tl+1);
   if (buffer==NULL) {
-    fclose(fp);
-    return;
+    goto out_0;
   }
-  fread(buffer,tl,1,fp);
+  if (fread(buffer, tl, 1, fp) <= 0) {
+    fprintf(stderr, "short read, recreating file: %s\n", filename);
+    fclose(fp);
+    goto do_write;
+  }
   buffer[tl]=0;
   fclose(fp);
+  fp = NULL;
   strcpy(s2,"[");
   strcat(s2,section);
   strcat(s2,"]");
@@ -67,40 +65,44 @@ void WriteINIString(char *section,char *key,char *value,char *filename)
         if (strnicmp(s1,s3,strlen(s3))==0) {
           fp=fopen(filename,"wb");
           if (fp==NULL) {
-            free(buffer);
-            return;
+            goto out_1;
           }
           fwrite(buffer,p0-buffer,1,fp);
           fprintf(fp,"%s=%s" NEWL,key,value);
           fwrite(p,tl-(p-buffer),1,fp);
-          fclose(fp);
-          free(buffer);
-          return;
+          goto out_1;
         }
       } while (s1[0]!=0);
       fp=fopen(filename,"wb");
       if (fp==NULL) {
-        free(buffer);
-        return;
+        goto out_1;
       }
       fwrite(buffer,p0-buffer,1,fp);
       fprintf(fp,"%s=%s" NEWL,key,value);
       fwrite(p0,tl-(p0-buffer),1,fp);
-      fclose(fp);
-      free(buffer);
-      return;
+      goto out_1;
     }
   } while (p<buffer+tl);
   fp=fopen(filename,"wb");
   if (fp==NULL) {
-    free(buffer);
-    return;
+    goto out_1;
   }
   fprintf(fp,"[%s]" NEWL,section);
   fprintf(fp,"%s=%s" NEWL NEWL,key,value);
   fwrite(buffer,tl,1,fp);
-  fclose(fp);
+out_1:
   free(buffer);
+out_0:
+  if (fp != NULL) {
+    fclose(fp);
+  }
+  return;
+do_write:
+  fp = fopen(filename, "wb");
+  if (fp == NULL)
+    return;
+  fprintf(fp, "[%s]" NEWL, section);
+  fprintf(fp, "%s=%s" NEWL NEWL, key, value);
   return;
 }
 
@@ -123,20 +125,26 @@ void GetINIString(char *section,char *key,char *def,char *dest,
   strcpy(s3,key);
   strcat(s3,"=");
   do {
-    fgets(s1,80,fp);
+    if (fgets(s1, 80, fp) == NULL) {
+      fprintf(stderr, "GetINIString: read failed: %s\n", filename);
+      goto out_0;
+    }
     sgets(s1,s1);
     if (stricmp(s1,s2)==0) {
       do {
-        fgets(s1,80,fp);
+        if (fgets(s1, 80, fp) == NULL) {
+          fprintf(stderr, "GetINIString: read failed: %s\n", filename);
+          goto out_0;
+        }
         sgets(s1,s1);
         if (strnicmp(s1,s3,strlen(s3))==0) {
           strcpy(dest,s1+strlen(s3));
-          fclose(fp);
-          return;
+          goto out_0;
         }
       } while (s1[0]!=0 && !feof(fp) && !ferror(fp));
     }
   } while (!feof(fp) && !ferror(fp));
+out_0:
   fclose(fp);
 }
 
