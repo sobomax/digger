@@ -79,14 +79,18 @@ void readscores(void)
   scorebuf[0]=0;
   if (!levfflag) {
     if ((in=fopen(SFNAME,"rb"))!=NULL) {
-      fread(scorebuf,512,1,in);
+      if (fread(scorebuf, 512, 1, in) <= 0) {
+        scorebuf[0]=0;
+      }
       fclose(in);
     }
   }
   else
     if ((in=fopen(levfname,"rb"))!=NULL) {
       fseek(in,1202,0);
-      fread(scorebuf,512,1,in);
+      if (fread(scorebuf, 512, 1, in) <= 0) {
+        scorebuf[0]=0;
+      }
       fclose(in);
     }
 }
