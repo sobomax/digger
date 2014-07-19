@@ -715,7 +715,7 @@ void parsecmd(int argc,char *argv[])
                                                            "[/G[:time]] [/2]\n"
                "         [/A:device,port,irq,dma,rate,length] [/V] [/U] "
                                                                "[/I:level] "
-#ifdef UNIX
+#if defined(UNIX) && defined(_SDL)
                                                                "[/X:xid]"
 #endif
                                                                "\n\n"
@@ -736,7 +736,7 @@ void parsecmd(int argc,char *argv[])
 #ifndef UNIX
                "/V = Synchronize timing to vertical retrace\n"
 #endif
-#ifdef UNIX
+#if defined(UNIX) && defined(_SDL)
                "/X = Embed in window\n"
 #endif
                "/U = Allow unlimited lives\n"
