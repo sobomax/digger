@@ -700,7 +700,7 @@ void parsecmd(int argc,char *argv[])
   for (arg=1;arg<argc;arg++) {
     word=argv[arg];
     if (word[0]=='/' || word[0]=='-') {
-#ifdef UNIX
+#if defined(UNIX) && defined(_SDL)
       argch = getarg(word[1], "OUH?QM2BCKVL:R:P:S:E:G:X:A:I:", &hasopt);
 #else
       argch = getarg(word[1], "OUH?QM2BCKVL:R:P:S:E:G:A:I:", &hasopt);
