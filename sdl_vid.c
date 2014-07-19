@@ -14,6 +14,7 @@
 #include <stdlib.h>
 /* Lovely SDL */
 #include <SDL.h>
+#include <SDL_syswm.h>
 
 #include "def.h"
 #include "hardware.h"
@@ -24,45 +25,48 @@
 extern uint8_t *vgatable[];
 extern uint8_t *ascii2vga[];
 
-uint8_t **sprites = vgatable;
-uint8_t **alphas = ascii2vga;
+static uint8_t **sprites = vgatable;
+static uint8_t **alphas = ascii2vga;
 
-int16_t xratio = 2;
-int16_t yratio = 2;
-int16_t yoffset = 0;
-int16_t hratio = 2;
-int16_t wratio = 2;
+static int16_t xratio = 2;
+static int16_t yratio = 2;
+static int16_t yoffset = 0;
+static int16_t hratio = 2;
+static int16_t wratio = 2;
 #define virt2scrx(x) (x*xratio)
 #define virt2scry(y) (y*yratio+yoffset)
 #define virt2scrw(w) (w*wratio)
 #define virt2scrh(h) (h*hratio)
 
 /* palette1, normal intensity */
-SDL_Color vga16_pal1[] = \
+static SDL_Color vga16_pal1[] = \
 {{0,0,0,0},{0,0,128,0},{0,128,0,0},{0,128,128,0},{128,0,0,0},{128,0,128,0} \
 ,{128,64,0,0},{128,128,128,0},{64,64,64,0},{0,0,255,0},{0,255,0,0} \
 ,{0,255,255,0},{255,0,0,0},{255,0,255,0},{255,255,0,0},{255,255,255,0}};
 /* palette1, high intensity */
-SDL_Color vga16_pal1i[] = \
+static SDL_Color vga16_pal1i[] = \
 {{0,0,0,0},{0,0,255,0},{0,255,0,0},{0,255,255,0},{255,0,0,0},{255,0,255,0} \
 ,{255,128,0,0},{196,196,196,0},{128,128,128,0},{128,128,255,0},{128,255,128,0} \
 ,{128,255,255,0},{255,128,128,0},{255,128,255,0},{255,255,128,0},{255,255,255,0}};
 /* palette2, normal intensity */
-SDL_Color vga16_pal2[] = \
+static SDL_Color vga16_pal2[] = \
 {{0,0,0,0},{0,128,0,0},{128,0,0,0},{128,64,0,0},{0,0,128,0},{0,128,128,0} \
 ,{128,0,128,0},{128,128,128,0},{64,64,64,0},{0,255,0,0},{255,0,0,0} \
 ,{255,255,0,0},{0,0,255,0},{0,255,255,0},{255,0,255,0},{255,255,255,0}};
 /* palette2, high intensity */
-SDL_Color vga16_pal2i[] = \
+static SDL_Color vga16_pal2i[] = \
 {{0,0,0,0},{0,255,0,0},{255,0,0,0},{255,128,0,0},{0,0,255,0},{0,255,255,0} \
 ,{255,0,255,0},{196,196,196,0},{128,128,128,0},{128,255,128,0},{255,128,128,0} \
 ,{255,255,128,0},{128,128,255,0},{128,255,255,0},{255,128,255,0},{255,255,255,0}};
 
-SDL_Color *npalettes[] = {vga16_pal1, vga16_pal2};
-SDL_Color *ipalettes[] = {vga16_pal1i, vga16_pal2i};
-int16_t	currpal=0;
+static SDL_Color *npalettes[] = {vga16_pal1, vga16_pal2};
+static SDL_Color *ipalettes[] = {vga16_pal1i, vga16_pal2i};
+static int16_t	currpal=0;
 
-uint32_t	addflag=0;
+#ifdef UNIX
+Window x11_parent = 0;
+#endif
+static uint32_t	addflag=0;
 
 static SDL_Surface *screen = NULL;
 
@@ -83,13 +87,38 @@ void graphicsoff(void)
 {
 }
 
+#ifdef UNIX
+void
+x11_set_parent(Window parent)
+{
+        SDL_SysWMinfo sdlInfo;
+
+        SDL_VERSION(&sdlInfo.version);
+        SDL_GetWMInfo(&sdlInfo);
+        XReparentWindow(sdlInfo.info.x11.gfxdisplay, sdlInfo.info.x11.window, parent, 0, 0);
+        XDestroyWindow(sdlInfo.info.x11.gfxdisplay, sdlInfo.info.x11.wmwindow);
+}
+#endif
+
 bool setmode(void)
 {
-	if((screen = SDL_SetVideoMode(640, 400, 8, \
-	    SDL_HWSURFACE | SDL_HWPALETTE | SDL_DOUBLEBUF | addflag)) == NULL)
+#ifdef UNIX
+        static int x11_parent_inited = 0;
+
+        if (x11_parent && x11_parent_inited == 0) {
+                addflag |= SDL_NOFRAME;
+        }
+#endif
+        screen = SDL_SetVideoMode(640, 400, 8, SDL_HWSURFACE | SDL_HWPALETTE | \
+          SDL_DOUBLEBUF | addflag);
+        if (screen == NULL)
 		return(false);
-	else
-		return(true);
+#ifdef UNIX
+        if (x11_parent && x11_parent_inited == 0) {
+                x11_set_parent(x11_parent);
+        }
+#endif
+	return(true);
 }
 
 void switchmode(void)

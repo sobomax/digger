@@ -13,21 +13,21 @@ ARCH	= "LINUX"
 
 ifeq ($(ARCH),"MINGW")
 RCFLAGS	+= -mno-cygwin -DMINGW -Dmain=SDL_main -I../zlib -I../SDL-1.1.2/include/SDL
-LIBS	+= -mno-cygwin -mwindows -lmingw32 -L../SDL-1.1.2/lib -lSDLmain -lSDL -luser32 -lgdi32 -lwinmm -L../zlib -lz
+LIBS	+= -mno-cygwin -mwindows -lmingw32 -L../SDL-1.1.2/lib -lSDLmain -lSDL -luser32 -lgdi32 -lwinmm -L../zlib -lz -lm
 ESUFFIX	=  .exe
 endif
 
 ifeq ($(ARCH),"FREEBSD")
 OBJS	+= fbsd_sup.o	# strup()
 RCFLAGS	+= -DFREEBSD $(shell sdl-config --cflags)
-LIBS	+= $(shell sdl-config --libs) -lz
+LIBS	+= $(shell sdl-config --libs) -lz -lm -lX11
 ESUFFIX	=
 endif
 
 ifeq ($(ARCH),"LINUX")
 OBJS	+= fbsd_sup.o	# strup()
 RCFLAGS	+= -DLINUX $(shell sdl-config --cflags)
-LIBS	+= $(shell sdl-config --libs) -lz
+LIBS	+= $(shell sdl-config --libs) -lz -lm -lX11
 ESUFFIX	=
 endif
 

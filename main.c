@@ -1,8 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include <SDL.h>
-#include <SDL_syswm.h>
 
 #include "def.h"
 #include "digger_types.h"
@@ -21,7 +19,6 @@
 #include "main.h"
 #include "newsnd.h"
 #include "ini.h"
-#include "sdl_vid.h"
 
 #ifdef _WINDOWS
 #include "win_dig.h"
@@ -305,8 +302,9 @@ void game(void)
 
 static bool quiet=false;
 static uint16_t sound_device,sound_port,sound_irq,sound_dma,sound_rate,sound_length;
-#ifdef UNIX
-Window parent = 0;
+
+#if defined(UNIX) && defined(_SDL)
+extern unsigned long x11_parent;
 #endif
 
 void maininit(void)
@@ -340,14 +338,6 @@ int mainprog(void)
   loadscores();
 #ifdef _WINDOWS
   show_main_menu();
-#else
-  if (parent) {
-    SDL_SysWMinfo sdlInfo;
-    SDL_VERSION( &sdlInfo.version );
-    SDL_GetWMInfo( &sdlInfo );
-    XReparentWindow(sdlInfo.info.x11.gfxdisplay, sdlInfo.info.x11.window, parent, 0, 0);
-    XDestroyWindow(sdlInfo.info.x11.gfxdisplay, sdlInfo.info.x11.wmwindow);
-  }
 #endif
   escape=false;
   nobbin = NULL;
@@ -674,10 +664,9 @@ void parsecmd(int argc,char *argv[])
         levfname[j]=word[i];
         levfflag=true;
       }
-#ifdef UNIX
+#if defined(UNIX) && defined(_SDL)
       if (word[1] == 'X' || word[1] == 'x') {
-              parent = strtol (&word[i], 0, 0);;
-              addflag |= SDL_NOFRAME;
+              x11_parent = strtol (&word[i], 0, 0);
       }
 #endif
       if (word[1]=='R' || word[1]=='r')
