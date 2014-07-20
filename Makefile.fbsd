@@ -2,11 +2,13 @@ PROG=		digger
 
 SRCS=		main.c digger.c drawing.c sprite.c scores.c record.c sound.c \
 		newsnd.c ini.c input.c monster.c bags.c alpha.c vgagrafx.c \
-		title_gz.c
+		title_gz.c digger_math.c digger_math.h monster_obj.c \
+		monster_obj.h digger_obj.c digger_obj.h bullet_obj.c \
+		bullet_obj.h
 
 CFLAGS+=	-DFREEBSD
 
-LDADD+=		-lz
+LDADD+=		-lz -lm
 
 SDL_CONFIG?=	sdl-config
 
