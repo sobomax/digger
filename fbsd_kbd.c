@@ -41,7 +41,7 @@ void restorekeyb(void)
 	VGLKeyboardEnd();
 }
 
-static bool UpdateStates(Sint4* result)
+static bool UpdateStates(int16_t *result)
 {
 	int16_t i;
 	bool isasymbol, state;
@@ -61,7 +61,7 @@ static bool UpdateStates(Sint4* result)
 			break;
 		}
 
-	if (isasymbol == true)
+	if (isasymbol == false)
 		*result+=128;
 
 	states[*result] = state;
@@ -77,10 +77,12 @@ void ProcessKbd(void)
 	while((result = VGLKeyboardGetCh()) != 0) {
 
 		state=UpdateStates(&result);
-		if(newconsf==true && pausef==true) /* return to game ? */
+		if(newconsf==true && pausef==true) {
+                  /* return to game ? */
 		  if(state==false) 
 		    continue;
 		  else newconsf=false;			/* yes */
+                }
 		
 		while(newconsf==false && state==true &&
 		      result>=F1KEY && result<=F10KEY && altpressed) {
