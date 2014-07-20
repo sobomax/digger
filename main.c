@@ -39,7 +39,8 @@ static struct game
   bool levdone;
 } gamedat[2];
 
-static bool levnotdrawn=false,alldead=false,started;
+static bool levnotdrawn=false,alldead=false;
+bool started;
 
 char levfname[132];
 bool levfflag=false;
