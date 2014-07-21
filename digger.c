@@ -65,7 +65,7 @@ void initdigger(void)
     digdat[dig].deathstage=1;
     y = digdat[dig].v * 18 + 18;
     digger_obj_init(&digdat[dig].dob, dig - curplayer, dir, x, y);
-    CALL_METHOD(&digdat[dig].dob, pop);
+    CALL_METHOD(&digdat[dig].dob, put);
     digdat[dig].notfiring=true;
     digdat[dig].emocttime=0;
     digdat[dig].bob.expsn=0;
@@ -253,7 +253,7 @@ void updatefire(int n)
               abort();
           }
           bullet_obj_init(&digdat[n].bob, n - curplayer, digdat[n].dob.dir, fx, fy);
-          CALL_METHOD(&digdat[n].bob, pop);
+          CALL_METHOD(&digdat[n].bob, put);
           soundfire(n);
         }
       }
@@ -381,17 +381,12 @@ void erasediggers(void)
 
 void drawexplosion(int n)
 {
-  switch (digdat[n].bob.expsn) {
-    case 1:
-      soundexplode(n);
-    case 2:
-    case 3:
-      CALL_METHOD(&digdat[n].bob, animate);
-      incpenalty();
-      digdat[n].bob.expsn++;
-      break;
-    default:
-      killfire(n);
+
+  if (digdat[n].bob.expsn < 4) {
+    CALL_METHOD(&digdat[n].bob, animate);
+    incpenalty();
+  } else {
+    killfire(n);
   }
 }
 
@@ -399,8 +394,7 @@ void killfire(int n)
 {
   if (!digdat[n].notfiring) {
     digdat[n].notfiring=true;
-    CALL_METHOD(&digdat[n].bob, kill);
-    soundfireoff(n);
+    CALL_METHOD(&digdat[n].bob, remove);
   }
 }
 
@@ -625,7 +619,7 @@ void diggerdie(int n)
               digdat[n].deathstage=1;
               digdat[n].dob.y=digdat[n].v*18+18;
               erasespr(n+FIRSTDIGGER-curplayer);
-              CALL_METHOD(&digdat[n].dob, pop);
+              CALL_METHOD(&digdat[n].dob, put);
               digdat[n].notfiring=true;
               digdat[n].emocttime=0;
               digdat[n].firepressed=false;
