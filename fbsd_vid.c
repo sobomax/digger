@@ -64,44 +64,6 @@ palette        *npalettes[] = {vga16_pal1, vga16_pal2};
 palette        *ipalettes[] = {vga16_pal1i, vga16_pal2i};
 int16_t           currpal = 0;
 
-#if __FreeBSD_version < 400000
-VGLBitmap      *
-VGLBitmapCreate(int type, int xsize, int ysize, byte * bits)
-{
-    VGLBitmap      *object;
-
-    if (type != MEMBUF)
-	return NULL;
-    if (xsize < 0 || ysize < 0)
-	return NULL;
-    object = (VGLBitmap *) malloc(sizeof(*object));
-    if (object == NULL)
-	return NULL;
-    object->Type = type;
-    object->Xsize = xsize;
-    object->Ysize = ysize;
-    object->Bitmap = bits;
-    return object;
-}
-
-void
-VGLBitmapDestroy(VGLBitmap * object)
-{
-    if (object->Bitmap)
-	free(object->Bitmap);
-    free(object);
-}
-
-int
-VGLBitmapAllocateBits(VGLBitmap * object)
-{
-    object->Bitmap = (byte *) malloc(object->Xsize * object->Ysize);
-    if (object->Bitmap == NULL)
-	return -1;
-    return 0;
-}
-#endif
-
 VGLBitmap      *
 ch2bmap(uint8_t * sprite, int16_t w, int16_t h)
 {
