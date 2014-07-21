@@ -38,7 +38,7 @@
 #include "sprite.h"
 
 static int
-bullet_obj_pop(struct bullet_obj *self)
+bullet_obj_put(struct bullet_obj *self)
 {
 
   movedrawspr(FIRSTFIREBALL + self->f_id, self->x, self->y);
@@ -54,7 +54,7 @@ bullet_obj_animate(struct bullet_obj *self)
 }
 
 static int
-bullet_obj_kill(struct bullet_obj *self)
+bullet_obj_remove(struct bullet_obj *self)
 {
 
   erasespr(FIRSTFIREBALL + self->f_id);
@@ -66,7 +66,7 @@ static int
 bullet_obj_explode(struct bullet_obj *self)
 {
 
-  assert(self->expsn == 0);
+  /*assert(self->expsn == 0);*/
   self->expsn = 1;
   return (0);
 }
@@ -80,9 +80,9 @@ bullet_obj_init(struct bullet_obj *self, uint16_t f_id, int16_t dir, int16_t x, 
   self->x = x;
   self->y = y;
   self->expsn = 0;
-  self->pop = &bullet_obj_pop;
+  self->put = &bullet_obj_put;
   self->animate = &bullet_obj_animate;
-  self->kill = &bullet_obj_kill;
+  self->remove = &bullet_obj_remove;
   self->explode = &bullet_obj_explode;
   self->f_id = f_id;
 }

@@ -39,9 +39,9 @@ struct bullet_obj {
     int16_t dir;
     int16_t x;
     int16_t y;
-    fmethod_t pop;
+    fmethod_t put;
     fmethod_t animate;
-    fmethod_t kill;
+    fmethod_t remove;
     fmethod_t explode;
 };
 
