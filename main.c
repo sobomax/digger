@@ -379,7 +379,7 @@ int mainprog(void)
           CALL_METHOD(nobbin, dtor);
         }
         nobbin = monster_obj_ctor(0, MON_NOBBIN, DIR_LEFT, 292, 63);
-        CALL_METHOD(nobbin, pop);
+        CALL_METHOD(nobbin, put);
       }
       if (frame>50 && frame<=77) {
         CALL_METHOD(nobbin, getpos, &newpos);
@@ -400,7 +400,7 @@ int mainprog(void)
           CALL_METHOD(hobbin, dtor);
         }
         hobbin = monster_obj_ctor(1, MON_NOBBIN, DIR_LEFT, 292, 82);
-        CALL_METHOD(hobbin, pop);
+        CALL_METHOD(hobbin, put);
       }
       if (frame>90 && frame<=117) {
         CALL_METHOD(hobbin, getpos, &newpos);
@@ -420,7 +420,7 @@ int mainprog(void)
         outtext("HOBBIN",216,83,2);
       if (frame==130) {
         digger_obj_init(&odigger, 0, DIR_LEFT, 292, 101);
-        CALL_METHOD(&odigger, pop);
+        CALL_METHOD(&odigger, put);
       }
       if (frame>130 && frame<=157) {
         odigger.x -= 4;
