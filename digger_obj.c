@@ -38,7 +38,7 @@
 #include "sprite.h"
 
 static int
-digger_obj_pop(struct digger_obj *self)
+digger_obj_put(struct digger_obj *self)
 {
 
   movedrawspr(FIRSTDIGGER + self->d_id, self->x, self->y);
@@ -79,7 +79,7 @@ digger_obj_init(struct digger_obj *self, uint16_t d_id, int16_t dir, int16_t x, 
   self->dir = dir;
   self->x = x;
   self->y = y;
-  self->pop = &digger_obj_pop;
+  self->put = &digger_obj_put;
   self->animate = &digger_obj_animate;
   self->discharge = &digger_obj_discharge;
   self->recharge = &digger_obj_recharge;

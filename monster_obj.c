@@ -122,7 +122,7 @@ monster_obj_updspr(struct monster_obj_private *mop)
 }
 
 static int
-monster_obj_pop(struct monster_obj *self)
+monster_obj_put(struct monster_obj *self)
 {
   struct monster_obj_private *mop;
 
@@ -258,7 +258,7 @@ monster_obj_ctor(uint16_t m_id, bool nobf, int16_t dir, int16_t x, int16_t y)
   mp->monspr = 0;
   mp->monspd = 1;
 
-  mpub->pop = &monster_obj_pop;
+  mpub->put = &monster_obj_put;
   mpub->animate = &monster_obj_animate;
   mpub->mutate = &monster_obj_mutate;
   mpub->kill = &monster_obj_kill;

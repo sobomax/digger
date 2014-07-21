@@ -40,7 +40,7 @@ typedef bool (*mmethod_getflag)(struct monster_obj *);
 
 struct monster_obj {
     mmethod_0_t dtor;
-    mmethod_0_t pop;
+    mmethod_0_t put;
     mmethod_0_t mutate;
     mmethod_0_t animate;
     mmethod_0_t damage;

@@ -41,7 +41,7 @@ struct digger_obj {
     int16_t dir;
     int16_t x;
     int16_t y;
-    dmethod_t pop;
+    dmethod_t put;
     dmethod_t animate;
     dmethod_t discharge;
     dmethod_t recharge;
