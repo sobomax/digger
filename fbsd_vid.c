@@ -13,9 +13,11 @@
 #include <sys/fbio.h>
 #include <sys/kbio.h>
 #include <sys/consio.h>
+#include <assert.h>
 #include <vgl.h>
 #include <signal.h>
 #include <osreldate.h>
+#include <stdio.h>
 
 #include "def.h"
 #include "hardware.h"
@@ -33,7 +35,7 @@ int16_t           yoffset = 0;
 int16_t           hratio = 2;
 int16_t           wratio = 2;
 #define virt2scrx(x) (x*xratio)
-#define virt2scry(y) (y*yratio+yoffset)
+#define virt2scry(y) (y*yratio)
 #define virt2scrw(w) (w*wratio)
 #define virt2scrh(h) (h*hratio)
 
@@ -64,6 +66,26 @@ palette        *npalettes[] = {vga16_pal1, vga16_pal2};
 palette        *ipalettes[] = {vga16_pal1i, vga16_pal2i};
 int16_t           currpal = 0;
 
+/* Data structure holding pending updates */
+struct PendNode {
+    void *prevnode;
+    void *nextnode;
+    int16_t realx;
+    int16_t realy;
+    int16_t realw;
+    int16_t realh;
+};
+
+static struct {
+    struct PendNode *First;
+    struct PendNode *Last;
+    int pendnum;
+} pendups;
+
+static struct PendNode *find_pending(int16_t realx, int16_t realy, int16_t realh, int16_t realw);
+
+static VGLBitmap *sVGLDisplay;
+
 VGLBitmap      *
 ch2bmap(uint8_t * sprite, int16_t w, int16_t h)
 {
@@ -81,12 +103,14 @@ ch2bmap(uint8_t * sprite, int16_t w, int16_t h)
 void
 graphicsoff(void)
 {
+    VGLBitmapDestroy(sVGLDisplay);
     VGLEnd();
 }
 
 void
 vgainit(void)
 {
+    {int b=0; while (b);}
     if (geteuid() != 0) {
 	fprintf(stderr, "The current graphics console architecture only permits " \
 		"super-user to access it, therefore you either have to obtain such permissions" \
@@ -104,6 +128,11 @@ vgainit(void)
 		exit(1);
 	}
     }
+
+    sVGLDisplay = VGLBitmapCreate(MEMBUF, 640, 400, NULL);
+    VGLBitmapAllocateBits(sVGLDisplay);
+    VGLClear(sVGLDisplay, 0);
+
     /*
      * Since the VGL library doesn't provide a default way to restore console
      * and keyboard after uncatched by the program signal, we should try to
@@ -123,6 +152,7 @@ vgainit(void)
 void
 vgaclear(void)
 {
+    VGLClear(sVGLDisplay, 0);
     VGLClear(VGLDisplay, 0);
 }
 
@@ -153,24 +183,97 @@ vgapal(int16_t pal)
     currpal = pal;
 }
 
+static void
+pendappend(struct PendNode *newn)
+{
+
+    if (pendups.pendnum == 0) {
+        pendups.First = newn;
+    } else {
+        pendups.Last->nextnode = newn;
+        newn->prevnode = pendups.Last;
+    }
+
+    pendups.Last = newn;
+    pendups.pendnum++;
+}
+
+void
+doscreenupdate(void)
+{
+    struct PendNode *ptr;
+    int pendnum = 0;
+
+    fprintf(stderr, "doscreenupdate: pendnum =%d\n", pendups.pendnum);
+    for (ptr = pendups.First; ptr != NULL; ptr = pendups.First) {
+        VGLBitmapCopy(sVGLDisplay, ptr->realx, ptr->realy, VGLDisplay, ptr->realx,
+          ptr->realy + yoffset, ptr->realw, ptr->realh);
+        pendups.First = ptr->nextnode;
+        free(ptr);
+        pendnum += 1;
+    }
+    assert(pendnum == pendups.pendnum);
+    pendups.pendnum = 0;
+#if 0
+    VGLBitmapCopy(sVGLDisplay, 0, 0, VGLDisplay, 0, yoffset, 640, 400);
+#endif
+}
+
 void
 vgaputi(int16_t x, int16_t y, uint8_t * p, int16_t w, int16_t h)
 {
     VGLBitmap      *tmp;
     int16_t           realx, realy, realh, realw;
+    struct PendNode *newn;
+    static int pending_match = 0;
 
     realx = virt2scrx(x);
     realy = virt2scry(y);
     realw = virt2scrw(w * 4);
     realh = virt2scrh(h);
+    if (find_pending(realx, realy, realw, realh) == NULL) {
+        newn = malloc(sizeof (struct PendNode));
+        memset(newn, 0x00, (sizeof (struct PendNode)));
 
+        newn->realx = realx;
+        newn->realy = realy;
+        newn->realw = realw;
+        newn->realh = realh;
+
+        pendappend(newn);
+    } else {
+        pending_match += 1;
+        if (pending_match < 10 || pending_match % 50 == 0) {
+            fprintf(stderr, "vgaputi: pending_match = %d\n", pending_match);
+        }
+    }
     memcpy(&tmp, p, (sizeof(VGLBitmap *)));
-    VGLBitmapCopy(tmp, 0, 0, VGLDisplay, realx, realy, realw, realh);
+    VGLBitmapCopy(tmp, 0, 0, sVGLDisplay, realx, realy, realw, realh);
+}
+
+static struct PendNode *
+find_pending(int16_t realx, int16_t realy, int16_t realh, int16_t realw)
+{
+    struct PendNode *ptr;
+
+    for (ptr = pendups.First; ptr != NULL; ptr = ptr->nextnode) {
+        if (ptr->realx != realx)
+            continue;
+        if (ptr->realy != realy)
+            continue;
+        if (ptr->realh != realh)
+            continue;
+        if (ptr->realw != realw)
+            continue;
+        return (ptr);
+    }
+    return (NULL);
 }
 
 void
 vgageti(int16_t x, int16_t y, uint8_t * p, int16_t w, int16_t h)
 {
+    struct PendNode *ptr;
     VGLBitmap      *tmp;
     int16_t           realx, realy, realh, realw;
 
@@ -185,8 +288,7 @@ vgageti(int16_t x, int16_t y, uint8_t * p, int16_t w, int16_t h)
 
     tmp = VGLBitmapCreate(MEMBUF, realw, realh, NULL);
     VGLBitmapAllocateBits(tmp);
-    VGLClear(tmp, 0);
-    VGLBitmapCopy(VGLDisplay, realx, realy, tmp, 0, 0, realw, realh);
+    VGLBitmapCopy(sVGLDisplay, realx, realy, tmp, 0, 0, realw, realh);
 
     memcpy(p, &tmp, (sizeof(VGLBitmap *)));
 }
@@ -305,8 +407,8 @@ savescreen(void)
 
     f = fopen("screen.saw", "w");
 
-    for (i = 0; i < (VGLDisplay->Xsize * VGLDisplay->Ysize); i++)
-	fputc(VGLDisplay->Bitmap[i], f);
+    for (i = 0; i < (sVGLDisplay->Xsize * sVGLDisplay->Ysize); i++)
+	fputc(sVGLDisplay->Bitmap[i], f);
     fclose(f);
 }
 

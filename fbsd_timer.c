@@ -7,6 +7,7 @@
 #include <vgl.h>
 
 #include "def.h"
+#include "fbsd_vid.h"
 #include "digger_math.h"
 
 extern uint32_t ftime;
@@ -63,6 +64,7 @@ uint32_t gethrt(void)
 		recfilter_apply(&loop_error, sigmoid(eval));
 	}
 	add_delay = freqoff_to_period(tfreq, 1.0, loop_error.lastval) * 1000000;
+	doscreenupdate();
         usleep(add_delay);
 	return(0);
 }
