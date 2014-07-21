@@ -67,7 +67,7 @@ __drawmon(struct monster_obj_private *mop)
 
   mop->monspr += mop->monspd;
   if (mop->monspr == 2 || mop->monspr == 0)
-    mop->monspd =- mop->monspd;
+    mop->monspd = -(mop->monspd);
   if (mop->monspr > 2)
     mop->monspr = 2;
   if (mop->monspr < 0)
