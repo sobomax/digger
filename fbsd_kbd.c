@@ -7,6 +7,7 @@
 
 #include "def.h"
 #include "hardware.h"
+#include "main.h"
 
 #define KBLEN		30
 int16_t kbuffer[KBLEN];
