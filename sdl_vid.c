@@ -64,7 +64,7 @@ static SDL_Color *ipalettes[] = {vga16_pal1i, vga16_pal2i};
 static int16_t	currpal=0;
 
 #ifdef UNIX
-Window x11_parent = 0;
+static Window x11_parent = 0;
 #endif
 static uint32_t	addflag=0;
 
@@ -367,6 +367,21 @@ void savescreen(void)
 		fputc(VGLDisplay->Bitmap[i], f);
 	fclose(f);*/
 }
+
+void
+sdl_enable_fullscreen(void)
+{
+
+  addflag |= SDL_FULLSCREEN;
+}
+
+void
+sdl_set_x11_parent(unsigned int xp)
+{
+
+  x11_parent = (Window)xp;
+}
+
 
 /* 
  * Depreciated functions, necessary only to avoid "Undefined symbol:..." compiler

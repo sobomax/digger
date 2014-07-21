@@ -306,7 +306,7 @@ static bool quiet=false;
 static uint16_t sound_device,sound_port,sound_irq,sound_dma,sound_rate,sound_length;
 
 #if defined(UNIX) && defined(_SDL)
-extern unsigned long x11_parent;
+#include "sdl_vid.h"
 #endif
 
 void maininit(void)
@@ -702,7 +702,7 @@ void parsecmd(int argc,char *argv[])
     word=argv[arg];
     if (word[0]=='/' || word[0]=='-') {
 #if defined(UNIX) && defined(_SDL)
-      argch = getarg(word[1], "OUH?QM2BCKVL:R:P:S:E:G:X:A:I:", &hasopt);
+      argch = getarg(word[1], "FOUH?QM2BCKVL:R:P:S:E:G:X:A:I:", &hasopt);
 #else
       argch = getarg(word[1], "OUH?QM2BCKVL:R:P:S:E:G:A:I:", &hasopt);
 #endif
@@ -719,7 +719,13 @@ void parsecmd(int argc,char *argv[])
       }
 #if defined(UNIX) && defined(_SDL)
       if (argch == 'X') {
-              x11_parent = strtol (&word[i], 0, 0);
+        unsigned int x11_parent;
+
+        x11_parent = strtol (&word[i], 0, 0);
+        sdl_set_x11_parent(x11_parent);
+      }
+      if (argch == 'F') {
+        sdl_enable_fullscreen();
       }
 #endif
       if (argch =='R')
