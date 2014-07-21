@@ -131,7 +131,7 @@ static void createmonster(void)
       nextmonster++;
       nextmontime=mongaptime;
       mondat[i].stime=5;
-      CALL_METHOD(mondat[i].mop, pop);
+      CALL_METHOD(mondat[i].mop, put);
       break;
     }
 }
