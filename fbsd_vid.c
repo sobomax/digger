@@ -26,14 +26,14 @@
 extern uint8_t   *vgatable[];
 extern uint8_t   *ascii2vga[];
 
-uint8_t         **sprites = vgatable;
-uint8_t         **alphas = ascii2vga;
+static uint8_t **sprites = vgatable;
+static uint8_t **alphas = ascii2vga;
 
-int16_t           xratio = 2;
-int16_t           yratio = 2;
-int16_t           yoffset = 0;
-int16_t           hratio = 2;
-int16_t           wratio = 2;
+static int16_t xratio = 2;
+static int16_t yratio = 2;
+static int16_t yoffset = 0;
+static int16_t hratio = 2;
+static int16_t wratio = 2;
 #define virt2scrx(x) (x*xratio)
 #define virt2scry(y) (y*yratio)
 #define virt2scrw(w) (w*wratio)
@@ -42,29 +42,29 @@ int16_t           wratio = 2;
 typedef uint8_t   palette[3];
 
 /* palette1, normal intensity */
-palette         vga16_pal1[] = \
+static palette vga16_pal1[] = \
 {{0, 0, 0}, {225, 0, 0}, {0, 225, 0}, {225, 225, 0}, {0, 0, 225}, {225, 0, 225}, {0, 210, 225}, \
 {225, 225, 225}, {210, 210, 210}, {255, 0, 0}, {0, 255, 0}, {255, 255, 0}, {0, 0, 255}, {255, 0, 255}, \
 {0, 255, 255}, {255, 255, 255}};
 /* palette1, high intensity */
-palette         vga16_pal1i[] = \
+static palette vga16_pal1i[] = \
 {{0, 0, 0}, {255, 0, 0}, {0, 255, 0}, {255, 255, 0}, {0, 0, 255}, {255, 0, 255}, {0, 225, 255}, \
 {240, 240, 240}, {225, 225, 225}, {255, 225, 225}, {225, 255, 225}, {255, 255, 225}, \
 {225, 225, 255}, {255, 225, 255}, {225, 255, 255}, {255, 255, 255}};
 /* palette2, normal intensity */
-palette         vga16_pal2[] = \
+static palette vga16_pal2[] = \
 {{0, 0, 0}, {0, 225, 0}, {0, 0, 225}, {0, 210, 225}, {225, 0, 0}, {225, 225, 0}, {225, 0, 225}, \
 {225, 225, 225}, {210, 210, 210}, {0, 255, 0}, {0, 0, 255}, {0, 255, 255}, {255, 0, 0}, {255, 255, 0}, \
 {255, 0, 255}, {255, 255, 255}};
 /* palette2, high intensity */
-palette         vga16_pal2i[] = \
+static palette vga16_pal2i[] = \
 {{0, 0, 0}, {0, 255, 0}, {0, 0, 255}, {0, 225, 255}, {255, 0, 0}, {255, 255, 0}, {255, 0, 255}, \
 {240, 240, 240}, {225, 225, 225}, {225, 255, 225}, {225, 225, 255}, {225, 255, 255}, \
 {255, 225, 225}, {255, 255, 225}, {255, 225, 255}, {255, 255, 255}};
 
-palette        *npalettes[] = {vga16_pal1, vga16_pal2};
-palette        *ipalettes[] = {vga16_pal1i, vga16_pal2i};
-int16_t           currpal = 0;
+static palette *npalettes[] = {vga16_pal1, vga16_pal2};
+static palette *ipalettes[] = {vga16_pal1i, vga16_pal2i};
+static int16_t currpal = 0;
 
 /* Data structure holding pending updates */
 struct PendNode {
