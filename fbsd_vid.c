@@ -20,6 +20,7 @@
 #include <stdio.h>
 
 #include "def.h"
+#include "digger_math.h"
 #include "hardware.h"
 #include "title_gz.h"
 
@@ -82,7 +83,9 @@ static struct {
     int pendnum;
 } pendups;
 
-static struct PendNode *find_pending(int16_t realx, int16_t realy, int16_t realh, int16_t realw);
+static struct PendNode *find_pending(struct PendNode *);
+static int rect_overlap(struct PendNode *, struct PendNode *);
+static void rect_merge(struct PendNode *, struct PendNode *);
 
 static VGLBitmap *sVGLDisplay;
 
@@ -223,47 +226,73 @@ void
 vgaputi(int16_t x, int16_t y, uint8_t * p, int16_t w, int16_t h)
 {
     VGLBitmap      *tmp;
-    int16_t           realx, realy, realh, realw;
+    struct PendNode tmpn;
     struct PendNode *newn;
     static int pending_match = 0;
 
-    realx = virt2scrx(x);
-    realy = virt2scry(y);
-    realw = virt2scrw(w * 4);
-    realh = virt2scrh(h);
-    if (find_pending(realx, realy, realw, realh) == NULL) {
+    tmpn.realx = virt2scrx(x);
+    tmpn.realy = virt2scry(y);
+    tmpn.realw = virt2scrw(w * 4);
+    tmpn.realh = virt2scrh(h);
+    newn = find_pending(&tmpn);
+    if (newn == NULL) {
         newn = malloc(sizeof (struct PendNode));
         memset(newn, 0x00, (sizeof (struct PendNode)));
 
-        newn->realx = realx;
-        newn->realy = realy;
-        newn->realw = realw;
-        newn->realh = realh;
+        newn->realx = tmpn.realx;
+        newn->realy = tmpn.realy;
+        newn->realw = tmpn.realw;
+        newn->realh = tmpn.realh;
 
         pendappend(newn);
     } else {
+        rect_merge(newn, &tmpn);
         pending_match += 1;
         if (pending_match < 10 || pending_match % 50 == 0) {
             fprintf(stderr, "vgaputi: pending_match = %d\n", pending_match);
         }
     }
     memcpy(&tmp, p, (sizeof(VGLBitmap *)));
-    VGLBitmapCopy(tmp, 0, 0, sVGLDisplay, realx, realy, realw, realh);
+    VGLBitmapCopy(tmp, 0, 0, sVGLDisplay, tmpn.realx, tmpn.realy, tmpn.realw, tmpn.realh);
+}
+
+#define RECT_X1(rect) (rect)->realx
+#define RECT_X2(rect) ((rect)->realx + (rect)->realw)
+#define RECT_Y1(rect) (rect)->realy
+#define RECT_Y2(rect) ((rect)->realy + (rect)->realh)
+
+static int
+rect_overlap(struct PendNode *rectA, struct PendNode *rectB)
+{
+
+    if (RECT_X1(rectA) <= RECT_X2(rectB) && RECT_X2(rectA) >= RECT_X1(rectB) &&
+      RECT_Y1(rectA) <= RECT_Y2(rectB) && RECT_Y2(rectA) >= RECT_Y1(rectB))
+        return 1;
+    return 0;
+}
+
+static void
+rect_merge(struct PendNode *rectA, struct PendNode *rectB)
+{
+   int16_t x1, x2, y1, y2;
+
+   x1 = MIN(RECT_X1(rectA), RECT_X1(rectB));
+   x2 = MAX(RECT_X2(rectA), RECT_X2(rectB));
+   y1 = MIN(RECT_Y1(rectA), RECT_Y1(rectB));
+   y2 = MAX(RECT_Y2(rectA), RECT_Y2(rectB));
+   rectA->realx = x1;
+   rectA->realy = y1;
+   rectA->realw = x2 - x1;
+   rectA->realh = y2 - y1;
 }
 
 static struct PendNode *
-find_pending(int16_t realx, int16_t realy, int16_t realh, int16_t realw)
+find_pending(struct PendNode *cptr)
 {
     struct PendNode *ptr;
 
     for (ptr = pendups.First; ptr != NULL; ptr = ptr->nextnode) {
-        if (ptr->realx != realx)
-            continue;
-        if (ptr->realy != realy)
-            continue;
-        if (ptr->realh != realh)
-            continue;
-        if (ptr->realw != realw)
+        if (rect_overlap(ptr, cptr) == 0)
             continue;
         return (ptr);
     }
