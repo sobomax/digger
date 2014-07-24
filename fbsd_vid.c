@@ -87,6 +87,8 @@ static struct PendNode *find_pending(struct PendNode *);
 static int rect_overlap(struct PendNode *, struct PendNode *);
 static void rect_merge(struct PendNode *, struct PendNode *);
 
+static int vgl_inited = 0;
+
 static VGLBitmap *sVGLDisplay;
 
 VGLBitmap      *
@@ -106,6 +108,9 @@ ch2bmap(uint8_t * sprite, int16_t w, int16_t h)
 void
 graphicsoff(void)
 {
+
+    if (vgl_inited == 0)
+        return;
     VGLBitmapDestroy(sVGLDisplay);
     VGLEnd();
 }
@@ -131,6 +136,7 @@ vgainit(void)
 		exit(1);
 	}
     }
+    vgl_inited = 1;
 
     sVGLDisplay = VGLBitmapCreate(MEMBUF, 640, 400, NULL);
     VGLBitmapAllocateBits(sVGLDisplay);
