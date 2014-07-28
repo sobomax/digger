@@ -326,6 +326,8 @@ void flashywait(int16_t n)
 {
   int16_t i,gt,cx,p=0;
   int8_t gap=19;
+
+  gethrt();
   setretr(false);
   for (i=0;i<(n<<1);i++)
     for (cx=0;cx<volume;cx++) {
