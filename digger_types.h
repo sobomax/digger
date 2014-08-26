@@ -39,4 +39,25 @@ struct obj_position
 
 #define CALL_METHOD(obj, method, args...) (obj)->method(obj, ## args)
 
+#define DIR2STR(s, opp) \
+  switch ((opp)->dir) { \
+  case DIR_NONE: \
+    s = "NONE"; \
+    break; \
+  case DIR_RIGHT: \
+    s = "RIGHT"; \
+    break; \
+  case DIR_UP: \
+    s = "UP"; \
+    break; \
+  case DIR_LEFT: \
+    s = "LEFT"; \
+    break; \
+  case DIR_DOWN: \
+    s = "DOWN"; \
+    break; \
+  default: \
+    abort(); \
+  }
+
 #endif

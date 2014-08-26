@@ -207,7 +207,22 @@ monster_obj_getpos(struct monster_obj *self, struct obj_position *pos)
 static int
 monster_obj_setpos(struct monster_obj *self, struct obj_position *pos)
 {
+#if defined(DIGGER_DEBUG)
+  int dx, dy;
+  const char *dsold, *dsnew;
 
+  dx = self->priv->pos.x - pos->x;
+  dy = self->priv->pos.y - pos->y;
+  if (dx != 0 || dy != 0) {
+    fprintf(stderr, "monster(%d): moved by %d,%d\n", self->priv->m_id, dx, dy);
+  }
+  if (self->priv->pos.dir != pos->dir) {
+    DIR2STR(dsold, &self->priv->pos);
+    DIR2STR(dsnew, pos);
+    fprintf(stderr, "monster(%d): changed direction from %s to %s\n",
+     self->priv->m_id, dsold, dsnew);
+  }
+#endif
   memcpy(&self->priv->pos, pos, sizeof(struct obj_position));
   return (0);
 }
