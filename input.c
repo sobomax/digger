@@ -25,7 +25,7 @@ int16_t akeypressed;
 
 static int16_t dynamicdir=-1,dynamicdir2=-1,staticdir=-1,staticdir2=-1,joyx=0,joyy=0;
 
-static bool joybut1=false,joybut2=false;
+static bool joybut1=false;
 
 static int16_t keydir=0,keydir2=0,jleftthresh=0,jupthresh=0,jrightthresh=0,
       jdownthresh=0,joyanax=0,joyanay=0;
