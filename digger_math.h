@@ -40,6 +40,7 @@
 #define MIN(x, y)       (((x) > (y)) ? (y) : (x))
 #define MAX(x, y)       (((x) > (y)) ? (x) : (y))
 #define ABS(x)          ((x) > 0 ? (x) : (-x))
+#define D_PI		3.141592653589793238462643383279502884L
 
 struct recfilter {
     double a;
