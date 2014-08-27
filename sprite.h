@@ -20,4 +20,8 @@ extern int16_t (*ggetpix)(int16_t x,int16_t y);
 extern void (*gtitle)(void);
 extern void (*gwrite)(int16_t x,int16_t y,int16_t ch,int16_t c);
 
+#if defined(_SDL) || defined(_VGL)
+extern void doscreenupdate(void);
+#endif
+
 extern int first[TYPES],coll[SPRITES];
