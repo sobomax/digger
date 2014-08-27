@@ -99,7 +99,7 @@ bool setsounddevice(int base, int irq, int dma, uint16_t samprate, uint16_t bufs
                 free(sud);
                 return (false);
         }
-        sud->fltr = fo_init(sud->obtained.freq, 5000);
+        sud->fltr = fo_init(sud->obtained.freq, 4000);
         sud->fltr->z0 = sud->obtained.silence;
         sud->fltr->z1 = sud->obtained.silence;
 	wave_device_available = true;
