@@ -332,6 +332,9 @@ void flashywait(int16_t n)
   for (i=0;i<(n<<1);i++)
     for (cx=0;cx<volume;cx++) {
       gpal(p=1-p);
+#if defined(_SDL) && !defined(_VGL)
+      doscreenupdate();
+#endif
 #ifdef _WINDOWS
       for (gt=0;gt<gap;gt++)
         do_windows_events();
