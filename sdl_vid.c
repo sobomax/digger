@@ -66,9 +66,16 @@ static int16_t	currpal=0;
 #ifdef UNIX
 static Window x11_parent = 0;
 #endif
+#if defined(SDL_OLD)
 static uint32_t	addflag=0;
+#endif
 
+static SDL_Window *window = NULL;
+static SDL_Renderer *renderer = NULL;
+static SDL_Texture *roottxt = NULL;
+static SDL_Palette *rootpal = NULL;
 static SDL_Surface *screen = NULL;
+static SDL_Surface *screen16 = NULL;
 
 SDL_Surface *ch2bmap(uint8_t *sprite, int16_t w, int16_t h)
 {
@@ -78,7 +85,7 @@ SDL_Surface *ch2bmap(uint8_t *sprite, int16_t w, int16_t h)
 	realw = virt2scrw(w*4);
 	realh = virt2scrh(h);
 	tmp = SDL_CreateRGBSurfaceFrom(sprite, realw, realh, 8, realw, 0, 0, 0, 0);
-	SDL_SetColors(tmp, screen->format->palette->colors, 0, screen->format->palette->ncolors);
+	SDL_SetPaletteColors(tmp->format->palette, rootpal->colors, 0, rootpal->ncolors);
 	
 	return(tmp);
 }
@@ -91,17 +98,20 @@ void graphicsoff(void)
 void
 x11_set_parent(Window parent)
 {
+#if 0
         SDL_SysWMinfo sdlInfo;
 
         SDL_VERSION(&sdlInfo.version);
         SDL_GetWMInfo(&sdlInfo);
         XReparentWindow(sdlInfo.info.x11.gfxdisplay, sdlInfo.info.x11.window, parent, 0, 0);
         XDestroyWindow(sdlInfo.info.x11.gfxdisplay, sdlInfo.info.x11.wmwindow);
+#endif
 }
 #endif
 
 bool setmode(void)
 {
+#if defined(SDL_OLD)
 #ifdef UNIX
         static int x11_parent_inited = 0;
 
@@ -118,11 +128,13 @@ bool setmode(void)
                 x11_set_parent(x11_parent);
         }
 #endif
+#endif
 	return(true);
 }
 
 void switchmode(void)
 {
+#if defined(SDL_OLD)
 	uint32_t saved;
 	SDL_Surface *tmp = NULL;
 	SDL_Surface *oldscreen;
@@ -144,11 +156,12 @@ void switchmode(void)
 		}
 	}
 
-	SDL_SetColors(screen, tmp->format->palette->colors, 0, \
-		tmp->format->palette->ncolors);
+	SDL_SetPaletteColors(screen->format->palette, rootpal->colors, 0, \
+	    rootpal->ncolors);
 	vgaputi(0, 0, (uint8_t *)&tmp, 80, 200);
 	SDL_FreeSurface(tmp);
 	SDL_FreeSurface(oldscreen);
+#endif
 }
 
 
@@ -157,7 +170,7 @@ void vgainit(void)
 	SDL_Surface *tmp = NULL;
 	
 	tmp = SDL_CreateRGBSurfaceFrom(Icon, 64, 64, 8, 64, 0, 0, 0, 0);
-	SDL_SetColorKey(tmp, SDL_SRCCOLORKEY, 247); 			
+	SDL_SetColorKey(tmp, SDL_TRUE, 247); 			
 
 	tmp->format->palette->colors = IconPalette;
 	
@@ -165,8 +178,39 @@ void vgainit(void)
 		fprintf(stderr, "Couldn't initialize SDL: %s\n", SDL_GetError());
 		exit(1);
 	}
-	SDL_WM_SetCaption("D I G G E R", NULL);
+
+        window = SDL_CreateWindow("D I G G E R", SDL_WINDOWPOS_UNDEFINED,
+            SDL_WINDOWPOS_UNDEFINED, 640, 400, SDL_WINDOW_OPENGL);
+        if (window == NULL) {
+                fprintf(stderr, "SDL_CreateWindow() failed\n");
+                exit(1);
+        }
+        renderer = SDL_CreateRenderer(window, -1, 0);
+        if (renderer == NULL) {
+                fprintf(stderr, "SDL_CreateRenderer() failed\n");
+                exit(1);
+        }
+        roottxt = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+             SDL_TEXTUREACCESS_STREAMING, 640, 400);
+        if (roottxt == NULL) {
+                fprintf(stderr, "SDL_CreateTexture() failed: %s\n", SDL_GetError());
+                exit(1);
+        }
+        rootpal = SDL_AllocPalette(16);
+        if (rootpal == NULL) {
+                fprintf(stderr, "SDL_AllocPalette() failed: %s\n", SDL_GetError());
+                exit(1);
+        }
+        screen = SDL_CreateRGBSurface(0, 640, 400, 32,
+            0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
+        if (screen == NULL) {
+                fprintf(stderr, "SDL_CreateRGBSurface() failed\n");
+                exit(1);
+        }
+
+#if defined(SDL_OLD)
 	SDL_WM_SetIcon(tmp, NULL);
+#endif
 	if(setmode() == false) {
 		fprintf(stderr, "Couldn't set 640x400x8 video mode: %s\n", SDL_GetError());
 		exit(1);
@@ -185,7 +229,8 @@ void vgaclear(void)
 }
 void setpal(SDL_Color *pal)
 {
-	SDL_SetColors(screen, pal, 0, 16);
+
+	SDL_SetPaletteColors(rootpal, pal, 0, 16);
 }
 	
 void vgainten(int16_t inten)
@@ -205,7 +250,10 @@ void vgapal(int16_t pal)
 void doscreenupdate(void)
 {
 
-        SDL_Flip(screen);
+        SDL_UpdateTexture(roottxt, NULL, screen->pixels, screen->pitch);
+        SDL_RenderClear(renderer);
+        SDL_RenderCopy(renderer, roottxt, NULL, NULL);
+        SDL_RenderPresent(renderer);
 }
 
 void vgaputi(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h)
@@ -221,7 +269,7 @@ void vgaputi(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h)
 
 	memcpy(&tmp, p, (sizeof (SDL_Surface *)));
 	reserv = tmp->format->palette;
-	tmp->format->palette = screen->format->palette;
+	tmp->format->palette = rootpal;
 	SDL_BlitSurface(tmp, NULL, screen, &rect);
 	tmp->format->palette = reserv;
 }
@@ -240,8 +288,8 @@ void vgageti(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h)
 	src.w = virt2scrw(w*4);
 	src.h = virt2scrh(h);
 
-	tmp = SDL_CreateRGBSurface(SDL_SWSURFACE, src.w, src.h, 8, 0, 0, 0, 0);
-	SDL_SetColors(tmp, screen->format->palette->colors, 0, screen->format->palette->ncolors);	
+	tmp = SDL_CreateRGBSurface(0, src.w, src.h, 8, 0, 0, 0, 0);
+	SDL_SetPaletteColors(tmp->format->palette, rootpal->colors, 0, rootpal->ncolors);
 	SDL_BlitSurface(screen, &src, tmp, NULL);
 	memcpy(p, &tmp, (sizeof (SDL_Surface *)));
 }
@@ -372,7 +420,9 @@ void
 sdl_enable_fullscreen(void)
 {
 
+#if defined(SDL_OLD)
   addflag |= SDL_FULLSCREEN;
+#endif
 }
 
 void

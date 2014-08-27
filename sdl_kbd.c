@@ -20,7 +20,7 @@
 int16_t kbuffer[KBLEN];
 int16_t klen=0;
 
-int Handler(const SDL_Event *event)
+static int Handler(void *uptr, SDL_Event *event)
 {
 	if(event->type == SDL_KEYDOWN) {
 		if(klen == KBLEN) /* Buffer is full, drop some pieces */
@@ -40,10 +40,10 @@ int Handler(const SDL_Event *event)
 
 bool GetAsyncKeyState(int key)
 {
-	uint8_t *keys;
+	const uint8_t *keys;
 	
 	SDL_PumpEvents();
-	keys = SDL_GetKeyState(NULL);
+	keys = SDL_GetKeyboardState(NULL);
 	if (keys[key] == SDL_PRESSED )
 		return(true);
 	else
@@ -56,7 +56,7 @@ void initkeyb(void)
 	SDL_EventState(SDL_MOUSEBUTTONDOWN, SDL_IGNORE);
 	SDL_EventState(SDL_MOUSEBUTTONUP, SDL_IGNORE);
 	
-	SDL_SetEventFilter(Handler);
+	SDL_SetEventFilter(Handler, NULL);
 }
 
 void restorekeyb(void)

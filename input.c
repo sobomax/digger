@@ -194,23 +194,23 @@ int keycodes[17][5]={{RIGHTKEY,-2,-2,-2,-2},		/* 1 Right */
 
 bool GetAsyncKeyState(int);
 
-int keycodes[17][5]={{SDLK_RIGHT,-2,-2,-2,-2},		/* 1 Right */
-                     {SDLK_UP,-2,-2,-2,-2},		/* 1 Up */
-                     {SDLK_LEFT,-2,-2,-2,-2},		/* 1 Left */
-                     {SDLK_DOWN,-2,-2,-2,-2},		/* 1 Down */
-                     {SDLK_F1,-2,-2,-2,-2},		/* 1 Fire */
-                     {SDLK_s,-2,-2,-2,-2},		/* 2 Right */
-                     {SDLK_w,-2,-2,-2,-2},		/* 2 Up */
-                     {SDLK_a,-2,-2,-2,-2},		/* 2 Left */
-                     {SDLK_z,-2,-2,-2,-2},		/* 2 Down */
-                     {SDLK_TAB,-2,-2,-2,-2},		/* 2 Fire */
-                     {SDLK_t,-2,-2,-2,-2},		/* Cheat */
-                     {SDLK_KP_PLUS,-2,-2,-2,-2},	/* Accelerate */
-                     {SDLK_KP_MINUS,-2,-2,-2,-2},	/* Brake */
-                     {SDLK_F7,-2,-2,-2,-2},		/* Music */
-                     {SDLK_F9,-2,-2,-2,-2},		/* Sound */
-                     {SDLK_F10,-2,-2,-2,-2},		/* Exit */
-                     {SDLK_SPACE,-2,-2,-2,-2}};		/* Pause */
+int keycodes[17][5]={{SDL_SCANCODE_RIGHT,-2,-2,-2,-2},		/* 1 Right */
+                     {SDL_SCANCODE_UP,-2,-2,-2,-2},		/* 1 Up */
+                     {SDL_SCANCODE_LEFT,-2,-2,-2,-2},		/* 1 Left */
+                     {SDL_SCANCODE_DOWN,-2,-2,-2,-2},		/* 1 Down */
+                     {SDL_SCANCODE_F1,-2,-2,-2,-2},		/* 1 Fire */
+                     {SDL_SCANCODE_S,-2,-2,-2,-2},		/* 2 Right */
+                     {SDL_SCANCODE_W,-2,-2,-2,-2},		/* 2 Up */
+                     {SDL_SCANCODE_A,-2,-2,-2,-2},		/* 2 Left */
+                     {SDL_SCANCODE_Z,-2,-2,-2,-2},		/* 2 Down */
+                     {SDL_SCANCODE_TAB,-2,-2,-2,-2},		/* 2 Fire */
+                     {SDL_SCANCODE_T,-2,-2,-2,-2},		/* Cheat */
+                     {SDL_SCANCODE_KP_PLUS,-2,-2,-2,-2},	/* Accelerate */
+                     {SDL_SCANCODE_KP_MINUS,-2,-2,-2,-2},	/* Brake */
+                     {SDL_SCANCODE_F7,-2,-2,-2,-2},		/* Music */
+                     {SDL_SCANCODE_F9,-2,-2,-2,-2},		/* Sound */
+                     {SDL_SCANCODE_F10,-2,-2,-2,-2},		/* Exit */
+                     {SDL_SCANCODE_SPACE,-2,-2,-2,-2}};		/* Pause */
 
 #define ASCIIF8 SDLK_F8
 
