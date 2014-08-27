@@ -78,7 +78,6 @@ int16_t getkey(void)
 bool kbhit(void)
 {
 	SDL_PumpEvents();
-	doscreenupdate();
 
 	if (klen > 0)
 		return(true);
