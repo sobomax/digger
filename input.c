@@ -212,7 +212,7 @@ int keycodes[17][5]={{SDL_SCANCODE_RIGHT,-2,-2,-2,-2},		/* 1 Right */
                      {SDL_SCANCODE_F10,-2,-2,-2,-2},		/* Exit */
                      {SDL_SCANCODE_SPACE,-2,-2,-2,-2}};		/* Pause */
 
-#define ASCIIF8 SDLK_F8
+#define ASCIIF8 SDL_SCANCODE_F8
 
 #define rightpressed  (GetAsyncKeyState(keycodes[0][0]))
 #define uppressed     (GetAsyncKeyState(keycodes[1][0]))
