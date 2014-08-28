@@ -1,3 +1,7 @@
+#if defined(DIGGER_DEBUG)
+#include <stdio.h>
+#endif
+
 #include <SDL.h>
 
 #include "def.h"
