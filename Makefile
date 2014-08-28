@@ -12,8 +12,9 @@ ARCH	= "LINUX"
 #ARCH	= "FooOS"
 
 ifeq ($(ARCH),"MINGW")
-RCFLAGS	+= -mno-cygwin -DMINGW -Dmain=SDL_main -I../zlib -I../SDL-1.1.2/include/SDL
-LIBS	+= -mno-cygwin -mwindows -lmingw32 -L../SDL-1.1.2/lib -lSDLmain -lSDL -luser32 -lgdi32 -lwinmm -L../zlib -lz -lm
+CC	=  i686-w64-mingw32-gcc
+RCFLAGS	+= -DMINGW -Dmain=SDL_main -I../zlib-1.2.8/include -I../SDL2-2.0.3/include
+LIBS	+= -mwindows -lmingw32 -L../SDL2-2.0.3/i686-w64-mingw32/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -L../zlib-1.2.8/lib -lzdll -lm
 ESUFFIX	=  .exe
 endif
 
