@@ -7,6 +7,7 @@
 #include "device.h"
 #include "hardware.h"
 #include "digger_math.h"
+#include "digger_log.h"
 
 void fill_audio(void *udata, uint8_t *stream, int len);
 uint8_t getsample(void);
@@ -41,7 +42,7 @@ fo_init(double Fs, double Fc)
         fofp = malloc(sizeof(*fofp));
         memset(fofp, '\0', sizeof(*fofp));
         if (Fs < Fc * 2.0) {
-                fprintf(stderr, "fo_init: cutoff frequency (%f) should be less "
+                fprintf(digger_log, "fo_init: cutoff frequency (%f) should be less "
                     "than half of the sampling rate (%f)\n", Fc, Fs);
                 abort();
         }
@@ -68,7 +69,8 @@ bool setsounddevice(int base, int irq, int dma, uint16_t samprate, uint16_t bufs
 	
         sud = malloc(sizeof(*sud));
         if (sud == NULL) {
-                fprintf(stderr, "setsounddevice: malloc(3) failed\n");
+                fprintf(digger_log, "setsounddevice: malloc(3) failed\n");
+
                 return (false);
         }
         memset(sud, '\0', sizeof(*sud));
@@ -89,14 +91,14 @@ bool setsounddevice(int base, int irq, int dma, uint16_t samprate, uint16_t bufs
 		if ((SDL_OpenAudio(&wanted, &sud->obtained)) >= 0)
 			result = true;
 	if (result == false) {
-		fprintf(stderr, "Couldn't open audio: %s\n", SDL_GetError());
+		fprintf(digger_log, "Couldn't open audio: %s\n", SDL_GetError());
                 free(sud);
                 return (false);
         }
         sud->bsize = sud->obtained.size;
 	sud->buf = malloc(sud->bsize);
         if (sud->buf == NULL) {
-                fprintf(stderr, "setsounddevice: malloc(3) failed\n");
+                fprintf(digger_log, "setsounddevice: malloc(3) failed\n");
                 SDL_CloseAudio();
                 free(sud);
                 return (false);
@@ -121,7 +123,7 @@ void fill_audio(void *udata, uint8_t *stream, int len)
         sud = (struct sudata *)udata;
         SDL_memset(stream, sud->obtained.silence, len);
 	if (len > sud->bsize) {
-                fprintf(stderr, "fill_audio: OUCH, len > bsize!\n");
+                fprintf(digger_log, "fill_audio: OUCH, len > bsize!\n");
 		len = sud->bsize;
         }
 	for (i = 0; i < len; i++) {

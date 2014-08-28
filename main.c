@@ -39,6 +39,7 @@ bool started;
 char levfname[132];
 bool levfflag=false;
 static bool biosflag=false;
+FILE *digger_log;
 
 void shownplayers(void);
 void switchnplayers(void);
@@ -677,6 +678,12 @@ void parsecmd(int argc,char *argv[])
   bool sf, gs, norepf, hasopt;
 
   gs = norepf = false;
+
+#if defined(UNIX)
+  digger_log = stderr;
+#else
+  digger_log = fopen("DIGGER.log", "w+");
+#endif
 
   for (arg=1;arg<argc;arg++) {
     word=argv[arg];

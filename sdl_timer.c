@@ -9,6 +9,9 @@
 #ifdef _SDL
 #include "sdl_vid.h"
 #endif
+#if defined(DIGGER_DEBUG)
+#include "digger_log.h"
+#endif
 
 static struct PFD phase_detector;
 static struct recfilter loop_error;
@@ -38,7 +41,7 @@ uint32_t gethrt(void)
     recfilter_apply(&loop_error, sigmoid(eval));
     add_delay = freqoff_to_period(tfreq, 0.1, loop_error.lastval) * 1000;
 #if defined(DIGGER_DEBUG) 
-    printf("clk_rl = %f, add_delay = %d, eval = %f, loop_error.lastval = %f\n", clk_rl, add_delay, eval, loop_error.lastval);
+    fprintf(digger_log, "clk_rl = %f, add_delay = %d, eval = %f, loop_error.lastval = %f\n", clk_rl, add_delay, eval, loop_error.lastval);
 #endif
 
     doscreenupdate();
