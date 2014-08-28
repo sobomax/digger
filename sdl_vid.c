@@ -10,8 +10,10 @@
  * --------------------------------------------------------------------------- 
  */
 
+#include <stdio.h>
 /* malloc() and friends */
 #include <stdlib.h>
+
 /* Lovely SDL */
 #include <SDL.h>
 #include <SDL_syswm.h>
@@ -425,12 +427,14 @@ sdl_enable_fullscreen(void)
   addflag |= SDL_FULLSCREEN;
 }
 
+#ifdef UNIX
 void
 sdl_set_x11_parent(unsigned int xp)
 {
 
   x11_parent = (Window)xp;
 }
+#endif
 
 
 /* 

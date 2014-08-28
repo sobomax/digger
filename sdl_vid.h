@@ -4,6 +4,9 @@
 void doscreenupdate(void);
 void switchmode(void);
 void sdl_enable_fullscreen(void);
+
+#ifdef UNIX
 void sdl_set_x11_parent(unsigned int);
+#endif
 
 #endif /* SDL_VID_H */
