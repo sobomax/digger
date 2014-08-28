@@ -153,9 +153,6 @@ void game(void)
 {
   int16_t t,c,i;
   bool flashplayer=false;
-#ifdef _WINDOWS
-  show_game_menu();
-#endif
   if (gauntlet) {
     cgtime=gtime*1193181l;
     timeout=false;
@@ -322,14 +319,12 @@ void maininit(void)
   maininited = 1;
 }
 
-#ifndef _WINDOWS
 int main(int argc,char *argv[])
 {
   parsecmd(argc,argv);
   maininit();
   return mainprog();
 }
-#endif
 
 int mainprog(void)
 {
@@ -338,9 +333,6 @@ int mainprog(void)
   struct digger_obj odigger;
   struct obj_position newpos;
   loadscores();
-#ifdef _WINDOWS
-  show_main_menu();
-#endif
   escape=false;
   nobbin = NULL;
   hobbin = NULL;
@@ -470,9 +462,6 @@ int mainprog(void)
       break;
     recinit();
     game();
-#ifdef _WINDOWS
-    show_main_menu();
-#endif
     gotgame=true;
     if (gotname) {
       recsavedrf();
@@ -492,9 +481,6 @@ void finish(void)
   soundkillglob();
   restorekeyb();
   graphicsoff();
-#ifdef _WINDOWS
-  windows_finish();
-#endif
 }
 
 void shownplayers(void)
@@ -751,7 +737,6 @@ void parsecmd(int argc,char *argv[])
         sscanf(word+i,"%hi",&startlev);
       if (argch == 'U')
         unlimlives=true;
-#ifndef _WINDOWS        
       if (argch == '?' || argch == 'H' || argch == -1) {
         if (argch == -1) {
           fprintf(stderr, "Unknown option \"%c%c\"\n", word[0], word[1]);
@@ -800,14 +785,12 @@ void parsecmd(int argc,char *argv[])
                "/I = Start on a level other than 1\n");
         exit(1);
       }
-#endif      
       if (argch == 'Q')
         soundflag=false;
       if (argch == 'M')
         musicflag=false;
       if (argch == '2')
         diggers=2;
-#ifndef _WINDOWS
       if (argch == 'B' || argch == 'C') {
         ginit=cgainit;
         gpal=cgapal;
@@ -837,7 +820,6 @@ void parsecmd(int argc,char *argv[])
         quiet=true;
       if (argch == 'V')
         synchvid=true;
-#endif
       if (argch == 'G') {
         gtime=0;
         while (word[i]!=0)
@@ -898,10 +880,8 @@ char *keynames[17]={"Right","Up","Left","Down","Fire",
                     "Right","Up","Left","Down","Fire",
                     "Cheat","Accel","Brake","Music","Sound","Exit","Pause"};
 
-#ifndef _WINDOWS
 int dx_sound_volume;
 bool g_bWindowed,use_640x480_fullscreen,use_async_screen_updates;
-#endif
 
 void inir(void)
 {
@@ -969,23 +949,10 @@ void inir(void)
     timer2=s1timer2;
     soundinitglob(sound_port,sound_irq,sound_dma,sound_length,sound_rate);
   }
-#ifdef _WINDOWS
-  dx_sound_volume=(int)GetINIInt(INI_SOUND_SETTINGS,"SoundVolume",100,ININAME);
-  set_sound_volume(dx_sound_volume);
-#else
   dx_sound_volume=(int)GetINIInt(INI_SOUND_SETTINGS,"SoundVolume",0,ININAME);
-#endif
-#ifndef DIRECTX
   g_bWindowed=true;
-#else  
-  g_bWindowed=!GetINIBool(INI_GRAPHICS_SETTINGS,"FullScreen",false,ININAME);
-#endif  
   use_640x480_fullscreen=GetINIBool(INI_GRAPHICS_SETTINGS,"640x480",false,
                                     ININAME);
-#ifdef DIRECTX
-  if (!g_bWindowed)
-    ChangeCoopLevel();
-#endif
   use_async_screen_updates=GetINIBool(INI_GRAPHICS_SETTINGS,"Async",true,
                                       ININAME);
   synchvid=GetINIBool(INI_GRAPHICS_SETTINGS,"Synch",false,ININAME);

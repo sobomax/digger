@@ -277,9 +277,6 @@ void savescores(void)
 void getinitials(void)
 {
   int16_t k,i;
-#ifdef _WINDOWS
-  pause_windows_sound_playback();
-#endif
   newframe();
   outtext("ENTER YOUR",100,70,3);
   outtext(" INITIALS",100,90,3);
@@ -302,20 +299,13 @@ void getinitials(void)
     }
   }
   for (i=0;i<20;i++)
-#ifdef _WINDOWS
-    flashywait(2);
-#else
     flashywait(15);
-#endif
   setupsound();
   gclear();
   gpal(0);
   ginten(0);
   setretr(true);
   recputinit(scoreinit[0]);
-#ifdef _WINDOWS
-  resume_windows_sound_playback();
-#endif
 }
 
 void flashywait(int16_t n)
@@ -331,12 +321,7 @@ void flashywait(int16_t n)
 #if defined(_SDL) && !defined(_VGL)
       doscreenupdate();
 #endif
-#ifdef _WINDOWS
-      for (gt=0;gt<gap;gt++)
-        do_windows_events();
-#else
       for (gt=0;gt<gap;gt++);
-#endif
     }
 }
 
@@ -345,11 +330,6 @@ int16_t getinitial(int16_t x,int16_t y)
   int16_t i;
   gwrite(x,y,'_',3);
   do {
-
-#ifdef _WINDOWS
-    do_windows_events();
-#endif
-
     for (i=0;i<40;i++) {
       if (kbhit()) {
         int16_t key = getkey();
@@ -357,22 +337,14 @@ int16_t getinitial(int16_t x,int16_t y)
 	  continue;
         return key;
       }
-#ifdef _WINDOWS
-      flashywait(5);
-#else
       flashywait(15);
-#endif
     }
     for (i=0;i<40;i++) {
       if (kbhit()) {
         gwrite(x,y,'_',3);
         return getkey();
       }
-#ifdef _WINDOWS
-      flashywait(5);
-#else
       flashywait(15);
-#endif
     }
   } while (1);
 }

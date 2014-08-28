@@ -88,9 +88,6 @@ void newframe(void)
   uint32_t t;
   if (synchvid) {
     for (;curtime<ftime;curtime+=17094) { /* 17094 = ticks in a refresh */
-#ifdef _WINDOWS
-      do_windows_events();
-#endif
       fillbuffer();
       gretrace();
       checkkeyb();
@@ -100,9 +97,6 @@ void newframe(void)
   }
   else {
     do {
-#ifdef _WINDOWS
-      do_windows_events();
-#endif
       fillbuffer();             /* Idle time */
       t=gethrt();
       checkkeyb();

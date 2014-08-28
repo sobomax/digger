@@ -11,14 +11,6 @@
 #include "scores.h"
 #include "sprite.h"
 
-#ifndef FLATFILE
-#if defined (_WINDOWS) && !defined (__WIN32__)
-#include <malloc.h>
-#else
-#include <alloc.h>
-#endif
-#endif
-
 char huge *recb,huge *plb,huge *plp;
 
 bool playing=false,savedrf=false,gotname=false,gotgame=false,drfvalid=true,
@@ -170,27 +162,15 @@ out_0:
 
 void recstart(void)
 {
-#if defined FLATFILE || defined WIN16
   uint32_t s=MAX_REC_BUFFER;
   do {
     recb=(char huge *)farmalloc(s);
     if (recb==NULL)
       s>>=1;
   } while (recb==(char huge *)NULL && s>1024);
-#else
-  uint32_t s=farcoreleft();
-  if (s>MAX_REC_BUFFER)
-    s=MAX_REC_BUFFER;
-  recb=(char huge *)farmalloc(s);
-#endif
   if (recb==NULL) {
     finish();
-#ifdef _WINDOWS
-    MessageBox(hWnd, "Cannot allocate memory for recording buffer.\n", "Error",
-               MB_OK);
-#else
     printf("Cannot allocate memory for recording buffer.\n");
-#endif
     exit(1);
   }
   recp=0;

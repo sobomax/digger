@@ -158,11 +158,6 @@ void soundlevdone(void)
   soundlevdoneflag=soundpausedflag=true;
   while (soundlevdoneflag && !escape) {
     fillbuffer();
-#ifdef _WINDOWS
-    do_windows_events();
-    if (!wave_device_available)
-      soundlevdoneflag=false;
-#endif
 #if defined _SDL || defined _VGL
 	if (!wave_device_available)
 		soundlevdoneflag=false;
@@ -795,9 +790,7 @@ void musicupdate(void)
 void soundpause(void)
 {
   soundpausedflag=true;
-#ifdef _WINDOWS
-  pause_windows_sound_playback();
-#elif defined _SDL || defined _SDL_SOUND
+#if defined _SDL || defined _SDL_SOUND
   SDL_PauseAudio(1);
 #endif
 }
@@ -805,9 +798,7 @@ void soundpause(void)
 void soundpauseoff(void)
 {
   soundpausedflag=false;
-#ifdef _WINDOWS
-  resume_windows_sound_playback();
-#elif defined _SDL || defined _SDL_SOUND
+#if defined _SDL || defined _SDL_SOUND
   SDL_PauseAudio(0);
 #endif
 }

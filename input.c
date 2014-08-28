@@ -102,41 +102,6 @@ void findkey(int kn)
 
 #else
 
-#ifdef _WINDOWS
-
-#define rightpressed  (GetAsyncKeyState(keycodes[0][0]) & 0x8000)
-#define uppressed     (GetAsyncKeyState(keycodes[1][0]) & 0x8000)
-#define leftpressed   (GetAsyncKeyState(keycodes[2][0]) & 0x8000)
-#define downpressed   (GetAsyncKeyState(keycodes[3][0]) & 0x8000)
-#define f1pressed     (GetAsyncKeyState(keycodes[4][0]))
-#define right2pressed (GetAsyncKeyState(keycodes[5][0]) & 0x8000)
-#define up2pressed    (GetAsyncKeyState(keycodes[6][0]) & 0x8000)
-#define left2pressed  (GetAsyncKeyState(keycodes[7][0]) & 0x8000)
-#define down2pressed  (GetAsyncKeyState(keycodes[8][0]) & 0x8000)
-#define f12pressed    (GetAsyncKeyState(keycodes[9][0]))
-
-int keycodes[17][5]={{VK_RIGHT,VK_RIGHT+0x80,0x14d,-2,-2}, /* 1 Right */
-                     {VK_UP,VK_UP+0x80,-2,-2},             /* 1 Up */
-                     {VK_LEFT,VK_LEFT+0x80,0x14b,-2,-2},   /* 1 Left */
-                     {VK_DOWN,VK_DOWN+0x80,0x150,-2,-2},   /* 1 Down */
-                     {VK_F1,VK_F1+0x80,0x13b,-2,-2},       /* 1 Fire */
-                     {'S','S'+0x80,83,115,19},             /* 2 Right */
-                     {'W','W'+0x80,87,119,23},             /* 2 Up */
-                     {'A','A'+0x80,65,97,1},               /* 2 Left */
-                     {'Z','Z'+0x80,90,122,26},             /* 2 Down */
-                     {15,143,9,-2,-2},                     /* 2 Fire */
-                     {'T',-2,-2,-2,-2},                    /* Cheat */
-                     {VK_ADD,-2,-2,-2,-2},                 /* Accelerate */
-                     {VK_SUBTRACT,-2,-2,-2,-2},            /* Brake */
-                     {VK_F7,-2,-2,-2,-2},                  /* Music */
-                     {VK_F9,-2,-2,-2,-2},                  /* Sound */
-                     {VK_F10,-2,-2,-2,-2},                 /* Exit */
-                     {VK_SPACE,-2,-2,-2,-2}};              /* Pause */
-
-#define ASCIIF8 VK_F8
-
-#else
-
 #ifdef _VGL
 
 bool GetAsyncKeyState(int);
@@ -252,13 +217,12 @@ int keycodes[17][5]={{0x4d,0xcd,0x14d,-2,-2}, /* 1 Right */
 
 #endif
 #endif
-#endif
 
 #if !defined(_SDL) && !defined(_VGL)
 static uint16_t scancode;
 #endif
 
-#if !defined(_WINDOWS) && !defined(_SDL) && !defined(_VGL)
+#if !defined(_SDL) && !defined(_VGL)
 static int pki;
 
 static bool *flagp[10]={

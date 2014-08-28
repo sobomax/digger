@@ -11,13 +11,8 @@
 
 int16_t field1[MSIZE],field2[MSIZE],field[MSIZE];
 
-#ifdef _WINDOWS
-uint8_t monbufs[MONSTERS][960],bagbufs[BAGS][960],bonusbufs[BONUSES][960],
-      diggerbufs[DIGGERS][960],firebufs[FIREBALLS][256];
-#else
 uint8_t monbufs[MONSTERS][480],bagbufs[BAGS][480],bonusbufs[BONUSES][480],
       diggerbufs[DIGGERS][480],firebufs[FIREBALLS][128];
-#endif
 
 uint16_t bitmasks[12]={0xfffe,0xfffd,0xfffb,0xfff7,0xffef,0xffdf,0xffbf,0xff7f,
                     0xfeff,0xfdff,0xfbff,0xf7ff};

@@ -51,9 +51,7 @@ void soundinitglob(int port,int irq,int dma,uint16_t bufsize,uint16_t samprate)
 {
   int i;
   setsounddevice(port,irq,dma,samprate,bufsize);
-#ifndef _WINDOWS
   buffer=malloc((bufsize<<1)*sizeof(uint8_t));
-#endif
   rate=(int)(0x1234ddul/(uint32_t)samprate);
   firsts=0;
   last=1;
@@ -70,9 +68,7 @@ void s1setupsound(void)
   inittimer();
   curtime=0;
   startint8();
-#ifndef _WINDOWS
   buffer[firsts]=getsample();
-#endif
   fillbuffer();
   initsounddevice();
 }
@@ -88,7 +84,6 @@ void s1killsound(void)
 /* This function is called regularly by the Digger engine to keep the circular
    buffer filled. */
 
-#ifndef _WINDOWS
 void s1fillbuffer(void)
 {
   while (firsts!=last) {
@@ -96,7 +91,6 @@ void s1fillbuffer(void)
     last=(last+1)&(size-1);
   }
 }
-#endif
 
 /* WARNING: Read only code ahead. Unless you're seriously into how the PC
    speaker and Digger's original low-level sound routines work, you shouldn't
