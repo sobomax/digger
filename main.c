@@ -956,7 +956,7 @@ void inir(void)
   sound_length=(int)GetINIInt(INI_SOUND_SETTINGS,"BufferSize",DEFAULT_BUFFER,
                               ININAME);
 
-#ifndef UNIX
+#if !defined(UNIX) && !defined(_SDL)
   if (sound_device==1) {
 #else
   if (!quiet) {
