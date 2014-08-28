@@ -15,10 +15,6 @@
 #include "bags.h"
 #include "bullet_obj.h"
 
-#ifdef _WINDOWS
-#include "win_dig.h"
-#endif
-
 struct digger
 {
   int16_t h,v,rx,ry,mdir,bagtime,rechargetime,

@@ -13,10 +13,6 @@
 #include "digger.h"
 #include "record.h"
 
-#ifdef _WINDOWS
-#include "win_dig.h"
-#endif
-
 struct scdat
 {
   int32_t score,nextbs;

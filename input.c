@@ -4,9 +4,6 @@
 #include "hardware.h"
 #include "record.h"
 #include "digger.h"
-#ifdef _WINDOWS
-#include "win_dig.h"
-#endif
 #ifdef _SDL
 #include <SDL.h>
 #endif

@@ -5,11 +5,6 @@
 #include "digger.h"
 #include "input.h"
 
-#ifdef _WINDOWS
-#include "win_dig.h"
-#include "win_snd.h"
-#endif
-
 #if defined _SDL || defined _SDL_SOUND
 #include <SDL.h>
 #include "sdl_snd.h"

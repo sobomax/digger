@@ -3,9 +3,6 @@
 #include <stdlib.h>
 #include <strings.h>
 #include "def.h"
-#ifdef __WIN32__
-#include "win_dig.h"
-#endif
 
 #define NEWL "\r\n"
 

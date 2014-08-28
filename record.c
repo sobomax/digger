@@ -19,10 +19,6 @@
 #endif
 #endif
 
-#ifdef _WINDOWS
-#include "win_dig.h"
-#endif
-
 char huge *recb,huge *plb,huge *plp;
 
 bool playing=false,savedrf=false,gotname=false,gotgame=false,drfvalid=true,

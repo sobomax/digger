@@ -21,12 +21,6 @@
 #include "newsnd.h"
 #include "ini.h"
 
-#ifdef _WINDOWS
-#include "win_dig.h"
-#include "win_snd.h"
-#include "win_vid.h"
-#endif
-
 /* global variables */
 char pldispbuf[14];
 int16_t curplayer=0,nplayers=1,penalty=0,diggers=1,startlev=1;
