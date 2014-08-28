@@ -30,6 +30,9 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
+#if defined(DIGGER_DEBUG)
+#include <stdio.h>
+#endif
 #include <string.h>
 #include <stdlib.h>
 
