@@ -56,6 +56,13 @@ struct PFD {
     double phi_round;
 };
 
+struct fo_filter {
+    double a;
+    double b;
+    double z0;
+    double z1;
+};
+
 /* Function prototypes */
 double sigmoid(double);
 
@@ -67,5 +74,8 @@ void PFD_init(struct PFD *, double);
 double PFD_get_error(struct PFD *, double);
 
 double freqoff_to_period(double freq_0, double foff_c, double foff_x);
+
+struct fo_filter *fo_init(double Fs, double Fc);
+double fo_apply(struct fo_filter *fofp, double x);
 
 #endif /* _RTPP_MATH_H_ */

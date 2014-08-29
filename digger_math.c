@@ -26,8 +26,12 @@
  */
 
 #include <math.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "digger_math.h"
+#include "digger_log.h"
 
 void
 PFD_init(struct PFD *pfd_p, double phi_round)
@@ -124,3 +128,32 @@ freqoff_to_period(double freq_0, double foff_c, double foff_x)
 
     return (1.0 / freq_0 * (1 + foff_c * foff_x));
 }
+
+struct fo_filter *
+fo_init(double Fs, double Fc)
+{
+        struct fo_filter *fofp;
+        double n, w;
+
+        fofp = malloc(sizeof(*fofp));
+        memset(fofp, '\0', sizeof(*fofp));
+        if (Fs < Fc * 2.0) {
+                fprintf(digger_log, "fo_init: cutoff frequency (%f) should be less "
+                    "than half of the sampling rate (%f)\n", Fc, Fs);
+                abort();
+        }
+        w = tan(D_PI * Fc / Fs);
+        n = 1.0 / (1.0 + w);
+        fofp->a = n * (w - 1);
+        fofp->b = n * w;
+        return (fofp);
+}
+
+double
+fo_apply(struct fo_filter *fofp, double x)
+{
+        fofp->z1 = (x * fofp->b) + (fofp->z0 * fofp->b) - (fofp->z1 * fofp->a);
+        fofp->z0 = x;
+        return (fofp->z1);
+}
+
