@@ -1,3 +1,4 @@
+#include <math.h>
 #if defined(DIGGER_DEBUG)
 #include <stdio.h>
 #endif
@@ -14,14 +15,16 @@
 #endif
 
 static struct PFD phase_detector;
-static struct recfilter loop_error;
+static struct fo_filter *loop_error;
 
 extern uint32_t ftime;
 
 void inittimer(void)
 {
+    double tfreq;
 
-    recfilter_init(&loop_error, 0.96, 0.0, 0);
+    tfreq = 1000000.0 / ftime;
+    loop_error = fo_init(tfreq, 0.1);
     PFD_init(&phase_detector, 0.0);
 }
 
@@ -33,15 +36,21 @@ int32_t getlrt(void)
 uint32_t gethrt(void)
 {
     uint32_t add_delay;
-    double eval, clk_rl, tfreq;
+    double eval, clk_rl, tfreq, add_delay_d;
+    static double cum_error = 0.0;
 
     tfreq = 1000000.0 / ftime;
     clk_rl = (double)SDL_GetTicks() * tfreq / 1000.0;
     eval = PFD_get_error(&phase_detector, clk_rl);
-    recfilter_apply(&loop_error, sigmoid(eval));
-    add_delay = freqoff_to_period(tfreq, 0.1, loop_error.lastval) * 1000;
+    if (eval != 0) {
+        fo_apply(loop_error, sigmoid(eval));
+    }
+    add_delay_d = (freqoff_to_period(tfreq, 1.0, loop_error->z1) * 1000.0) + cum_error;
+    add_delay = round(add_delay_d);
+    cum_error = add_delay_d - (double)add_delay;
 #if defined(DIGGER_DEBUG) 
-    fprintf(digger_log, "clk_rl = %f, add_delay = %d, eval = %f, loop_error.lastval = %f\n", clk_rl, add_delay, eval, loop_error.lastval);
+    fprintf(digger_log, "clk_rl = %f, add_delay = %d, eval = %f, loop_error->z1 = %f, cum_error = %f\n",
+      clk_rl, add_delay, eval, loop_error->z1, cum_error);
 #endif
 
     doscreenupdate();
