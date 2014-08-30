@@ -74,17 +74,24 @@ sigmoid(double x)
     return (x / (1 + fabs(x)));
 }
 
+static void 
+_recfilter_peak_detect(struct recfilter *f)
+{
+
+    if (f->lastval > f->maxval) {
+        f->maxval = f->lastval;
+    } if (f->lastval < f->minval) {
+        f->minval = f->maxval;
+    }
+}
+
 double
 recfilter_apply(struct recfilter *f, double x)
 {
 
     f->lastval = f->a * x + f->b * f->lastval;
     if (f->peak_detect != 0) {
-        if (f->lastval > f->maxval) {
-            f->maxval = f->lastval;
-        } if (f->lastval < f->minval) {
-            f->minval = f->maxval;
-        }
+        _recfilter_peak_detect(f);
     }
     return f->lastval;
 }
@@ -95,31 +102,55 @@ recfilter_apply_int(struct recfilter *f, int x)
 
     f->lastval = f->a * (double)(x) + f->b * f->lastval;
     if (f->peak_detect != 0) {
-        if (f->lastval > f->maxval) {
-            f->maxval = f->lastval;
-        } if (f->lastval < f->minval) {
-            f->minval = f->lastval;
-        }
+        _recfilter_peak_detect(f);
     }
     return f->lastval;
 }
 
-void
-recfilter_init(struct recfilter *f, double fcoef, double initval, int peak_detect)
+struct recfilter *
+recfilter_init(double Fs, double Fc)
+{
+    struct recfilter *f;
+
+    if (Fs < Fc * 2.0) {
+        fprintf(digger_log, "recfilter_init: cutoff frequency (%f) should be less "
+          "than half of the sampling rate (%f)\n", Fc, Fs);
+        abort();
+    }
+    f = malloc(sizeof(*f));
+    if (f == NULL) {
+        return (NULL);
+    }
+    memset(f, '\0', sizeof(*f));
+    f->b = exp(-2.0 * D_PI * Fc / Fs);
+    f->a = 1.0 - f->b;
+    return (f);
+}
+
+double
+recfilter_getlast(struct recfilter *f)
 {
 
-    f->lastval = initval;
-    f->a = 1.0 - fcoef;
-    f->b = fcoef;
-    if (peak_detect != 0) {
-        f->peak_detect = 1;
-        f->maxval = initval;
-        f->minval = initval;
-    } else {
-        f->peak_detect = 0;
-        f->maxval = 0;
-        f->minval = 0;
+    return (f->lastval);
+}
+
+void
+recfilter_setlast(struct recfilter *f, double val)
+{
+
+    f->lastval = val;
+    if (f->peak_detect != 0) {
+        _recfilter_peak_detect(f);
     }
+}
+
+void
+recfilter_peak_detect(struct recfilter *f)
+{
+
+    f->peak_detect = 1;
+    f->maxval = f->lastval;
+    f->minval = f->lastval;
 }
 
 double
@@ -129,14 +160,14 @@ freqoff_to_period(double freq_0, double foff_c, double foff_x)
     return (1.0 / freq_0 * (1 + foff_c * foff_x));
 }
 
-struct fo_filter *
-fo_init(double Fs, double Fc)
+struct bqd_filter *
+bqd_lp_init(double Fs, double Fc)
 {
-        struct fo_filter *fofp;
+        struct bqd_filter *fp;
         double n, w;
 
-        fofp = malloc(sizeof(*fofp));
-        memset(fofp, '\0', sizeof(*fofp));
+        fp = malloc(sizeof(*fp));
+        memset(fp, '\0', sizeof(*fp));
         if (Fs < Fc * 2.0) {
                 fprintf(digger_log, "fo_init: cutoff frequency (%f) should be less "
                     "than half of the sampling rate (%f)\n", Fc, Fs);
@@ -144,16 +175,37 @@ fo_init(double Fs, double Fc)
         }
         w = tan(D_PI * Fc / Fs);
         n = 1.0 / (1.0 + w);
-        fofp->a = n * (w - 1);
-        fofp->b = n * w;
-        return (fofp);
+        fp->a1 = n * (w - 1);
+        fp->b0 = n * w;
+        fp->b1 = fp->b0;
+        return (fp);
+}
+
+struct bqd_filter *
+bqd_hp_init(double Fs, double Fc)
+{
+        struct bqd_filter *fp;
+        double n, w;
+
+        fp = malloc(sizeof(*fp));
+        memset(fp, '\0', sizeof(*fp));
+        if (Fs < Fc * 2.0) {
+                fprintf(digger_log, "fo_init: cutoff frequency (%f) should be less "
+                    "than half of the sampling rate (%f)\n", Fc, Fs);
+                abort();
+        }
+        w = tan(D_PI * Fc / Fs);
+        n = 1.0 / (1.0 + w);
+        fp->a1 = n * (w - 1);
+        fp->b0 = n;
+        fp->b1 = -fp->b0;
+        return (fp);
 }
 
 double
-fo_apply(struct fo_filter *fofp, double x)
+bqd_apply(struct bqd_filter *fp, double x)
 {
-        fofp->z1 = (x * fofp->b) + (fofp->z0 * fofp->b) - (fofp->z1 * fofp->a);
-        fofp->z0 = x;
-        return (fofp->z1);
+        fp->z1 = (x * fp->b0) + (fp->z0 * fp->b1) - (fp->z1 * fp->a1);
+        fp->z0 = x;
+        return (fp->z1);
 }
-

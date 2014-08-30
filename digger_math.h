@@ -56,9 +56,10 @@ struct PFD {
     double phi_round;
 };
 
-struct fo_filter {
-    double a;
-    double b;
+struct bqd_filter {
+    double a1;
+    double b0;
+    double b1;
     double z0;
     double z1;
 };
@@ -68,14 +69,18 @@ double sigmoid(double);
 
 double recfilter_apply(struct recfilter *, double);
 double recfilter_apply_int(struct recfilter *, int);
-void recfilter_init(struct recfilter *, double, double, int);
+struct recfilter *recfilter_init(double, double);
+double recfilter_getlast(struct recfilter *f);
+void recfilter_setlast(struct recfilter *f, double val);
+void recfilter_peak_detect(struct recfilter *f);
 
 void PFD_init(struct PFD *, double);
 double PFD_get_error(struct PFD *, double);
 
 double freqoff_to_period(double freq_0, double foff_c, double foff_x);
 
-struct fo_filter *fo_init(double Fs, double Fc);
-double fo_apply(struct fo_filter *fofp, double x);
+struct bqd_filter *bqd_lp_init(double Fs, double Fc);
+struct bqd_filter *bqd_hp_init(double Fs, double Fc);
+double bqd_apply(struct bqd_filter *fofp, double x);
 
 #endif /* _RTPP_MATH_H_ */
