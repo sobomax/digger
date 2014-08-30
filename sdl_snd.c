@@ -8,9 +8,9 @@
 #include "hardware.h"
 #include "digger_math.h"
 #include "digger_log.h"
+#include "newsnd.h"
 
 void fill_audio(void *udata, uint8_t *stream, int len);
-uint8_t getsample(void);
 
 bool wave_device_available = false;
 
@@ -21,9 +21,10 @@ bool initsounddevice(void)
 
 struct sudata {
     SDL_AudioSpec obtained;
-    uint8_t *buf;
-    uint16_t bsize;
-    struct fo_filter *fltr;
+    int16_t *buf;
+    unsigned int bsize;
+    struct bqd_filter *lp_fltr;
+    struct bqd_filter *hp_fltr;
 };
 
 bool setsounddevice(int base, int irq, int dma, uint16_t samprate, uint16_t bufsize)
@@ -44,7 +45,7 @@ bool setsounddevice(int base, int irq, int dma, uint16_t samprate, uint16_t bufs
 	wanted.freq = samprate;
 	wanted.samples = bufsize;
 	wanted.channels = 1;
-	wanted.format = AUDIO_U8;
+	wanted.format = AUDIO_S16;
 	wanted.userdata = sud;
 	wanted.callback = fill_audio;
 
@@ -68,9 +69,8 @@ bool setsounddevice(int base, int irq, int dma, uint16_t samprate, uint16_t bufs
                 free(sud);
                 return (false);
         }
-        sud->fltr = fo_init(sud->obtained.freq, 4000);
-        sud->fltr->z0 = sud->obtained.silence;
-        sud->fltr->z1 = sud->obtained.silence;
+        sud->lp_fltr = bqd_lp_init(sud->obtained.freq, 4000);
+        sud->hp_fltr = bqd_hp_init(sud->obtained.freq, 1000);
 	wave_device_available = true;
 
 #ifdef _VGL
@@ -84,6 +84,7 @@ void fill_audio(void *udata, uint8_t *stream, int len)
 {
 	int i;
         struct sudata *sud;
+        double sample;
 
         sud = (struct sudata *)udata;
         SDL_memset(stream, sud->obtained.silence, len);
@@ -91,12 +92,14 @@ void fill_audio(void *udata, uint8_t *stream, int len)
                 fprintf(digger_log, "fill_audio: OUCH, len > bsize!\n");
 		len = sud->bsize;
         }
-	for (i = 0; i < len; i++) {
-		sud->buf[i] = fo_apply(sud->fltr, getsample());
+	for (i = 0; i < len / sizeof(int16_t); i++) {
+                sample = getsample();
+		sample = bqd_apply(sud->hp_fltr, (sample - 127.0) * 128.0);
+                sud->buf[i] = round(bqd_apply(sud->lp_fltr, sample));
         }
 
-	SDL_MixAudioFormat(stream, sud->buf, sud->obtained.format, len,
-            SDL_MIX_MAXVOLUME / 2);
+	SDL_MixAudioFormat(stream, (uint8_t *)sud->buf, sud->obtained.format, len,
+            SDL_MIX_MAXVOLUME);
 }
 
 
