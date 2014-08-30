@@ -603,7 +603,7 @@ void testpause(void)
     setsoundt2();
     cleartopline();
     outtext("PRESS ANY KEY",80,0,1);
-    getkey();
+    getkey(true);
     cleartopline();
     drawscores();
     for (i=0;i<diggers;i++)

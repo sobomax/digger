@@ -332,7 +332,7 @@ int16_t getinitial(int16_t x,int16_t y)
   do {
     for (i=0;i<40;i++) {
       if (kbhit()) {
-        int16_t key = getkey();
+        int16_t key = getkey(false);
 	if (!isalnum(key))
 	  continue;
         return key;
@@ -342,7 +342,7 @@ int16_t getinitial(int16_t x,int16_t y)
     for (i=0;i<40;i++) {
       if (kbhit()) {
         gwrite(x,y,'_',3);
-        return getkey();
+        return getkey(false);
       }
       flashywait(15);
     }

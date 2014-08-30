@@ -77,7 +77,7 @@ void findkey(int kn)
         f=true;
     gretrace();
     if (kbhit())
-      k=getkey();
+      k=getkey(true);
   } while (k==0 && !f);
   j=i-1;
   if (k==0) k=-2;
@@ -255,10 +255,10 @@ void findkey(int kn)
   scancode=0;
   do
     if (kbhit())
-      k=getkey();
+      k=getkey(true);
   while (k==0 && (scancode==0 || scancode&0x80));
   if (kbhit())
-    k=getkey();
+    k=getkey(true);
   if (k==0)
     k=-2;
   if (k>='a' && k<='z')
@@ -280,7 +280,7 @@ void findkey(int kn)
   krdf[kn]=true;
 }
 #else /* SDL & FBSD */
-void findkey(int kn) { keycodes[kn][0] = getkey(); }
+void findkey(int kn) { keycodes[kn][0] = getkey(true); }
 #endif
 
 #endif
@@ -324,7 +324,7 @@ void checkkeyb(void)
     af12pressed=true;
 
   while (kbhit()) {
-    akeypressed=getkey();
+    akeypressed=getkey(true);
     for (i=0;i<10;i++)
       for (j=2;j<5;j++)
         if (akeypressed==keycodes[i][j])
@@ -383,7 +383,7 @@ void detectjoy(void)
 void flushkeybuf(void)
 {
   while (kbhit())
-    getkey();
+    getkey(true);
   aleftpressed=arightpressed=auppressed=adownpressed=af1pressed=false;
   aleft2pressed=aright2pressed=aup2pressed=adown2pressed=af12pressed=false;
 }

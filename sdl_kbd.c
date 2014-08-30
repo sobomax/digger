@@ -17,18 +17,30 @@
 #include "sdl_vid.h"
 
 #define KBLEN		30
-int16_t kbuffer[KBLEN];
-int16_t klen=0;
+
+struct kbent {
+    int16_t sym;
+    int16_t scancode;
+};
+
+static struct kbent kbuffer[KBLEN];
+static int16_t klen=0;
 
 static int Handler(void *uptr, SDL_Event *event)
 {
 	if(event->type == SDL_KEYDOWN) {
-		if(klen == KBLEN) /* Buffer is full, drop some pieces */
-			memcpy(kbuffer, kbuffer + 1, --klen);
-		kbuffer[klen++] = event->key.keysym.sym;
+		if (klen == KBLEN) {
+                        /* Buffer is full, drop some pieces */
+                        klen--;
+			memcpy(kbuffer, kbuffer + 1, klen * sizeof(struct kbent));
+                }
+		kbuffer[klen].scancode = event->key.keysym.scancode;
+                kbuffer[klen].sym = event->key.keysym.sym;
+                klen++;
 
 		/* ALT + Enter handling (fullscreen/windowed operation) */
-		if((event->key.keysym.sym == SDLK_RETURN || event->key.keysym.sym == SDLK_KP_ENTER) &&
+		if ((event->key.keysym.scancode == SDL_SCANCODE_RETURN ||
+                    event->key.keysym.scancode == SDL_SCANCODE_KP_ENTER) &&
 		    ((event->key.keysym.mod & KMOD_ALT) != 0))
 			switchmode();
 	}
@@ -63,14 +75,19 @@ void restorekeyb(void)
 {
 }
 
-int16_t getkey(void)
+int16_t getkey(bool scancode)
 {
 	int16_t result;
 	
 	while(kbhit() != true)
 		gethrt();
-	result = kbuffer[0];
-	memcpy(kbuffer, kbuffer + 1, --klen);
+        if (scancode) {
+	        result = kbuffer[0].scancode;
+        } else {
+                result = kbuffer[0].sym;
+        }
+        klen--;
+	memcpy(kbuffer, kbuffer + 1, klen * sizeof(struct kbent));
 
 	return(result);
 }
