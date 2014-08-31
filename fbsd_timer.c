@@ -16,12 +16,15 @@ long int slept = 0;
 int i = 0;
 
 static struct PFD phase_detector;
-static struct recfilter loop_error;
+static struct recfilter *loop_error;
 
 void inittimer(void)
 {
+        double tfreq;
+
+	tfreq = 1000000.0 / ftime;
 	FIXME("inittimer called");
-	recfilter_init(&loop_error, 0.96, 0.0, 0);
+	loop_error = recfilter_init(tfreq, 0.1);
 	PFD_init(&phase_detector, 0.0);
 }
 
@@ -52,7 +55,7 @@ getdtime(void)
 uint32_t gethrt(void)
 {
 	uint32_t add_delay;
-	double eval, clk_rl, tfreq;
+	double eval, clk_rl, tfreq, filterval;
 
 	VGLCheckSwitch();
 
@@ -61,9 +64,11 @@ uint32_t gethrt(void)
 	clk_rl = getdtime() * tfreq;
 	eval = PFD_get_error(&phase_detector, clk_rl);
 	if (eval != 0.0) {
-		recfilter_apply(&loop_error, sigmoid(eval));
-	}
-	add_delay = freqoff_to_period(tfreq, 1.0, loop_error.lastval) * 1000000;
+		filterval = recfilter_apply(loop_error, sigmoid(eval));
+	} else {
+                filterval = recfilter_getlast(loop_error);
+        }
+	add_delay = freqoff_to_period(tfreq, 1.0, filterval) * 1000000;
 	doscreenupdate();
         usleep(add_delay);
 	return(0);
