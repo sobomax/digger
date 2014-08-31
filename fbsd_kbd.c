@@ -133,7 +133,7 @@ bool GetAsyncKeyState(int key)
 	return(states[key]);
 }
 
-int16_t getkey(void)
+int16_t getkey(bool scancode)
 {
 	int16_t result;
 	
