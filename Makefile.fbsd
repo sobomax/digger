@@ -28,7 +28,8 @@ SRCS+=		fbsd_snd.c
 .else	# SDL
 CFLAGS+=	-D_SDL `${SDL_CONFIG} --cflags`
 LDADD+=		`${SDL_CONFIG} --libs`
-SRCS+=		fbsd_sup.c sdl_vid.c sdl_timer.c sdl_kbd.c sdl_snd.c icon.c
+SRCS+=		fbsd_sup.c sdl_vid.c sdl_timer.c sdl_kbd.c sdl_snd.c icon.c \
+		sdl_kbd.h
 .endif
 
 MAN1=
