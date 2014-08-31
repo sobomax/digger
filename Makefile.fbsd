@@ -6,11 +6,11 @@ SRCS=		main.c digger.c drawing.c sprite.c scores.c record.c sound.c \
 		monster_obj.h digger_obj.c digger_obj.h bullet_obj.c \
 		bullet_obj.h
 
-CFLAGS+=	-DFREEBSD
+CFLAGS+=	-DFREEBSD -DDIGGER_DEBUG
 
 LDADD+=		-lz -lm
 
-SDL_CONFIG?=	sdl-config
+SDL_CONFIG?=	sdl2-config
 
 .if !defined(SDL)
 CFLAGS+=	-D_VGL
