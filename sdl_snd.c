@@ -49,10 +49,6 @@ bool setsounddevice(int base, int irq, int dma, uint16_t samprate, uint16_t bufs
 	wanted.userdata = sud;
 	wanted.callback = fill_audio;
 
-#ifdef _VGL
-	restorekeyb();
-#endif
-
 	if ((SDL_Init(SDL_INIT_AUDIO)) >= 0)
 		if ((SDL_OpenAudio(&wanted, &sud->obtained)) >= 0)
 			result = true;
@@ -72,10 +68,6 @@ bool setsounddevice(int base, int irq, int dma, uint16_t samprate, uint16_t bufs
         sud->lp_fltr = bqd_lp_init(sud->obtained.freq, 4000);
         sud->hp_fltr = bqd_hp_init(sud->obtained.freq, 1000);
 	wave_device_available = true;
-
-#ifdef _VGL
-	initkeyb();
-#endif
 
 	return(result);
 }
