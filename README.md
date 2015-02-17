@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/sobomax/digger.svg?branch=master)](https://travis-ci.org/sobomax/digger)
+
 This is Digger Reloaded, aka UNIX/Linux Digger, however it also works on
 Windows.
 
