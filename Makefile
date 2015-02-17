@@ -6,10 +6,10 @@ OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o sound.o \
 		title_gz.o icon.o sdl_kbd.o sdl_vid.o sdl_timer.o sdl_snd.o \
 		digger_math.o monster_obj.o digger_obj.o bullet_obj.o
 
-ARCH	= "LINUX"
-#ARCH	= "MINGW"
-#ARCH	= "FREEBSD"
-#ARCH	= "FooOS"
+ARCH	?= "LINUX"
+#ARCH	?= "MINGW"
+#ARCH	?= "FREEBSD"
+#ARCH	?= "FooOS"
 
 ifeq ($(ARCH),"MINGW")
 CC	=  i686-w64-mingw32-gcc
