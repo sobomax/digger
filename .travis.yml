@@ -4,3 +4,4 @@ compiler:
   - gcc
 script:
     sh -x ./scripts/do-test.sh
+
