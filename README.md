@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.org/sobomax/digger.svg?branch=master)](https://travis-ci.org/sobomax/digger)
 
-This is Digger Reloaded, aka UNIX/Linux Digger, however it also works on
+# This is Digger Reloaded, aka UNIX/Linux Digger, however it also works on
 Windows.
 
 Digger was originally created by Windmill Software in 1983 and released as a
