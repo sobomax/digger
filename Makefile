@@ -6,12 +6,12 @@ OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o sound.o \
 		title_gz.o icon.o sdl_kbd.o sdl_vid.o sdl_timer.o sdl_snd.o \
 		digger_math.o monster_obj.o digger_obj.o bullet_obj.o
 
-ARCH	?= "LINUX"
-#ARCH	?= "MINGW"
-#ARCH	?= "FREEBSD"
-#ARCH	?= "FooOS"
+ARCH	?= LINUX
+#ARCH	?= MINGW
+#ARCH	?= FREEBSD
+#ARCH	?= FooOS
 
-ifeq ($(ARCH),"MINGW")
+ifeq ($(ARCH),MINGW)
 CC	=  i686-w64-mingw32-gcc
 WINDRES	=  i686-w64-mingw32-windres
 RCFLAGS	+= -DMINGW -Dmain=SDL_main -I../zlib-1.2.8/include -I../SDL2-2.0.3/include
@@ -20,21 +20,21 @@ ESUFFIX	=  .exe
 OBJS	+=  digger.res
 endif
 
-ifeq ($(ARCH),"FREEBSD")
+ifeq ($(ARCH),FREEBSD)
 OBJS	+= fbsd_sup.o	# strup()
 RCFLAGS	+= -DFREEBSD $(shell sdl2-config --cflags)
 LIBS	+= $(shell sdl2-config --libs) -lz -lm -lX11
 ESUFFIX	=
 endif
 
-ifeq ($(ARCH),"LINUX")
+ifeq ($(ARCH),LINUX)
 OBJS	+= fbsd_sup.o	# strup()
 RCFLAGS	+= -DLINUX $(shell sdl2-config --cflags)
 LIBS	+= $(shell sdl2-config --libs) -lz -lm -lX11
 ESUFFIX	=
 endif
 
-ifeq ($(ARCH),"FooOS")
+ifeq ($(ARCH),FooOS)
 OBJS	+=		# insert here the names of the files which contains various missing functions like strup() on Linux and FreeBSD
 RCFLAGS	+= -DFooOS	# insert here additional compiler flags which required to find include files, trigger os-specific compiler behaviour etc.
 LIBS	+= 		# insert here libs required to compile like zlib, SDL etc
