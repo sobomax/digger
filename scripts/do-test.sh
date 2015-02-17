@@ -19,5 +19,8 @@ unzip ../zlib128-dll.zip
 cd ../..
 
 make ARCH=LINUX all
-make ARCH=MINGW clean
-make ARCH=MINGW MINGW_DEPS_ROOT=`pwd`/deps all
+if [ "${CC}" != "clang" ]
+then
+  make ARCH=MINGW clean
+  make ARCH=MINGW MINGW_DEPS_ROOT=`pwd`/deps all
+fi
