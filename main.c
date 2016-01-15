@@ -913,7 +913,9 @@ void inir(void)
     }
   }
   gtime=(int)GetINIInt(INI_GAME_SETTINGS,"GauntletTime",120,ININAME);
-  ftime=GetINIInt(INI_GAME_SETTINGS,"Speed",80000l,ININAME);
+  if (ftime == 0) {
+      ftime=GetINIInt(INI_GAME_SETTINGS,"Speed",80000l,ININAME);
+  }
   gauntlet=GetINIBool(INI_GAME_SETTINGS,"GauntletMode",false,ININAME);
   GetINIString(INI_GAME_SETTINGS,"Players","1",vbuf,80,ININAME);
   strupr(vbuf);
