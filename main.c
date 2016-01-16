@@ -635,12 +635,21 @@ read_levf(char *levfname)
     levf = fopen(levfname,"rb");
   }
   if (levf == NULL) {
+#if defined(DIGGER_DEBUG)
+      fprintf(digger_log, "read_levf: levels file open error\n");
+#endif
       return (-1);
   }
-  if (fread(&bonusscore, 2, 1, levf) < 2) {
+  if (fread(&bonusscore, 2, 1, levf) < 1) {
+#if defined(DIGGER_DEBUG)
+    fprintf(digger_log, "read_levf: levels load error 1\n");
+#endif
     goto eout_0;
   }
   if (fread(leveldat, 1200, 1, levf) <= 0) {
+#if defined(DIGGER_DEBUG)
+    fprintf(digger_log, "read_levf: levels load error 2\n");
+#endif
     goto eout_0;
   }
   fclose(levf);
@@ -870,8 +879,12 @@ void parsecmd(int argc,char *argv[])
   }
 
   if (levfflag) {
-    if (read_levf(levfname) != 0)
+    if (read_levf(levfname) != 0) {
+#if defined(DIGGER_DEBUG)
+      fprintf(digger_log, "levels load error\n");
+#endif
       levfflag = false;
+    }
   }
 }
 
@@ -913,7 +926,9 @@ void inir(void)
     }
   }
   gtime=(int)GetINIInt(INI_GAME_SETTINGS,"GauntletTime",120,ININAME);
-  ftime=GetINIInt(INI_GAME_SETTINGS,"Speed",80000l,ININAME);
+  if (ftime == 0) {
+      ftime=GetINIInt(INI_GAME_SETTINGS,"Speed",80000l,ININAME);
+  }
   gauntlet=GetINIBool(INI_GAME_SETTINGS,"GauntletMode",false,ININAME);
   GetINIString(INI_GAME_SETTINGS,"Players","1",vbuf,80,ININAME);
   strupr(vbuf);
