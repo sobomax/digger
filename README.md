@@ -18,9 +18,9 @@ Some plans for the future releases include:
 
 - 2.0, aka "Digger Reset"
 
- o SDL 2.0 port;
+ o SDL 2.0 port (done);
  o further code cleanup (i.e. elimination of the d3adc0d3: WIN16, ETC), more
-   logic moved into high-level objects;
+   logic moved into high-level objects (in-progress);
  o headless (VNC?) mode;
  o network play for 2 players;
  o screen update framerate that is independent of game perceived speed,
