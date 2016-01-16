@@ -52,7 +52,7 @@ smart_fgets(char * restrict str, int size, FILE * restrict stream)
       len--;
     }
     len--;
-    rval[len - 1] = '\0';
+    rval[len] = '\0';
   }
   return (rval);
 }
