@@ -16,7 +16,7 @@ developed to move Digger into XXI century.
 
 Some plans for the future releases include:
 
-- 2.0, aka "Digger Reset", release 4Q 2014
+- 2.0, aka "Digger Reset"
 
  o SDL 2.0 port;
  o further code cleanup (i.e. elimination of the d3adc0d3: WIN16, ETC), more
@@ -26,7 +26,7 @@ Some plans for the future releases include:
  o screen update framerate that is independent of game perceived speed,
    "sub-pixel" updates.
 
-- 3.0, aka "Digger Reloaded", target mid-2015
+- 3.0, aka "Digger Reloaded"
 
  o bigger (open?) game world;
  o MMOG mode;
