@@ -36,9 +36,30 @@ char maked(int16_t dir,bool fire);
 FILE *info;
 #endif
 
+static char *
+smart_fgets(char * restrict str, int size, FILE * restrict stream)
+{
+  char *rval;
+  int len;
+
+  rval = fgets(str, size, stream);
+  if (rval == NULL) {
+    return (NULL);
+  }
+  len = strlen(rval);
+  if (len > 0 && rval[len - 1] == '\n') {
+    if (len > 1 && rval[len - 2] == '\r') {
+      len--;
+    }
+    len--;
+    rval[len - 1] = '\0';
+  }
+  return (rval);
+}
+
 void openplay(char *name)
 {
-  FILE *playf=fopen(name,"rt");
+  FILE *playf=fopen(name,"rb");
   int32_t l,i;
   char c,buf[80];
   int x,y,n,origgtime=gtime;
@@ -59,20 +80,20 @@ void openplay(char *name)
      separators. In the second, they are ignored. This is the first. */
 
   /* Get id string */
-  if (fgets(buf, 80, playf) == NULL) {
+  if (smart_fgets(buf, 80, playf) == NULL) {
     goto out_0;
   }
   if (buf[0]!='D' || buf[1]!='R' || buf[2]!='F') {
     goto out_0;
   }
   /* Get version for kludge switches */
-  if (fgets(buf, 80, playf) == NULL) {
+  if (smart_fgets(buf, 80, playf) == NULL) {
     goto out_0;
   }
   if (atol(buf+7)<=19981125l)
     kludge=true;
   /* Get mode */
-  if (fgets(buf, 80, playf) == NULL) {
+  if (smart_fgets(buf, 80, playf) == NULL) {
     goto out_0;
   }
   if (*buf=='1') {
@@ -104,7 +125,7 @@ void openplay(char *name)
   if (buf[x]=='I')
     startlev=atoi(buf+x+1);
   /* Get bonus score */
-  if (fgets(buf, 80, playf) == NULL) {
+  if (smart_fgets(buf, 80, playf) == NULL) {
     goto out_0;
   }
   bonusscore=atoi(buf);
@@ -113,7 +134,7 @@ void openplay(char *name)
       for (x=0;x<15;x++)
         buf[x]=' ';
       /* Get a line of map */
-      if (fgets(buf, 80, playf) == NULL) {
+      if (smart_fgets(buf, 80, playf) == NULL) {
         goto out_0;
       }
       for (x=0;x<15;x++)
