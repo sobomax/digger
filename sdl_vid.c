@@ -24,10 +24,10 @@
 #include "icon.h"
 #include "sdl_vid.h"
 
-extern uint8_t *vgatable[];
+extern uint8_t const *vgatable[];
 extern uint8_t *ascii2vga[];
 
-static uint8_t **sprites = vgatable;
+static uint8_t const **sprites = vgatable;
 static uint8_t **alphas = ascii2vga;
 
 static int16_t xratio = 2;
@@ -79,14 +79,14 @@ static SDL_Surface *screen = NULL;
 static SDL_Surface *screen16 = NULL;
 
 static SDL_Surface *
-ch2bmap(uint8_t *sprite, int16_t w, int16_t h)
+ch2bmap(const uint8_t *sprite, int16_t w, int16_t h)
 {
 	int16_t realw, realh;
 	SDL_Surface *tmp;
 
 	realw = virt2scrw(w*4);
 	realh = virt2scrh(h);
-	tmp = SDL_CreateRGBSurfaceFrom(sprite, realw, realh, 8, realw, 0, 0, 0, 0);
+	tmp = SDL_CreateRGBSurfaceFrom((void *)sprite, realw, realh, 8, realw, 0, 0, 0, 0);
 	SDL_SetPaletteColors(tmp->format->palette, screen16->format->palette->colors, 0,
             screen16->format->palette->ncolors);
 	
