@@ -20,6 +20,7 @@
 #include "main.h"
 #include "newsnd.h"
 #include "ini.h"
+#include "draw_api.h"
 
 /* global variables */
 char pldispbuf[14];
@@ -43,7 +44,7 @@ FILE *digger_log;
 
 void shownplayers(void);
 void switchnplayers(void);
-void drawscreen(void);
+static void drawscreen(struct digger_draw_api *);
 void initchars(void);
 void checklevdone(void);
 int16_t levno(void);
@@ -150,6 +151,8 @@ int16_t getlevch(int16_t x,int16_t y,int16_t l)
 extern FILE *info;
 #endif
 
+extern struct digger_draw_api *ddap;
+
 void game(void)
 {
   int16_t t,c,i;
@@ -163,7 +166,7 @@ void game(void)
   if (nplayers==2)
     gamedat[1].level=startlev;
   alldead=false;
-  gclear();
+  ddap->gclear();
   curplayer=0;
   initlevel();
   curplayer=1;
@@ -188,7 +191,7 @@ void game(void)
       recputrand(randv);
       if (levnotdrawn) {
         levnotdrawn=false;
-        drawscreen();
+        drawscreen(ddap);
         if (flashplayer) {
           flashplayer=false;
           strcpy(pldispbuf,"PLAYER ");
@@ -199,22 +202,22 @@ void game(void)
           cleartopline();
           for (t=0;t<15;t++)
             for (c=1;c<=3;c++) {
-              outtext(pldispbuf,108,0,c);
-              writecurscore(c);
+              outtext(ddap, pldispbuf,108,0,c);
+              writecurscore(ddap, c);
               newframe();
               if (escape)
                 return;
             }
-          drawscores();
+          drawscores(ddap);
           for (i=0;i<diggers;i++)
-            addscore(i,0);
+            addscore(ddap, i,0);
         }
       }
       else
         initchars();
-      outtext("        ",108,0,3);
-      initscores();
-      drawlives();
+      outtext(ddap, "        ",108,0,3);
+      initscores(ddap);
+      drawlives(ddap);
       music(1);
 
       flushkeybuf();
@@ -222,9 +225,9 @@ void game(void)
         readdirect(i);
       while (!alldead && !gamedat[curplayer].levdone && !escape && !timeout) {
         penalty=0;
-        dodigger();
-        domonsters();
-        dobags();
+        dodigger(ddap);
+        domonsters(ddap);
+        dobags(ddap);
         if (penalty>8)
           incmont(penalty-8);
         testpause();
@@ -237,16 +240,16 @@ void game(void)
         if (t!=0)
           t--;
         penalty=0;
-        dobags();
-        dodigger();
-        domonsters();
+        dobags(ddap);
+        dodigger(ddap);
+        domonsters(ddap);
         if (penalty<8)
           t=0;
       }
       soundstop();
       for (i=0;i<diggers;i++)
         killfire(i);
-      erasebonus();
+      erasebonus(ddap);
       cleanupbags();
       savefield();
       erasemonsters();
@@ -264,7 +267,7 @@ void game(void)
         for (i=curplayer;i<diggers+curplayer;i++)
           if (getlives(i)>0 && !digalive(i))
             declife(i);
-        drawlives();
+        drawlives(ddap);
         gamedat[curplayer].level++;
         if (gamedat[curplayer].level>1000)
           gamedat[curplayer].level=1000;
@@ -278,10 +281,10 @@ void game(void)
           for (i=curplayer;i<curplayer+diggers;i++)
             if (getlives(i)>0)
               declife(i);
-          drawlives();
+          drawlives(ddap);
         }
       if ((alldead && getalllives()==0 && !gauntlet && !escape) || timeout)
-        endofgame();
+        endofgame(ddap);
     }
     alldead=false;
     if (nplayers==2 && getlives(1-curplayer)!=0) {
@@ -309,8 +312,8 @@ void maininit(void)
     return;
   }
   calibrate();
-  ginit();
-  gpal(0);
+  ddap->ginit();
+  ddap->gpal(0);
   setretr(true);
   initkeyb();
   detectjoy();
@@ -341,11 +344,11 @@ int mainprog(void)
     soundstop();
     creatembspr();
     detectjoy();
-    gclear();
-    gtitle();
-    outtext("D I G G E R",100,0,3);
+    ddap->gclear();
+    ddap->gtitle();
+    outtext(ddap, "D I G G E R",100,0,3);
     shownplayers();
-    showtable();
+    showtable(ddap);
     started=false;
     frame=0;
     newframe();
@@ -360,7 +363,7 @@ int mainprog(void)
       }
       if (frame==0)
         for (t=54;t<174;t+=12)
-          outtext("            ",164,t,0);
+          outtext(ddap, "            ",164,t,0);
       if (frame==50) {
         if (nobbin != NULL) {
           CALL_METHOD(nobbin, dtor);
@@ -381,7 +384,7 @@ int mainprog(void)
       }
 
       if (frame==83)
-        outtext("NOBBIN",216,64,2);
+        outtext(ddap, "NOBBIN",216,64,2);
       if (frame==90) {
         if (hobbin != NULL) {
           CALL_METHOD(hobbin, dtor);
@@ -404,7 +407,7 @@ int mainprog(void)
         CALL_METHOD(hobbin, animate);
       }
       if (frame==123)
-        outtext("HOBBIN",216,83,2);
+        outtext(ddap, "HOBBIN",216,83,2);
       if (frame==130) {
         digger_obj_init(&odigger, 0, DIR_LEFT, 292, 101);
         CALL_METHOD(&odigger, put);
@@ -419,21 +422,21 @@ int mainprog(void)
         CALL_METHOD(&odigger, animate);
       }
       if (frame==163)
-        outtext("DIGGER",216,102,2);
+        outtext(ddap, "DIGGER",216,102,2);
       if (frame==178) {
         movedrawspr(FIRSTBAG,184,120);
         drawgold(0,0,184,120);
       }
       if (frame==183)
-        outtext("GOLD",216,121,2);
+        outtext(ddap, "GOLD",216,121,2);
       if (frame==198)
         drawemerald(184,141);
       if (frame==203)
-        outtext("EMERALD",216,140,2);
+        outtext(ddap, "EMERALD",216,140,2);
       if (frame==218)
         drawbonus(184,158);
       if (frame==223)
-        outtext("BONUS",216,159,2);
+        outtext(ddap, "BONUS",216,159,2);
       if (frame == 235) {
           CALL_METHOD(nobbin, damage);
       }
@@ -488,26 +491,26 @@ void shownplayers(void)
 {
   if (diggers==2)
     if (gauntlet) {
-      outtext("TWO PLAYER",180,25,3);
-      outtext("GAUNTLET",192,39,3);
+      outtext(ddap, "TWO PLAYER",180,25,3);
+      outtext(ddap, "GAUNTLET",192,39,3);
     }
     else {
-      outtext("TWO PLAYER",180,25,3);
-      outtext("SIMULTANEOUS",170,39,3);
+      outtext(ddap, "TWO PLAYER",180,25,3);
+      outtext(ddap, "SIMULTANEOUS",170,39,3);
     }
   else
     if (gauntlet) {
-      outtext("GAUNTLET",192,25,3);
-      outtext("MODE",216,39,3);
+      outtext(ddap, "GAUNTLET",192,25,3);
+      outtext(ddap, "MODE",216,39,3);
     }
     else
       if (nplayers==1) {
-        outtext("ONE",220,25,3);
-        outtext(" PLAYER ",192,39,3);
+        outtext(ddap, "ONE",220,25,3);
+        outtext(ddap, " PLAYER ",192,39,3);
       }
       else {
-        outtext("TWO",220,25,3);
-        outtext(" PLAYERS",184,39,3);
+        outtext(ddap, "TWO",220,25,3);
+        outtext(ddap, " PLAYERS",184,39,3);
       }
 }
 
@@ -533,10 +536,10 @@ void initlevel(void)
   levnotdrawn=true;
 }
 
-void drawscreen(void)
+void drawscreen(struct digger_draw_api *ddap)
 {
   creatembspr();
-  drawstatics();
+  drawstatics(ddap);
   drawbags();
   drawemeralds();
   initdigger();
@@ -565,8 +568,8 @@ void incpenalty(void)
 
 void cleartopline(void)
 {
-  outtext("                          ",0,0,3);
-  outtext(" ",308,0,3);
+  outtext(ddap, "                          ",0,0,3);
+  outtext(ddap, " ",308,0,3);
 }
 
 int16_t levplan(void)
@@ -602,13 +605,13 @@ void testpause(void)
     sett2val(40);
     setsoundt2();
     cleartopline();
-    outtext("PRESS ANY KEY",80,0,1);
+    outtext(ddap, "PRESS ANY KEY",80,0,1);
     getkey(true);
     cleartopline();
-    drawscores();
+    drawscores(ddap);
     for (i=0;i<diggers;i++)
-      addscore(i,0);
-    drawlives();
+      addscore(ddap, i,0);
+    drawlives(ddap);
     if (!synchvid)
       curtime=gethrt();
     pausef=false;
@@ -808,20 +811,20 @@ void parsecmd(int argc,char *argv[])
       if (argch == '2')
         diggers=2;
       if (argch == 'B' || argch == 'C') {
-        ginit=cgainit;
-        gpal=cgapal;
-        ginten=cgainten;
-        gclear=cgaclear;
-        ggetpix=cgagetpix;
-        gputi=cgaputi;
-        ggeti=cgageti;
-        gputim=cgaputim;
-        gwrite=cgawrite;
-        gtitle=cgatitle;
+        ddap->ginit=cgainit;
+        ddap->gpal=cgapal;
+        ddap->ginten=cgainten;
+        ddap->gclear=cgaclear;
+        ddap->ggetpix=cgagetpix;
+        ddap->gputi=cgaputi;
+        ddap->ggeti=cgageti;
+        ddap->gputim=cgaputim;
+        ddap->gwrite=cgawrite;
+        ddap->gtitle=cgatitle;
         if (argch == 'B')
           biosflag=true;
-        ginit();
-        gpal(0);
+        ddap->ginit();
+        ddap->gpal(0);
       }
       if (argch == 'K') {
         if (word[2]=='A' || word[2]=='a')
@@ -981,18 +984,18 @@ void inir(void)
   cgaflag=GetINIBool(INI_GRAPHICS_SETTINGS,"CGA",false,ININAME);
   biosflag=GetINIBool(INI_GRAPHICS_SETTINGS,"BIOSPalette",false,ININAME);
   if (cgaflag || biosflag) {
-    ginit=cgainit;
-    gpal=cgapal;
-    ginten=cgainten;
-    gclear=cgaclear;
-    ggetpix=cgagetpix;
-    gputi=cgaputi;
-    ggeti=cgageti;
-    gputim=cgaputim;
-    gwrite=cgawrite;
-    gtitle=cgatitle;
-    ginit();
-    gpal(0);
+    ddap->ginit=cgainit;
+    ddap->gpal=cgapal;
+    ddap->ginten=cgainten;
+    ddap->gclear=cgaclear;
+    ddap->ggetpix=cgagetpix;
+    ddap->gputi=cgaputi;
+    ddap->ggeti=cgageti;
+    ddap->gputim=cgaputim;
+    ddap->gwrite=cgawrite;
+    ddap->gtitle=cgatitle;
+    ddap->ginit();
+    ddap->gpal(0);
   }
   unlimlives=GetINIBool(INI_GAME_SETTINGS,"UnlimitedLives",false,ININAME);
   startlev=(int)GetINIInt(INI_GAME_SETTINGS,"StartLevel",1,ININAME);
@@ -1004,19 +1007,19 @@ void redefkeyb(bool allf)
   bool f;
   char kbuf[80],vbuf[80];
   if (diggers==2) {
-    outtext("PLAYER 1:",0,y,3);
+    outtext(ddap, "PLAYER 1:",0,y,3);
     y+=12;
   }
 
-  outtext("PRESS NEW KEY FOR",0,y,3);
+  outtext(ddap, "PRESS NEW KEY FOR",0,y,3);
   y+=12;
 
 /* Step one: redefine keys that are always redefined. */
 
   for (i=0;i<5;i++) {
-    outtext(keynames[i],0,y,2); /* Red first */
+    outtext(ddap, keynames[i],0,y,2); /* Red first */
     findkey(i);
-    outtext(keynames[i],0,y,1); /* Green once got */
+    outtext(ddap, keynames[i],0,y,1); /* Green once got */
     y+=12;
     for (j=0;j<i;j++) { /* Note: only check keys just pressed (I hate it when
                            this is done wrong, and it often is.) */
@@ -1038,12 +1041,12 @@ void redefkeyb(bool allf)
   }
 
   if (diggers==2) {
-    outtext("PLAYER 2:",0,y,3);
+    outtext(ddap, "PLAYER 2:",0,y,3);
     y+=12;
     for (i=5;i<10;i++) {
-      outtext(keynames[i],0,y,2); /* Red first */
+      outtext(ddap, keynames[i],0,y,2); /* Red first */
       findkey(i);
-      outtext(keynames[i],0,y,1); /* Green once got */
+      outtext(ddap, keynames[i],0,y,1); /* Green once got */
       y+=12;
       for (j=0;j<i;j++) { /* Note: only check keys just pressed (I hate it when
                              this is done wrong, and it often is.) */
@@ -1084,9 +1087,9 @@ void redefkeyb(bool allf)
     if (f || (allf && i!=z)) {
       if (i!=z)
         y+=12;
-      outtext(keynames[i],0,y,2); /* Red first */
+      outtext(ddap, keynames[i],0,y,2); /* Red first */
       findkey(i);
-      outtext(keynames[i],0,y,1); /* Green once got */
+      outtext(ddap, keynames[i],0,y,1); /* Green once got */
       z=i;
       i--;
     }

@@ -1,7 +1,9 @@
 #ifndef __MONSTER_H
 #define __MONSTER_H
 
-void domonsters(void);
+struct digger_draw_api;
+
+void domonsters(struct digger_draw_api *);
 void incmont(int16_t n);
 void erasemonsters(void);
 void initmonsters(void);

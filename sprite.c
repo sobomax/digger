@@ -2,6 +2,7 @@
 #include "def.h"
 #include "sprite.h"
 #include "hardware.h"
+#include "draw_api.h"
 
 bool retrflag=true;
 
@@ -31,16 +32,20 @@ void putims(void);
 void putis(void);
 void bcollides(int bx);
 
-void (*ginit)(void)=vgainit;
-void (*gclear)(void)=vgaclear;
-void (*gpal)(int16_t pal)=vgapal;
-void (*ginten)(int16_t inten)=vgainten;
-void (*gputi)(int16_t x,int16_t y,uint8_t *p,int16_t w,int16_t h)=vgaputi;
-void (*ggeti)(int16_t x,int16_t y,uint8_t *p,int16_t w,int16_t h)=vgageti;
-void (*gputim)(int16_t x,int16_t y,int16_t ch,int16_t w,int16_t h)=vgaputim;
-int16_t (*ggetpix)(int16_t x,int16_t y)=vgagetpix;
-void (*gtitle)(void)=vgatitle;
-void (*gwrite)(int16_t x,int16_t y,int16_t ch,int16_t c)=vgawrite;
+static struct digger_draw_api dda_static = {
+  .ginit = &vgainit,
+  .gclear = &vgaclear,
+  .gpal = &vgapal,
+  .ginten = &vgainten,
+  .gputi = &vgaputi,
+  .ggeti = &vgageti,
+  .gputim = &vgaputim,
+  .ggetpix = &vgagetpix,
+  .gtitle = &vgatitle,
+  .gwrite = &vgawrite
+};
+
+struct digger_draw_api *ddap = &dda_static;
 
 void setretr(bool f)
 {
@@ -71,7 +76,7 @@ void movedrawspr(int16_t n,int16_t x,int16_t y)
   clearrdrwf();
   setrdrwflgs(n);
   putis();
-  ggeti(sprx[n],spry[n],sprmov[n],sprwid[n],sprhei[n]);
+  ddap->ggeti(sprx[n],spry[n],sprmov[n],sprwid[n],sprhei[n]);
   sprenf[n]=true;
   sprrdrwf[n]=true;
   putims();
@@ -81,7 +86,7 @@ void erasespr(int16_t n)
 {
   if (!sprenf[n])
     return;
-  gputi(sprx[n],spry[n],sprmov[n],sprwid[n],sprhei[n]);
+  ddap->gputi(sprx[n],spry[n],sprmov[n],sprwid[n],sprhei[n]);
   sprenf[n]=false;
   clearrdrwf();
   setrdrwflgs(n);
@@ -118,7 +123,7 @@ void drawspr(int16_t n,int16_t x,int16_t y)
   sprhei[n]=sprnhei[n];
   sprbwid[n]=sprnbwid[n];
   sprbhei[n]=sprnbhei[n];
-  ggeti(sprx[n],spry[n],sprmov[n],sprwid[n],sprhei[n]);
+  ddap->ggeti(sprx[n],spry[n],sprmov[n],sprwid[n],sprhei[n]);
   putims();
   bcollides(n);
 }
@@ -148,7 +153,7 @@ void getis(void)
   int16_t i;
   for (i=0;i<SPRITES;i++)
     if (sprrdrwf[i])
-      ggeti(sprx[i],spry[i],sprmov[i],sprwid[i],sprhei[i]);
+      ddap->ggeti(sprx[i],spry[i],sprmov[i],sprwid[i],sprhei[i]);
   putims();
 }
 
@@ -159,7 +164,7 @@ void drawmiscspr(int16_t x,int16_t y,int16_t ch,int16_t wid,int16_t hei)
   sprch[SPRITES]=ch;
   sprwid[SPRITES]=wid;
   sprhei[SPRITES]=hei;
-  gputim(sprx[SPRITES],spry[SPRITES],sprch[SPRITES],sprwid[SPRITES],
+  ddap->gputim(sprx[SPRITES],spry[SPRITES],sprch[SPRITES],sprwid[SPRITES],
          sprhei[SPRITES]);
 }
 
@@ -236,7 +241,7 @@ void putims(void)
   int i;
   for (i=0;i<SPRITES;i++)
     if (sprrdrwf[i])
-      gputim(sprx[i],spry[i],sprch[i],sprwid[i],sprhei[i]);
+      ddap->gputim(sprx[i],spry[i],sprch[i],sprwid[i],sprhei[i]);
 }
 
 void putis(void)
@@ -244,7 +249,7 @@ void putis(void)
   int i;
   for (i=0;i<SPRITES;i++)
     if (sprrdrwf[i])
-      gputi(sprx[i],spry[i],sprmov[i],sprwid[i],sprhei[i]);
+      ddap->gputi(sprx[i],spry[i],sprmov[i],sprwid[i],sprhei[i]);
 }
 
 int first[TYPES],coll[SPRITES];

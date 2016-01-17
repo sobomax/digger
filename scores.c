@@ -5,6 +5,7 @@
 #include "def.h"
 #include "scores.h"
 #include "main.h"
+#include "draw_api.h"
 #include "drawing.h"
 #include "hardware.h"
 #include "sound.h"
@@ -34,14 +35,14 @@ uint16_t bonusscore=20000;
 
 bool gotinitflag=false;
 
-void readscores(void);
-void writescores(void);
-void savescores(void);
-void getinitials(void);
-void flashywait(int16_t n);
-int16_t getinitial(int16_t x,int16_t y);
-void shufflehigh(void);
-void writenum(int32_t n,int16_t x,int16_t y,int16_t w,int16_t c);
+static void readscores(void);
+static void writescores(void);
+static void savescores(void);
+static void getinitials(struct digger_draw_api *);
+static void flashywait(struct digger_draw_api *, int16_t n);
+static int16_t getinitial(struct digger_draw_api *, int16_t x,int16_t y);
+static void shufflehigh(void);
+static void writenum(struct digger_draw_api *, int32_t n,int16_t x,int16_t y,int16_t w,int16_t c);
 static void numtostring(char *p,int32_t n);
 
 #ifdef ARM
@@ -69,7 +70,8 @@ int32_t getscore0(void)
 }
 #endif
 
-void readscores(void)
+static void
+readscores(void)
 {
   FILE *in;
   scorebuf[0]=0;
@@ -91,7 +93,8 @@ void readscores(void)
     }
 }
 
-void writescores(void)
+static void
+writescores(void)
 {
   FILE *out;
   if (!levfflag) {
@@ -108,11 +111,11 @@ void writescores(void)
     }
 }
 
-void initscores(void)
+void initscores(struct digger_draw_api *ddap)
 {
   int i;
   for (i=0;i<diggers;i++)
-    addscore(i,0);
+    addscore(ddap, i,0);
 }
 
 void loadscores(void)
@@ -146,47 +149,47 @@ void zeroscores(void)
   scoret=0;
 }
 
-void writecurscore(int col)
+void writecurscore(struct digger_draw_api *ddap, int col)
 {
   if (curplayer==0)
-    writenum(scdat[0].score,0,0,6,col);
+    writenum(ddap, scdat[0].score,0,0,6,col);
   else
     if (scdat[1].score<100000l)
-      writenum(scdat[1].score,236,0,6,col);
+      writenum(ddap, scdat[1].score,236,0,6,col);
     else
-      writenum(scdat[1].score,248,0,6,col);
+      writenum(ddap, scdat[1].score,248,0,6,col);
 }
 
-void drawscores(void)
+void drawscores(struct digger_draw_api *ddap)
 {
-  writenum(scdat[0].score,0,0,6,3);
+  writenum(ddap, scdat[0].score,0,0,6,3);
   if (nplayers==2 || diggers==2) {
     if (scdat[1].score<100000l)
-      writenum(scdat[1].score,236,0,6,3);
+      writenum(ddap, scdat[1].score,236,0,6,3);
     else
-      writenum(scdat[1].score,248,0,6,3);
+      writenum(ddap, scdat[1].score,248,0,6,3);
   }
 }
 
-void addscore(int n,int16_t score)
+void addscore(struct digger_draw_api *ddap, int n,int16_t score)
 {
   scdat[n].score+=score;
   if (scdat[n].score>999999l)
     scdat[n].score=0;
   if (n==0)
-    writenum(scdat[n].score,0,0,6,1);
+    writenum(ddap, scdat[n].score,0,0,6,1);
   else
     if (scdat[n].score<100000l)
-      writenum(scdat[n].score,236,0,6,1);
+      writenum(ddap, scdat[n].score,236,0,6,1);
     else
-      writenum(scdat[n].score,248,0,6,1);
+      writenum(ddap, scdat[n].score,248,0,6,1);
   if (scdat[n].score>=scdat[n].nextbs+n) { /* +n to reproduce original bug */
     if (getlives(n)<5 || unlimlives) {
       if (gauntlet)
         cgtime+=17897715l; /* 15 second time bonus instead of the life */
       else
         addlife(n);
-      drawlives();
+      drawlives(ddap);
     }
     scdat[n].nextbs+=bonusscore;
   }
@@ -195,34 +198,34 @@ void addscore(int n,int16_t score)
   incpenalty();
 }
 
-void endofgame(void)
+void endofgame(struct digger_draw_api *ddap)
 {
   int16_t i;
   bool initflag=false;
   for (i=0;i<diggers;i++)
-    addscore(i,0);
+    addscore(ddap, i,0);
   if (playing || !drfvalid)
     return;
   if (gauntlet) {
     cleartopline();
-    outtext("TIME UP",120,0,3);
+    outtext(ddap, "TIME UP",120,0,3);
     for (i=0;i<50 && !escape;i++)
       newframe();
-    outtext("       ",120,0,3);
+    outtext(ddap, "       ",120,0,3);
   }
   for (i=curplayer;i<curplayer+diggers;i++) {
     scoret=scdat[i].score;
     if (scoret>scorehigh[11]) {
-      gclear();
-      drawscores();
+      ddap->gclear();
+      drawscores(ddap);
       strcpy(pldispbuf,"PLAYER ");
       if (i==0)
         strcat(pldispbuf,"1");
       else
         strcat(pldispbuf,"2");
-      outtext(pldispbuf,108,0,2);
-      outtext(" NEW HIGH SCORE ",64,40,2);
-      getinitials();
+      outtext(ddap, pldispbuf,108,0,2);
+      outtext(ddap, " NEW HIGH SCORE ",64,40,2);
+      getinitials(ddap);
       shufflehigh();
       savescores();
       initflag=true;
@@ -230,18 +233,18 @@ void endofgame(void)
   }
   if (!initflag && !gauntlet) {
     cleartopline();
-    outtext("GAME OVER",104,0,3);
+    outtext(ddap, "GAME OVER",104,0,3);
     for (i=0;i<50 && !escape;i++)
       newframe();
-    outtext("         ",104,0,3);
+    outtext(ddap, "         ",104,0,3);
     setretr(true);
   }
 }
 
-void showtable(void)
+void showtable(struct digger_draw_api *ddap)
 {
   int16_t i,col;
-  outtext("HIGH SCORES",16,25,3);
+  outtext(ddap, "HIGH SCORES",16,25,3);
   col=2;
   for (i=1;i<11;i++) {
     strcpy(hsbuf,"");
@@ -249,12 +252,13 @@ void showtable(void)
     strcat(hsbuf,"  ");
     numtostring(highbuf,scorehigh[i+1]);
     strcat(hsbuf,highbuf);
-    outtext(hsbuf,16,31+13*i,col);
+    outtext(ddap, hsbuf,16,31+13*i,col);
     col=1;
   }
 }
 
-void savescores(void)
+static void
+savescores(void)
 {
   int16_t i,p=0,j;
   if (gauntlet)
@@ -274,19 +278,19 @@ void savescores(void)
   writescores();
 }
 
-void getinitials(void)
+void getinitials(struct digger_draw_api *ddap)
 {
   int16_t k,i;
   newframe();
-  outtext("ENTER YOUR",100,70,3);
-  outtext(" INITIALS",100,90,3);
-  outtext("_ _ _",128,130,3);
+  outtext(ddap, "ENTER YOUR",100,70,3);
+  outtext(ddap, " INITIALS",100,90,3);
+  outtext(ddap, "_ _ _",128,130,3);
   strcpy(scoreinit[0],"...");
   killsound();
   for (i=0;i<3;i++) {
     k=0;
     while (k==0) {
-      k=getinitial(i*24+128,130);
+      k=getinitial(ddap, i*24+128,130);
       if (k==8 || k==127) {
         if (i>0)
           i--;
@@ -294,21 +298,21 @@ void getinitials(void)
       }
     }
     if (k!=0) {
-      gwrite(i*24+128,130,k,3);
+      ddap->gwrite(i*24+128,130,k,3);
       scoreinit[0][i]=k;
     }
   }
   for (i=0;i<20;i++)
-    flashywait(15);
+    flashywait(ddap, 15);
   setupsound();
-  gclear();
-  gpal(0);
-  ginten(0);
+  ddap->gclear();
+  ddap->gpal(0);
+  ddap->ginten(0);
   setretr(true);
   recputinit(scoreinit[0]);
 }
 
-void flashywait(int16_t n)
+void flashywait(struct digger_draw_api *ddap, int16_t n)
 {
   int16_t i,gt,cx,p=0;
   int8_t gap=19;
@@ -317,7 +321,7 @@ void flashywait(int16_t n)
   setretr(false);
   for (i=0;i<(n<<1);i++)
     for (cx=0;cx<volume;cx++) {
-      gpal(p=1-p);
+      ddap->gpal(p=1-p);
 #if defined(_SDL) && !defined(_VGL)
       doscreenupdate();
 #endif
@@ -325,10 +329,10 @@ void flashywait(int16_t n)
     }
 }
 
-int16_t getinitial(int16_t x,int16_t y)
+int16_t getinitial(struct digger_draw_api *ddap, int16_t x,int16_t y)
 {
   int16_t i;
-  gwrite(x,y,'_',3);
+  ddap->gwrite(x,y,'_',3);
   do {
     for (i=0;i<40;i++) {
       if (kbhit()) {
@@ -337,19 +341,20 @@ int16_t getinitial(int16_t x,int16_t y)
 	  continue;
         return key;
       }
-      flashywait(15);
+      flashywait(ddap, 15);
     }
     for (i=0;i<40;i++) {
       if (kbhit()) {
-        gwrite(x,y,'_',3);
+        ddap->gwrite(x,y,'_',3);
         return getkey(false);
       }
-      flashywait(15);
+      flashywait(ddap, 15);
     }
   } while (1);
 }
 
-void shufflehigh(void)
+static void
+shufflehigh(void)
 {
   int16_t i,j;
   for (j=10;j>1;j--)
@@ -363,56 +368,58 @@ void shufflehigh(void)
   strcpy(scoreinit[j],scoreinit[0]);
 }
 
-void scorekill(int n)
+void scorekill(struct digger_draw_api *ddap, int n)
 {
-  addscore(n,250);
+  addscore(ddap, n,250);
 }
 
-void scorekill2(void)
+void scorekill2(struct digger_draw_api *ddap)
 {
-  addscore(0,125);
-  addscore(1,125);
+  addscore(ddap, 0,125);
+  addscore(ddap, 1,125);
 }
 
-void scoreemerald(int n)
+void scoreemerald(struct digger_draw_api *ddap, int n)
 {
-  addscore(n,25);
+  addscore(ddap, n,25);
 }
 
-void scoreoctave(int n)
+void scoreoctave(struct digger_draw_api *ddap, int n)
 {
-  addscore(n,250);
+  addscore(ddap, n,250);
 }
 
-void scoregold(int n)
+void scoregold(struct digger_draw_api *ddap, int n)
 {
-  addscore(n,500);
+  addscore(ddap, n,500);
 }
 
-void scorebonus(int n)
+void scorebonus(struct digger_draw_api *ddap, int n)
 {
-  addscore(n,1000);
+  addscore(ddap, n,1000);
 }
 
-void scoreeatm(int n,int msc)
+void scoreeatm(struct digger_draw_api *ddap, int n,int msc)
 {
-  addscore(n,msc*200);
+  addscore(ddap, n,msc*200);
 }
 
-void writenum(int32_t n,int16_t x,int16_t y,int16_t w,int16_t c)
+static void
+writenum(struct digger_draw_api *ddap, int32_t n,int16_t x,int16_t y,int16_t w,int16_t c)
 {
   int16_t d,xp=(w-1)*12+x;
   while (w>0) {
     d=(int16_t)(n%10);
     if (w>1 || d>0)
-      gwrite(xp,y,d+'0',c);
+      ddap->gwrite(xp,y,d+'0',c);
     n/=10;
     w--;
     xp-=12;
   }
 }
 
-static void numtostring(char *p,int32_t n)
+static void
+numtostring(char *p,int32_t n)
 {
   int x;
   for (x=0;x<6;x++) {

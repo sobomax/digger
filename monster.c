@@ -26,8 +26,8 @@ static int16_t chase=0;
 static bool unbonusflag=false;
 
 static void createmonster(void);
-static void monai(int16_t mon);
-static void mondie(int16_t mon);
+static void monai(struct digger_draw_api *, int16_t mon);
+static void mondie(struct digger_draw_api *, int16_t mon);
 static bool fieldclear(int16_t dir,int16_t x,int16_t y);
 static void squashmonster(int16_t mon,int16_t death,int16_t bag);
 static int16_t nmononscr(void);
@@ -72,7 +72,7 @@ void erasemonsters(void)
       erasespr(i+FIRSTMONSTER);
 }
 
-void domonsters(void)
+void domonsters(struct digger_draw_api *ddap)
 {
   int16_t i;
   if (nextmontime>0)
@@ -97,19 +97,20 @@ void domonsters(void)
       }
       if (CALL_METHOD(mondat[i].mop, isalive))
         if (mondat[i].t==0) {
-          monai(i);
+          monai(ddap, i);
           if (randno(15-levof10())==0) /* Need to split for determinism */
             if (ISNOB(mondat[i].mop) && CALL_METHOD(mondat[i].mop, isalive))
-              monai(i);
+              monai(ddap, i);
         }
         else
           mondat[i].t--;
       else
-        mondie(i);
+        mondie(ddap, i);
     }
 }
 
-static void createmonster(void)
+static void
+createmonster(void)
 {
   int16_t i;
   for (i=0;i<MONSTERS;i++)
@@ -143,7 +144,8 @@ void mongold(void)
   mongotgold=true;
 }
 
-static void monai(int16_t mon)
+static void
+monai(struct digger_draw_api *ddap, int16_t mon)
 {
   int16_t monox,monoy,dir,mdirp1,mdirp2,mdirp3,mdirp4,t;
   int clcoll[SPRITES],clfirst[TYPES],i,m,dig;
@@ -378,11 +380,11 @@ static void monai(int16_t mon)
     mondat[mon].t++; /* Time penalty */
     mongotgold=false;
     if (mondat[mon].dir==DIR_RIGHT || mondat[mon].dir==DIR_LEFT) { 
-      push=pushbags(mondat[mon].dir,clfirst,clcoll);      /* Horizontal push */
+      push=pushbags(ddap, mondat[mon].dir,clfirst,clcoll);      /* Horizontal push */
       mondat[mon].t++; /* Time penalty */
     }
     else
-      if (!pushudbags(clfirst,clcoll)) /* Vertical push */
+      if (!pushudbags(ddap, clfirst,clcoll)) /* Vertical push */
         push=false;
     if (mongotgold) /* No time penalty if monster eats gold */
       mondat[mon].t=0;
@@ -421,7 +423,7 @@ static void monai(int16_t mon)
       i=clfirst[4];
       while (i!=-1) {
         if (digalive(i-FIRSTDIGGER+curplayer))
-          sceatm(i-FIRSTDIGGER+curplayer);
+          sceatm(ddap, i-FIRSTDIGGER+curplayer);
         i=clcoll[i];
       }
       soundeatm(); /* Collision in bonus mode */
@@ -444,7 +446,8 @@ static void monai(int16_t mon)
   mondat[mon].yr=(mopos.y-18)%18;
 }
 
-static void mondie(int16_t mon)
+static void
+mondie(struct digger_draw_api *ddap, int16_t mon)
 {
   struct obj_position monpos;
 
@@ -468,14 +471,15 @@ static void mondie(int16_t mon)
       else {
         killmon(mon);
         if (diggers==2)
-          scorekill2();
+          scorekill2(ddap);
         else
-          scorekill(curplayer);
+          scorekill(ddap, curplayer);
       }
   }
 }
 
-static bool fieldclear(int16_t dir,int16_t x,int16_t y)
+static bool
+fieldclear(int16_t dir,int16_t x,int16_t y)
 {
   switch (dir) {
     case DIR_RIGHT:
@@ -549,7 +553,8 @@ int16_t killmonsters(int *clfirst,int *clcoll)
   return n;
 }
 
-static void squashmonster(int16_t mon,int16_t death,int16_t bag)
+static void
+squashmonster(int16_t mon,int16_t death,int16_t bag)
 {
   CALL_METHOD(mondat[mon].mop, damage);
   mondat[mon].death=death;
@@ -561,7 +566,8 @@ int16_t monleft(void)
   return nmononscr()+totalmonsters-nextmonster;
 }
 
-static int16_t nmononscr(void)
+static int16_t
+nmononscr(void)
 {
   int16_t i,n=0;
   for (i=0;i<MONSTERS;i++)

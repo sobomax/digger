@@ -1,4 +1,6 @@
-void outtext(char *p,int16_t x,int16_t y,int16_t c);
+struct digger_draw_api;
+
+void outtext(struct digger_draw_api *, char *p,int16_t x,int16_t y,int16_t c);
 
 void creatembspr(void);
 void initmbspr(void);
@@ -7,10 +9,10 @@ void drawgold(int16_t n,int16_t t,int16_t x,int16_t y);
 void drawemerald(int16_t x,int16_t y);
 void eraseemerald(int16_t x,int16_t y);
 void drawbonus(int16_t x,int16_t y);
-void drawlives(void);
+void drawlives(struct digger_draw_api *);
 void savefield(void);
 void makefield(void);
-void drawstatics(void);
+void drawstatics(struct digger_draw_api *);
 void drawfire(int n,int16_t x,int16_t y,int16_t t);
 void eatfield(int16_t x,int16_t y,int16_t dir);
 void drawrightblob(int16_t x,int16_t y);

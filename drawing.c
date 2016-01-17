@@ -2,6 +2,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "def.h"
+#include "draw_api.h"
 #include "drawing.h"
 #include "main.h"
 #include "hardware.h"
@@ -25,11 +26,11 @@ void initdbfspr(void);
 void drawbackg(int16_t l);
 void drawfield(void);
 
-void outtext(char *p,int16_t x,int16_t y,int16_t c)
+void outtext(struct digger_draw_api *ddap, char *p,int16_t x,int16_t y,int16_t c)
 {
   int16_t i;
   for (i=0;p[i];i++) {
-    gwrite(x,y,isalnum(p[i]) ? p[i] : ' ',c);
+    ddap->gwrite(x,y,isalnum(p[i]) ? p[i] : ' ',c);
     x+=12;
   }
 }
@@ -52,7 +53,7 @@ void makefield(void)
     }
 }
 
-void drawstatics(void)
+void drawstatics(struct digger_draw_api *ddap)
 {
   int16_t x,y;
   for (x=0;x<MWIDTH;x++)
@@ -62,8 +63,8 @@ void drawstatics(void)
       else
         field[y*MWIDTH+x]=field2[y*MWIDTH+x];
   setretr(true);
-  gpal(0);
-  ginten(0);
+  ddap->gpal(0);
+  ddap->ginten(0);
   drawbackg(levplan());
   drawfield();
 }
@@ -331,22 +332,22 @@ void drawdigger(int n,int16_t t,int16_t x,int16_t y,bool f)
   first[0]=first[1]=first[2]=first[3]=first[4]=-1;
 }
 
-void drawlives(void)
+void drawlives(struct digger_draw_api *ddap)
 {
   int16_t l,n,g;
   char buf[10];
   if (gauntlet) {
     g=(int16_t)(cgtime/1193181l);
     sprintf(buf,"%3i:%02i",g/60,g%60);
-    outtext(buf,124,0,3);
+    outtext(ddap, buf,124,0,3);
     return;
   }
   n=getlives(0)-1;
-  outtext("     ",96,0,2);
+  outtext(ddap, "     ",96,0,2);
   if (n>4) {
     drawlife(0,80,0);
     sprintf(buf,"X%i",n);
-    outtext(buf,100,0,2);
+    outtext(ddap, buf,100,0,2);
   }
   else
     for (l=1;l<5;l++) {
@@ -354,11 +355,11 @@ void drawlives(void)
       n--;
     }
   if (nplayers==2) {
-    outtext("     ",164,0,2);
+    outtext(ddap, "     ",164,0,2);
     n=getlives(1)-1;
     if (n>4) {
       sprintf(buf,"%iX",n);
-      outtext(buf,220-strlen(buf)*12,0,2);
+      outtext(ddap, buf,220-strlen(buf)*12,0,2);
       drawlife(1,224,0);
     }
     else
@@ -368,11 +369,11 @@ void drawlives(void)
       }
   }
   if (diggers==2) {
-    outtext("     ",164,0,1);
+    outtext(ddap, "     ",164,0,1);
     n=getlives(1)-1;
     if (n>4) {
       sprintf(buf,"%iX",n);
-      outtext(buf,220-strlen(buf)*12,0,1);
+      outtext(ddap, buf,220-strlen(buf)*12,0,1);
       drawlife(3,224,0);
     }
     else

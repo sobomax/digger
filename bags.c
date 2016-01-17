@@ -16,11 +16,11 @@ struct bag {
 
 int16_t pushcount=0,goldtime=0;
 
-void updatebag(int16_t bag);
-void baghitground(int16_t bag);
-bool pushbag(int16_t bag,int16_t dir);
-void removebag(int16_t bn);
-void getgold(int16_t bag);
+static void updatebag(struct digger_draw_api *, int16_t bag);
+static void baghitground(int16_t bag);
+static bool pushbag(struct digger_draw_api *, int16_t bag,int16_t dir);
+static void removebag(int16_t bn);
+static void getgold(struct digger_draw_api *, int16_t bag);
 
 void initbags(void)
 {
@@ -85,7 +85,7 @@ void cleanupbags(void)
   }
 }
 
-void dobags(void)
+void dobags(struct digger_draw_api *ddap)
 {
   int16_t bag;
   bool soundfalloffflag=true,soundwobbleoffflag=true;
@@ -114,7 +114,7 @@ void dobags(void)
               bagdat[bag].gt=goldtime-10;
       }
       else
-        updatebag(bag);
+        updatebag(ddap, bag);
     }
   for (bag=0;bag<BAGS;bag++) {
     if (bagdat[bag].dir==DIR_DOWN && bagdat[bag].exist)
@@ -130,7 +130,8 @@ void dobags(void)
 
 int16_t wblanim[4]={2,0,1,0};
 
-void updatebag(int16_t bag)
+static void
+updatebag(struct digger_draw_api *ddap, int16_t bag)
 {
   int16_t x,h,xr,y,v,yr,wbl;
   x=bagdat[bag].x;
@@ -193,11 +194,12 @@ void updatebag(int16_t bag)
     if (bagdat[bag].dir!=DIR_DOWN && pushcount!=0)
       pushcount--;
     else
-      pushbag(bag,bagdat[bag].dir);
+      pushbag(ddap, bag,bagdat[bag].dir);
   }
 }
 
-void baghitground(int16_t bag)
+static void
+baghitground(int16_t bag)
 {
   int clfirst[TYPES],clcoll[SPRITES],i;
   if (bagdat[bag].dir==DIR_DOWN && bagdat[bag].fallh>1)
@@ -220,7 +222,8 @@ void baghitground(int16_t bag)
   }
 }
 
-bool pushbag(int16_t bag,int16_t dir)
+static bool
+pushbag(struct digger_draw_api *ddap, int16_t bag,int16_t dir)
 {
   int16_t x,y,h,v,ox,oy;
   int clfirst[TYPES],clcoll[SPRITES],i;
@@ -230,7 +233,7 @@ bool pushbag(int16_t bag,int16_t dir)
   h=bagdat[bag].h;
   v=bagdat[bag].v;
   if (bagdat[bag].gt!=0) {
-    getgold(bag);
+    getgold(ddap, bag);
     return true;
   }
   if (bagdat[bag].dir==DIR_DOWN && (dir==DIR_RIGHT || dir==DIR_LEFT)) {
@@ -302,7 +305,7 @@ bool pushbag(int16_t bag,int16_t dir)
         incpenalty();
         pushcount=1;
         if (clfirst[1]!=-1)
-          if (!pushbags(dir,clfirst,clcoll)) {
+          if (!pushbags(ddap, dir,clfirst,clcoll)) {
             x=ox;
             y=oy;
             drawgold(bag,0,ox,oy);
@@ -338,25 +341,25 @@ bool pushbag(int16_t bag,int16_t dir)
   return push;
 }
 
-bool pushbags(int16_t dir,int *clfirst,int *clcoll)
+bool pushbags(struct digger_draw_api *ddap, int16_t dir,int *clfirst,int *clcoll)
 {
   bool push=true;
   int next=clfirst[1];
   while (next!=-1) {
-    if (!pushbag(next-FIRSTBAG,dir))
+    if (!pushbag(ddap, next-FIRSTBAG,dir))
       push=false;
     next=clcoll[next];
   }
   return push;
 }
 
-bool pushudbags(int *clfirst,int *clcoll)
+bool pushudbags(struct digger_draw_api *ddap, int *clfirst,int *clcoll)
 {
   bool push=true;
   int next=clfirst[1];
   while (next!=-1) {
     if (bagdat[next-FIRSTBAG].gt!=0)
-      getgold(next-FIRSTBAG);
+      getgold(ddap, next-FIRSTBAG);
     else
       push=false;
     next=clcoll[next];
@@ -364,7 +367,8 @@ bool pushudbags(int *clfirst,int *clcoll)
   return push;
 }
 
-void removebag(int16_t bag)
+static void
+removebag(int16_t bag)
 {
   if (bagdat[bag].exist) {
     bagdat[bag].exist=false;
@@ -408,7 +412,8 @@ int16_t getnmovingbags(void)
   return n;
 }
 
-void getgold(int16_t bag)
+static void
+getgold(struct digger_draw_api *ddap, int16_t bag)
 {
   bool f=true;
   int i;
@@ -417,7 +422,7 @@ void getgold(int16_t bag)
   i=first[4];
   while (i!=-1) {
     if (digalive(i-FIRSTDIGGER+curplayer)) {
-      scoregold(i-FIRSTDIGGER+curplayer);
+      scoregold(ddap, i-FIRSTDIGGER+curplayer);
       soundgold();
       digresettime(i-FIRSTDIGGER+curplayer);
       f=false;

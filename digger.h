@@ -1,13 +1,14 @@
-void dodigger(void);
+struct digger_draw_api;
+
+void dodigger(struct digger_draw_api *);
 void erasediggers(void);
 void killfire(int n);
-void erasebonus(void);
+void erasebonus(struct digger_draw_api *);
 int16_t countem(void);
 void makeemfield(void);
 void drawemeralds(void);
 void initdigger(void);
 void drawexplosion(int n);
-void updatefire(int n);
 void createbonus(void);
 int16_t reversedir(int16_t d);
 bool hitemerald(int16_t x,int16_t y,int16_t rx,int16_t ry,int16_t dir);
@@ -18,7 +19,7 @@ void newframe(void);
 int diggerx(int n);
 int diggery(int n);
 void digresettime(int n);
-void sceatm(int n);
+void sceatm(struct digger_draw_api *, int n);
 bool isalive(void);
 bool digalive(int n);
 int getlives(int pl);
