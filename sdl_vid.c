@@ -25,13 +25,13 @@
 #include "sdl_vid.h"
 
 extern uint8_t const *vgatable[];
-extern uint8_t *ascii2vga[];
+extern const uint8_t const *ascii2vga[];
 
 static int16_t xratio = 2;
 static int16_t yratio = 2;
 static int16_t yoffset = 0;
 static int16_t hratio = 2;
-static int16_t wratio = 2;
+static int16_t wratio = 2 * 4;
 #define virt2scrx(x) (x*xratio)
 #define virt2scry(y) (y*yratio+yoffset)
 #define virt2scrw(w) (w*wratio)
@@ -93,12 +93,11 @@ ch2bmap(struct ch2bmap_plane *planep, uint8_t sprite, int16_t w, int16_t h)
 	if (planep->caches[sprite] != NULL) {
 		return (planep->caches[sprite]);
 	}
-	realw = virt2scrw(w*4);
+	realw = virt2scrw(w);
 	realh = virt2scrh(h);
         sp = planep->sprites[sprite];
 	tmp = SDL_CreateRGBSurfaceFrom((void *)sp, realw, realh, 8, realw, 0, 0, 0, 0);
-	SDL_SetPaletteColors(tmp->format->palette, screen16->format->palette->colors, 0,
-            screen16->format->palette->ncolors);
+	SDL_SetPaletteColors(tmp->format->palette, npalettes[0], 0, 16);
 	planep->caches[sprite] = tmp;
 	return(tmp);
 }
@@ -281,7 +280,7 @@ void vgaputi(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h)
 
 	rect.x = virt2scrx(x);
 	rect.y = virt2scry(y);
-	rect.w = virt2scrw(w*4);
+	rect.w = virt2scrw(w);
 	rect.h = virt2scrh(h);
 
 	memcpy(&tmp, p, (sizeof (SDL_Surface *)));
@@ -302,7 +301,7 @@ void vgageti(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h)
 
 	src.x = virt2scrx(x);
 	src.y = virt2scry(y);
-	src.w = virt2scrw(w*4);
+	src.w = virt2scrw(w);
 	src.h = virt2scrh(h);
 
 	tmp = SDL_CreateRGBSurface(0, src.w, src.h, 8, 0, 0, 0, 0);
