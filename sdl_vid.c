@@ -78,7 +78,8 @@ static SDL_Texture *roottxt = NULL;
 static SDL_Surface *screen = NULL;
 static SDL_Surface *screen16 = NULL;
 
-SDL_Surface *ch2bmap(uint8_t *sprite, int16_t w, int16_t h)
+static SDL_Surface *
+ch2bmap(uint8_t *sprite, int16_t w, int16_t h)
 {
 	int16_t realw, realh;
 	SDL_Surface *tmp;
@@ -111,7 +112,8 @@ x11_set_parent(Window parent)
 }
 #endif
 
-bool setmode(void)
+static bool
+setmode(void)
 {
 #if defined(SDL_OLD)
 #ifdef UNIX
