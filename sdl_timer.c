@@ -26,6 +26,9 @@ void inittimer(void)
     tfreq = 1000000.0 / ftime;
     loop_error = recfilter_init(tfreq, 0.1);
     PFD_init(&phase_detector, 0.0);
+#if defined(DIGGER_DEBUG)
+    fprintf(digger_log, "inittimer: ftime = %u\n", ftime);
+#endif
 }
 
 int32_t getlrt(void)
@@ -39,6 +42,10 @@ uint32_t gethrt(void)
     double eval, clk_rl, tfreq, add_delay_d, filterval;
     static double cum_error = 0.0;
 
+    if (ftime <= 1) {
+        doscreenupdate();
+        return (0);
+    }
     tfreq = 1000000.0 / ftime;
     clk_rl = (double)SDL_GetTicks() * tfreq / 1000.0;
     eval = PFD_get_error(&phase_detector, clk_rl);

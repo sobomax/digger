@@ -752,7 +752,11 @@ void parsecmd(int argc,char *argv[])
         speedmul=0;
         while (word[i]!=0)
           speedmul=10*speedmul+word[i++]-'0';
-        ftime=speedmul*2000l;
+        if (speedmul > 0) {
+          ftime=speedmul*2000l;
+        } else {
+          ftime = 1;
+        }
         gs=true;
       }
       if (argch == 'I')
@@ -870,7 +874,11 @@ void parsecmd(int argc,char *argv[])
         while (word[j]!=0)
           speedmul=10*speedmul+word[j++]-'0';
         gs=true;
-        ftime=speedmul*2000l;
+        if (speedmul > 0) {
+          ftime=speedmul*2000l;
+        } else {
+          ftime = 1;
+        }
       }
       else {
         j=0;
