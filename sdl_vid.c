@@ -27,9 +27,6 @@
 extern uint8_t *vgatable[];
 extern uint8_t *ascii2vga[];
 
-static uint8_t **sprites = vgatable;
-static uint8_t **alphas = ascii2vga;
-
 static int16_t xratio = 2;
 static int16_t yratio = 2;
 static int16_t yoffset = 0;
@@ -78,18 +75,31 @@ static SDL_Texture *roottxt = NULL;
 static SDL_Surface *screen = NULL;
 static SDL_Surface *screen16 = NULL;
 
+struct ch2bmap_plane {
+	uint8_t **sprites;
+	SDL_Surface *caches[256];
+};
+
+static struct ch2bmap_plane sprites = {.sprites = vgatable};
+static struct ch2bmap_plane alphas = {.sprites = ascii2vga};
+
 static SDL_Surface *
-ch2bmap(uint8_t *sprite, int16_t w, int16_t h)
+ch2bmap(struct ch2bmap_plane *planep, uint8_t sprite, int16_t w, int16_t h)
 {
 	int16_t realw, realh;
 	SDL_Surface *tmp;
+        uint8_t *sp;
 
+	if (planep->caches[sprite] != NULL) {
+		return (planep->caches[sprite]);
+	}
 	realw = virt2scrw(w*4);
 	realh = virt2scrh(h);
-	tmp = SDL_CreateRGBSurfaceFrom(sprite, realw, realh, 8, realw, 0, 0, 0, 0);
+        sp = planep->sprites[sprite];
+	tmp = SDL_CreateRGBSurfaceFrom(sp, realw, realh, 8, realw, 0, 0, 0, 0);
 	SDL_SetPaletteColors(tmp->format->palette, screen16->format->palette->colors, 0,
             screen16->format->palette->ncolors);
-	
+	planep->caches[sprite] = tmp;
 	return(tmp);
 }
 
@@ -334,8 +344,8 @@ void vgaputim(int16_t x, int16_t y, int16_t ch, int16_t w, int16_t h)
 	int16_t realsize;
 	int16_t i;
 
-	tmp = ch2bmap(sprites[ch*2], w, h);
-	mask = ch2bmap(sprites[ch*2+1], w, h);
+	tmp = ch2bmap(&sprites, ch*2, w, h);
+	mask = ch2bmap(&sprites, ch*2+1, w, h);
 	vgageti(x, y, (uint8_t *)&scr, w, h);
 	realsize = scr->w * scr->h;
 	tmp_pxl = (uint8_t *)tmp->pixels;
@@ -347,24 +357,20 @@ void vgaputim(int16_t x, int16_t y, int16_t ch, int16_t w, int16_t h)
 				tmp_pxl[i];
 
 	vgaputi(x, y, (uint8_t *)&scr, w, h);
-	tmp->pixels = NULL;   /* We should NULL'ify these ppointers, or the VGLBitmapDestroy */
-	mask->pixels = NULL;  /* will shoot itself in the foot by trying to dellocate statically */
-	SDL_FreeSurface(tmp);/* allocated arrays */
-	SDL_FreeSurface(mask);
 	SDL_FreeSurface(scr);
 }
 
 void vgawrite(int16_t x, int16_t y, int16_t ch, int16_t c)
 {
 	SDL_Surface *tmp;
-	uint8_t *copy;
+	uint8_t *orig, *copy;
 	uint8_t color;
 	int16_t w=3, h=12, size;
 	int16_t i;
 
 	if(((ch - 32) >= 0x5f) || (ch < 32))
 		return;
-	tmp = ch2bmap(alphas[ch-32], w, h);
+	tmp = ch2bmap(&alphas, ch-32, w, h);
 	size = tmp->w*tmp->h;
 	copy = malloc(size);
 	memcpy(copy, tmp->pixels, size);
@@ -392,9 +398,10 @@ void vgawrite(int16_t x, int16_t y, int16_t ch, int16_t c)
 			}
 		copy[i] = color;
 	}
+	orig = tmp->pixels;
 	tmp->pixels = copy;
 	vgaputi(x, y, (uint8_t *)&tmp, w, h);
-	SDL_FreeSurface(tmp);
+	tmp->pixels = orig;
 	free(copy);
 }
 
