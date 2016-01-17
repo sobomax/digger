@@ -322,9 +322,7 @@ void flashywait(struct digger_draw_api *ddap, int16_t n)
   for (i=0;i<(n<<1);i++)
     for (cx=0;cx<volume;cx++) {
       ddap->gpal(p=1-p);
-#if defined(_SDL) && !defined(_VGL)
-      doscreenupdate();
-#endif
+      ddap->gflush();
       for (gt=0;gt<gap;gt++);
     }
 }

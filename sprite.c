@@ -42,7 +42,8 @@ static struct digger_draw_api dda_static = {
   .gputim = &vgaputim,
   .ggetpix = &vgagetpix,
   .gtitle = &vgatitle,
-  .gwrite = &vgawrite
+  .gwrite = &vgawrite,
+  .gflush = &doscreenupdate
 };
 
 struct digger_draw_api *ddap = &dda_static;
