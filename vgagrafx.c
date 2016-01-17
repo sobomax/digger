@@ -1,3 +1,6 @@
+/* Digger Remastered
+   Copyright (c) Andrew Jenner 1998-2004 */
+
 #include "def.h"
 
 static const uint8_t vgazero480[]={

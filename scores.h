@@ -1,3 +1,6 @@
+/* Digger Remastered
+   Copyright (c) Andrew Jenner 1998-2004 */
+
 struct digger_draw_api;
 
 void loadscores(void);

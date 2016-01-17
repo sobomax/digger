@@ -1,3 +1,6 @@
+/* Digger Remastered
+   Copyright (c) Andrew Jenner 1998-2004 */
+
 void initsound(void);
 void soundstop(void);
 void music(int16_t tune);

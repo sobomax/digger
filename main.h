@@ -1,3 +1,6 @@
+/* Digger Remastered
+   Copyright (c) Andrew Jenner 1998-2004 */
+
 int16_t getlevch(int16_t bp6,int16_t bp8,int16_t bpa);
 void incpenalty(void);
 int16_t levplan(void);

@@ -1,3 +1,6 @@
+/* Digger Remastered
+   Copyright (c) Andrew Jenner 1998-2004 */
+
 /* Generic sound device header */
 
 #define MIN_SAMP 0
