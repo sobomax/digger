@@ -98,7 +98,7 @@ void graphicsoff(void)
 }
 
 #ifdef UNIX
-void
+static void
 x11_set_parent(Window parent)
 {
 #if 0
@@ -231,7 +231,9 @@ void vgaclear(void)
 	vgaputi(0, 0, (uint8_t *)&tmp, 80, 200);
 	SDL_FreeSurface(tmp);
 }
-void setpal(SDL_Color *pal)
+
+static void
+setpal(SDL_Color *pal)
 {
 
 	SDL_SetPaletteColors(screen16->format->palette, pal, 0, 16);
