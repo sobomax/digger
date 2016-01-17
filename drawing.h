@@ -1,3 +1,6 @@
+/* Digger Remastered
+   Copyright (c) Andrew Jenner 1998-2004 */
+
 struct digger_draw_api;
 
 void outtext(struct digger_draw_api *, char *p,int16_t x,int16_t y,int16_t c);

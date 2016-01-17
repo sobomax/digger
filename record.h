@@ -1,3 +1,6 @@
+/* Digger Remastered
+   Copyright (c) Andrew Jenner 1998-2004 */
+
 void openplay(char *name);
 void recstart(void);
 void recname(char *name);

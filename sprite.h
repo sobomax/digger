@@ -1,3 +1,6 @@
+/* Digger Remastered
+   Copyright (c) Andrew Jenner 1998-2004 */
+
 void setretr(bool f);
 void movedrawspr(int16_t n,int16_t x,int16_t y);
 void erasespr(int16_t n);

@@ -1,3 +1,6 @@
+/* Digger Remastered
+   Copyright (c) Andrew Jenner 1998-2004 */
+
 #include "device.h"
 
 void soundinitglob(int port,int irq,int dma,uint16_t bufsize,uint16_t samprate);

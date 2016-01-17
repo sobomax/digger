@@ -1,3 +1,6 @@
+/* Digger Remastered
+   Copyright (c) Andrew Jenner 1998-2004 */
+
 #include "def.h"
 
 void WriteINIString(char *section,char *key,char *value,char *filename);

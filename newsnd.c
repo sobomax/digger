@@ -1,3 +1,6 @@
+/* Digger Remastered
+   Copyright (c) Andrew Jenner 1998-2004 */
+
 #include <stdlib.h>
 #include "def.h"
 #include "device.h"

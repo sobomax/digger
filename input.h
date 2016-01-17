@@ -1,3 +1,6 @@
+/* Digger Remastered
+   Copyright (c) Andrew Jenner 1998-2004 */
+
 void detectjoy(void);
 bool teststart(void);
 void readdirect(int n);

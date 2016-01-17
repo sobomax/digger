@@ -1,3 +1,6 @@
+/* Digger Remastered
+   Copyright (c) Andrew Jenner 1998-2004 */
+
 #ifndef __MONSTER_H
 #define __MONSTER_H
 
