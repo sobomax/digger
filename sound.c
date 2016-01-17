@@ -156,6 +156,7 @@ void soundlevdone(void)
   nljpointer=0;
   nljnoteduration=20;
   soundlevdoneflag=soundpausedflag=true;
+  ftime /= 5;
   while (soundlevdoneflag && !escape) {
     fillbuffer();
 #if defined _SDL || defined _VGL
@@ -177,6 +178,7 @@ void soundlevdone(void)
     checkkeyb();
     timer=timerclock;
   }
+  ftime *= 5;
   soundlevdoneoff();
 }
 
