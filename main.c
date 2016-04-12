@@ -1017,6 +1017,9 @@ void redefkeyb(bool allf)
   int i,j,k,l,z,y=0;
   bool f;
   char kbuf[80],vbuf[80];
+
+  maininit();
+
   if (diggers==2) {
     outtext(ddap, "PLAYER 1:",0,y,3);
     y+=12;
