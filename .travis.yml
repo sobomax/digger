@@ -1,7 +1,9 @@
+before_install:
+  - sudo apt-add-repository --yes ppa:zoogie/sdl2-snapshots
+  - sudo apt-get -qq update
+  - sudo apt-get install -qq libsdl2-dev
 language: c
 compiler:
-  - clang
   - gcc
 script:
-    sh -x ./scripts/do-test.sh
-
+    make
