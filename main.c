@@ -785,6 +785,7 @@ void parsecmd(int argc,char *argv[])
                "Acorn port by Julian Brown\n"
 #endif
                "http://www.digger.org\n"
+               "https://github.com/sobomax/digger\n"
                "Version: "DIGGER_VERSION"\n\n"
 
                "Command line syntax:\n"
