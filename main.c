@@ -795,17 +795,21 @@ void parsecmd(int argc,char *argv[])
                "         [/A:device,port,irq,dma,rate,length] [/V] [/U] "
                                                                "[/I:level] "
 #if defined(UNIX) && defined(_SDL)
-                                                               "[/X:xid]"
+                                                               "[/X:xid] "
+#endif
+
+#if defined(_SDL)
+                                                               "[/F]"
 #endif
                                                                "\n\n"
 #ifndef UNIX
                "/C = Use CGA graphics\n"
                "/B = Use BIOS palette functions for CGA (slow!)\n"
 #endif
-               "/Q = Quiet mode (no sound at all)       "
+               "/Q = Quiet mode (no sound at all)\n"
                "/M = No music\n"
                "/R = Record graphics to file\n"
-               "/P = Playback and restart program       "
+               "/P = Playback and restart program\n"
                "/E = Playback and exit program\n"
                "/O = Loop to beginning of command line\n"
                "/K = Redefine keyboard\n"
@@ -817,6 +821,9 @@ void parsecmd(int argc,char *argv[])
 #endif
 #if defined(UNIX) && defined(_SDL)
                "/X = Embed in window\n"
+#endif
+#if defined(_SDL)
+               "/F = Full-Screen\n"
 #endif
                "/U = Allow unlimited lives\n"
                "/I = Start on a level other than 1\n");
