@@ -457,6 +457,11 @@ int mainprog(void)
       if (frame>250)
         frame=0;
     }
+    if (toggle) {
+      switchmode();
+      toggle=false;
+      continue;
+    }
     if (savedrf) {
       if (gotgame) {
         recsavedrf();
@@ -476,6 +481,7 @@ int mainprog(void)
     }
     savedrf=false;
     escape=false;
+    toggle=false;
   } while (!escape);
   finish();
   return 0;
