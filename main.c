@@ -705,6 +705,8 @@ void parsecmd(int argc,char *argv[])
     if (word[0]=='/' || word[0]=='-') {
 #if defined(UNIX) && defined(_SDL)
       argch = getarg(word[1], "FOUH?QM2BCKVL:R:P:S:E:G:X:A:I:", &hasopt);
+#elif defined(_SDL)
+      argch = getarg(word[1], "FOUH?QM2BCKVL:R:P:S:E:G:A:I:", &hasopt);
 #else
       argch = getarg(word[1], "OUH?QM2BCKVL:R:P:S:E:G:A:I:", &hasopt);
 #endif
@@ -726,6 +728,9 @@ void parsecmd(int argc,char *argv[])
         x11_parent = strtol (&word[i], 0, 0);
         sdl_set_x11_parent(x11_parent);
       }
+#endif
+
+#if defined(_SDL)
       if (argch == 'F') {
         sdl_enable_fullscreen();
       }
