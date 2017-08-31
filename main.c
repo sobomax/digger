@@ -361,8 +361,7 @@ int mainprog(void)
     teststart();
     while (!started) {
       started=teststart();
-      if ((akeypressed==27 || akeypressed=='n' || akeypressed=='N') &&
-          !gauntlet && diggers==1) {
+      if (akeypressed==27 || akeypressed=='n' || akeypressed=='N') {
         switchnplayers();
         shownplayers();
         akeypressed=0;
@@ -487,6 +486,9 @@ void finish(void)
 
 void shownplayers(void)
 {
+  outtext(ddap, "          ",180,25,3);
+  outtext(ddap, "            ",170,39,3);
+
   if (diggers==2)
     if (gauntlet) {
       outtext(ddap, "TWO PLAYER",180,25,3);
@@ -522,7 +524,21 @@ int getalllives(void)
 
 void switchnplayers(void)
 {
-  nplayers=3-nplayers;
+  if (!gauntlet && nplayers==1 && diggers==1) {
+    nplayers=2;
+  } else if (!gauntlet && nplayers==2 && diggers==1) {
+    diggers=2;
+  } else if (!gauntlet && nplayers==2 && diggers==2) {
+    gauntlet=true;
+    diggers=1;
+    nplayers=1;
+  } else if (gauntlet && nplayers==1 && diggers==1) {
+    diggers=2;
+  } else {
+    gauntlet=false;
+    nplayers=1;
+    diggers=1;
+  }
 }
 
 void initlevel(void)
