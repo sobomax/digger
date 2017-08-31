@@ -442,18 +442,6 @@ int mainprog(void)
         drawbonus(184,158);
       if (frame==223)
         outtext(ddap, "BONUS",216,159,2);
-      if (frame == 235) {
-          CALL_METHOD(nobbin, damage);
-      }
-      if (frame == 239) {
-          CALL_METHOD(nobbin, kill);
-      }
-      if (frame == 242) {
-          CALL_METHOD(hobbin, damage);
-      }
-      if (frame == 246) {
-          CALL_METHOD(hobbin, kill);
-      }
       newframe();
       frame++;
       if (frame>250)
