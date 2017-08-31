@@ -958,21 +958,6 @@ void inir(void)
   if (ftime == 0) {
       ftime=GetINIInt(INI_GAME_SETTINGS,"Speed",80000l,ININAME);
   }
-  gauntlet=GetINIBool(INI_GAME_SETTINGS,"GauntletMode",false,ININAME);
-  GetINIString(INI_GAME_SETTINGS,"Players","1",vbuf,80,ININAME);
-  strupr(vbuf);
-  if (vbuf[0]=='2' && vbuf[1]=='S') {
-    diggers=2;
-    nplayers=1;
-  }
-  else {
-    diggers=1;
-    nplayers=atoi(vbuf);
-    if (nplayers<1 || nplayers>2)
-      nplayers=1;
-  }
-  soundflag=GetINIBool(INI_SOUND_SETTINGS,"SoundOn",true,ININAME);
-  musicflag=GetINIBool(INI_SOUND_SETTINGS,"MusicOn",true,ININAME);
   sound_rate=(int)GetINIInt(INI_SOUND_SETTINGS,"Rate",22050,ININAME);
   sound_length=(int)GetINIInt(INI_SOUND_SETTINGS,"BufferSize",DEFAULT_BUFFER,ININAME);
 
