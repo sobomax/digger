@@ -228,6 +228,10 @@ void game(void)
         readdirect(i);
       while (!alldead && !gamedat[curplayer].levdone && !escape && !timeout) {
         penalty=0;
+        if (toggle) {
+          switchmode();
+          toggle=false;
+        } 
         dodigger(ddap);
         domonsters(ddap);
         dobags(ddap);
