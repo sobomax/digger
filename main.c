@@ -398,6 +398,7 @@ int mainprog(void)
         }
         hobbin = monster_obj_ctor(1, MON_NOBBIN, DIR_LEFT, 292, 82);
         CALL_METHOD(hobbin, put);
+        CALL_METHOD(hobbin, mutate);
       }
       if (frame>90 && frame<=117) {
         CALL_METHOD(hobbin, getpos, &newpos);
@@ -406,9 +407,6 @@ int mainprog(void)
           newpos.dir = DIR_RIGHT;
         }
         CALL_METHOD(hobbin, setpos, &newpos);
-      }
-      if (frame == 100) {
-        CALL_METHOD(hobbin, mutate);
       }
       if (frame > 90) {
         CALL_METHOD(hobbin, animate);
