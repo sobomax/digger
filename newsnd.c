@@ -50,10 +50,10 @@ uint8_t getsample(void);
    to take into account. bufsize should also be a power of 2.
 */
 
-void soundinitglob(int port,int irq,int dma,uint16_t bufsize,uint16_t samprate)
+void soundinitglob(uint16_t bufsize,uint16_t samprate)
 {
   int i;
-  setsounddevice(port,irq,dma,samprate,bufsize);
+  setsounddevice(samprate,bufsize);
   buffer=malloc((bufsize<<1)*sizeof(uint8_t));
   rate=(int)(0x1234ddul/(uint32_t)samprate);
   firsts=0;

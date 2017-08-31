@@ -301,7 +301,7 @@ void game(void)
 }
 
 static bool quiet=false;
-static uint16_t sound_device,sound_port,sound_irq,sound_dma,sound_rate,sound_length;
+static sound_rate,sound_length;
 
 #if defined(UNIX) && defined(_SDL)
 #include "sdl_vid.h"
@@ -704,9 +704,9 @@ void parsecmd(int argc,char *argv[])
     word=argv[arg];
     if (word[0]=='/' || word[0]=='-') {
 #if defined(UNIX) && defined(_SDL)
-      argch = getarg(word[1], "FOUH?QM2BCKVL:R:P:S:E:G:X:A:I:", &hasopt);
+      argch = getarg(word[1], "FOUH?QM2BCKVL:R:P:S:E:G:X:I:", &hasopt);
 #else
-      argch = getarg(word[1], "OUH?QM2BCKVL:R:P:S:E:G:A:I:", &hasopt);
+      argch = getarg(word[1], "OUH?QM2BCKVL:R:P:S:E:G:I:", &hasopt);
 #endif
       i = 2;
       if (argch != -1 && hasopt && word[2] == ':') {
@@ -781,12 +781,12 @@ void parsecmd(int argc,char *argv[])
                                                          "[/P:playback file]\n"
                "         [/E:playback file] [/R:record file] [/O] [/K[A]] "
                                                            "[/G[:time]] [/2]\n"
-               "         [/A:device,port,irq,dma,rate,length] [/V] [/U] "
-                                                               "[/I:level] "
+               "         [/V] [/U] [/I:level] "
+
 #if defined(UNIX) && defined(_SDL)
                                                                "[/X:xid]"
 #endif
-                                                               "\n\n"
+                         "\n\n"
 #ifndef UNIX
                "/C = Use CGA graphics\n"
                "/B = Use BIOS palette functions for CGA (slow!)\n"
@@ -800,7 +800,6 @@ void parsecmd(int argc,char *argv[])
                "/K = Redefine keyboard\n"
                "/G = Gauntlet mode\n"
                "/2 = Two player simultaneous mode\n"
-               "/A = Use alternate sound device\n"
 #ifndef UNIX
                "/V = Synchronize timing to vertical retrace\n"
 #endif
@@ -839,9 +838,6 @@ void parsecmd(int argc,char *argv[])
         else
           redefkeyb(false);
       }
-      if (argch =='A')
-        sscanf(word+i,"%hu,%hx,%hu,%hu,%hu,%hu",&sound_device,&sound_port,&sound_irq,
-               &sound_dma,&sound_rate,&sound_length);
       if (argch == 'Q')
         quiet=true;
       if (argch == 'V')
@@ -958,13 +954,8 @@ void inir(void)
   }
   soundflag=GetINIBool(INI_SOUND_SETTINGS,"SoundOn",true,ININAME);
   musicflag=GetINIBool(INI_SOUND_SETTINGS,"MusicOn",true,ININAME);
-  sound_device=(int)GetINIInt(INI_SOUND_SETTINGS,"Device",DEF_SND_DEV,ININAME);
-  sound_port=(int)GetINIInt(INI_SOUND_SETTINGS,"Port",544,ININAME);
-  sound_irq=(int)GetINIInt(INI_SOUND_SETTINGS,"Irq",5,ININAME);
-  sound_dma=(int)GetINIInt(INI_SOUND_SETTINGS,"DMA",1,ININAME);
   sound_rate=(int)GetINIInt(INI_SOUND_SETTINGS,"Rate",22050,ININAME);
-  sound_length=(int)GetINIInt(INI_SOUND_SETTINGS,"BufferSize",DEFAULT_BUFFER,
-                              ININAME);
+  sound_length=(int)GetINIInt(INI_SOUND_SETTINGS,"BufferSize",DEFAULT_BUFFER,ININAME);
 
 #if !defined(UNIX) && !defined(_SDL)
   if (sound_device==1) {
@@ -983,7 +974,7 @@ void inir(void)
     timer0=s1timer0;
     settimer2=s1settimer2;
     timer2=s1timer2;
-    soundinitglob(sound_port,sound_irq,sound_dma,sound_length,sound_rate);
+    soundinitglob(sound_length,sound_rate);
   }
   dx_sound_volume=(int)GetINIInt(INI_SOUND_SETTINGS,"SoundVolume",0,ININAME);
   g_bWindowed=true;
