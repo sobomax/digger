@@ -6,7 +6,7 @@ SRCS=		main.c digger.c drawing.c sprite.c scores.c record.c sound.c \
 		monster_obj.h digger_obj.c digger_obj.h bullet_obj.c \
 		bullet_obj.h
 
-CFLAGS+=	-DFREEBSD -DDIGGER_DEBUG
+CFLAGS+=	-DFREEBSD
 
 LDADD+=		-lz -lm
 

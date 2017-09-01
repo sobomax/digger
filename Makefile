@@ -1,5 +1,5 @@
 CC	?= gcc
-CFLAGS	+= -O -g -pipe -DDIGGER_DEBUG
+CFLAGS	+= -O -g -pipe
 RCFLAGS = -D_SDL -std=c99 -Wall
 OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o sound.o \
 		newsnd.o ini.o input.o monster.o bags.o alpha.o vgagrafx.o \
