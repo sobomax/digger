@@ -17,7 +17,7 @@ Name: "{group}\Digger";                            Filename: "{app}\digger.exe";
 Name: "{group}\Digger (Two-Player Simultaneous)";  Filename: "{app}\digger.exe"; WorkingDir: "{app}"; Parameters: "/2"
 Name: "{group}\Digger (Gauntlet Mode)";            Filename: "{app}\digger.exe"; WorkingDir: "{app}"; Parameters: "/G"
 Name: "{group}\Redefine Keyboard (One Player)";    Filename: "{app}\digger.exe"; WorkingDir: "{app}"; Parameters: "/K"
-Name: "{group}\Redefine Keyboard (Two Players)";   Filename: "{app}\digger.exe"; WorkingDir: "{app}"; Parameters: "/KA"
+Name: "{group}\Redefine Keyboard (Two Players)";   Filename: "{app}\digger.exe"; WorkingDir: "{app}"; Parameters: "/2 /K"
 Name: "{group}\Read Me";                           Filename: "{app}\README.txt"
 Name: "{group}\Uninstall";                         Filename: "{uninstallexe}"
 
