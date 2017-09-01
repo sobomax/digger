@@ -227,10 +227,12 @@ void game(void)
         readdirect(i);
       while (!alldead && !gamedat[curplayer].levdone && !escape && !timeout) {
         penalty=0;
+#if defined(_SDL)
         if (toggle) {
           switchmode();
           toggle=false;
         } 
+#endif
         dodigger(ddap);
         domonsters(ddap);
         dobags(ddap);
@@ -304,9 +306,9 @@ void game(void)
 }
 
 static bool quiet=false;
-static sound_rate,sound_length;
+static int sound_rate,sound_length;
 
-#if defined(UNIX) && defined(_SDL)
+#if defined(_SDL)
 #include "sdl_vid.h"
 #endif
 
@@ -445,11 +447,13 @@ int mainprog(void)
       if (frame>250)
         frame=0;
     }
+#if defined(_SDL)
     if (toggle) {
       switchmode();
       toggle=false;
       continue;
     }
+#endif
     if (savedrf) {
       if (gotgame) {
         recsavedrf();
