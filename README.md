@@ -25,7 +25,7 @@ Some plans for the future releases include:
   - [ ] installer for Windows
   - [ ] make CGA graphics available again (for nostalgia) 
   - [ ] further code cleanup (in-progress)
-      - [x] move logicinto high-level objects
+      - [x] move logic into high-level objects
       - [x] remove obsolete command line options 
       - [ ] remove obsolete DOS functions (i. e. function s0setupsound() and so on)
       - [ ] remove ARM specific code (SDL 2.0 is not available on ARM, so the ARM specific code is useless)
