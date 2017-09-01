@@ -27,13 +27,13 @@ Some plans for the future releases include:
 
 - 3.0, aka "Digger Reloaded"
 
-  - [ ] bigger (open?) game world;
-  - [ ] MMOG mode;
-  - [ ] deathmatch mode;
-  - [ ] new capabilities to the characters (i.e. superpowers), and interactions between them (i.e. gradual damage);
+  - [ ] bigger (open?) game world
+  - [ ] MMOG mode
+  - [ ] deathmatch mode
+  - [ ] new capabilities to the characters (i.e. superpowers), and interactions between them (i.e. gradual damage)
   - [ ] few types of diggers: scout, soldier, sniper etc.
   - [ ] monster AI 2.0?
-  - [ ] digger AI to make teamplay/deathmatch interesting even in single-player mode.
-  - [ ] teamplay.
+  - [ ] digger AI to make teamplay/deathmatch interesting even in single-player mode
+  - [ ] teamplay
 
 We plan to keep the source code free and open at all times.
