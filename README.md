@@ -49,4 +49,4 @@ Some plans for the future releases include:
   - [ ] digger AI to make teamplay/deathmatch interesting even in single-player mode
   - [ ] teamplay
 
-We plan to keep the source code free and open at all times.
+We plan to keep the source code free and open at all times. Digger Remastered is licensed under the terms of GNU General Public License version 2.
