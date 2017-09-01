@@ -28,7 +28,7 @@ build_script:
 
     echo === Download SDL ===================================================
 
-    curl -s https://www.libsdl.org/release/SDL2-devel-2.0.3-mingw.tar.gz | tar -xz
+    curl -s https://www.libsdl.org/release/SDL2-devel-2.0.5-mingw.tar.gz | tar -xz
 
 
     echo === Build Digger ===================================================
@@ -42,7 +42,7 @@ build_script:
 
     copy ..\zlib-1.2.8\zlib1.dll
 
-    copy ..\SDL2-2.0.3\i686-w64-mingw32\bin\SDL2.dll
+    copy ..\SDL2-2.0.5\i686-w64-mingw32\bin\SDL2.dll
 
 
     zip -j digger-win32.zip digger.exe digger.txt zlib1.dll SDL2.dll

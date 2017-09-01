@@ -10,8 +10,8 @@ sudo apt-get remove -qq -y mingw32
 sudo apt-get install -qq libsdl2-dev mingw-w64
 mkdir deps
 cd deps
-wget https://www.libsdl.org/release/SDL2-devel-2.0.3-mingw.tar.gz
-tar xfz SDL2-devel-2.0.3-mingw.tar.gz
+wget https://www.libsdl.org/release/SDL2-devel-2.0.5-mingw.tar.gz
+tar xfz SDL2-devel-2.0.5-mingw.tar.gz
 wget http://zlib.net/zlib128-dll.zip
 mkdir zlib-1.2.8
 cd zlib-1.2.8
