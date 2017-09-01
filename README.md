@@ -31,7 +31,7 @@ Some plans for the future releases include:
   - [x] SDL 2.0 port
   - [x] fullscreen mode for Windows
   - [x] toggle fullscreen and window mode with F11
-  - [ ] installer for Windows
+  - [x] installer for Windows
   - [ ] make CGA graphics available again (for nostalgia) 
   - [ ] further code cleanup (in-progress)
       - [x] move logic into high-level objects
@@ -55,4 +55,4 @@ Some plans for the future releases include:
   - [ ] digger AI to make teamplay/deathmatch interesting even in single-player mode
   - [ ] teamplay
 
-We plan to keep the source code free and open at all times. Digger Remastered is licensed under the terms of GNU General Public License version 2.
+The source code will be free and open at all times. Digger Remastered is licensed under the terms of GNU General Public License version 2.
