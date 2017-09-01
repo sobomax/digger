@@ -19,25 +19,21 @@ developed to move Digger into XXI century.
 Some plans for the future releases include:
 
 - 2.0, aka "Digger Reset"
-
- o SDL 2.0 port (done);
- o further code cleanup (i.e. elimination of the d3adc0d3: WIN16, ETC), more
-   logic moved into high-level objects (in-progress);
- o headless (VNC?) mode;
- o network play for 2 players;
- o screen update framerate that is independent of game perceived speed,
-   "sub-pixel" updates.
+  - [x] SDL 2.0 port
+  - [ ] further code cleanup (in-progress)
+  - [ ] headless (VNC?) mode
+  - [ ] network play for 2 players
+  - [ ] screen update framerate that is independent of game perceived speed, "sub-pixel" updates
 
 - 3.0, aka "Digger Reloaded"
 
- o bigger (open?) game world;
- o MMOG mode;
- o deathmatch mode;
- o new capabilities to the characters (i.e. superpowers), and interactions between
-   them (i.e. gradual damage);
- o few types of diggers: scout, soldier, sniper etc.
- o monster AI 2.0?
- o digger AI to make teamplay/deathmatch interesting even in single-player mode.
- o teamplay.
+  - [ ] bigger (open?) game world;
+  - [ ] MMOG mode;
+  - [ ] deathmatch mode;
+  - [ ] new capabilities to the characters (i.e. superpowers), and interactions between them (i.e. gradual damage);
+  - [ ] few types of diggers: scout, soldier, sniper etc.
+  - [ ] monster AI 2.0?
+  - [ ] digger AI to make teamplay/deathmatch interesting even in single-player mode.
+  - [ ] teamplay.
 
 We plan to keep the source code free and open at all times.
