@@ -25,6 +25,10 @@
 #include "ini.h"
 #include "draw_api.h"
 
+#if defined(_SDL)
+#include "sdl_vid.h"
+#endif
+
 /* global variables */
 char pldispbuf[14];
 int16_t curplayer=0,nplayers=1,penalty=0,diggers=1,startlev=1;
@@ -307,10 +311,6 @@ void game(void)
 
 static bool quiet=false;
 static int sound_rate,sound_length;
-
-#if defined(_SDL)
-#include "sdl_vid.h"
-#endif
 
 void maininit(void)
 {
