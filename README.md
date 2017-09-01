@@ -33,6 +33,7 @@ Some plans for the future releases include:
   - [ ] headless (VNC?) mode
   - [ ] network play for 2 players
   - [ ] screen update framerate that is independent of game perceived speed, "sub-pixel" updates
+  - [ ] build Digger on FreeBSD automatically, see http://erouault.blogspot.de/2016/09/running-freebsd-in-travis-ci.html
 
 - 3.0, aka "Digger Reloaded"
 
