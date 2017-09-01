@@ -6,16 +6,20 @@ AppContact=michael.knigge@gmx.de
 AppPublisher=Michael Knigge
 AppPublisherURL=https://github.com/michaelknigge/digger
 
-DefaultDirName={pf}\Digger Remastered
-DefaultGroupName=Digger Remastered
+DefaultDirName={pf}\Digger
+DefaultGroupName=Digger
 
 OutputBaseFilename=DiggerRemastered-Setup
 OutputDir=.
 
 [Icons]
-Name: "{group}\Digger Remastered (Window)";      Filename: "{app}\digger.exe"; WorkingDir: "{app}"
-Name: "{group}\Digger Remastered (Fullscreen)";  Filename: "{app}\digger.exe"; WorkingDir: "{app}"; Parameters: "/F"
-Name: "{group}\Uninstall";                       Filename: "{uninstallexe}"
+Name: "{group}\Digger";                            Filename: "{app}\digger.exe"; WorkingDir: "{app}"
+Name: "{group}\Digger (Two-Player Simultaneous)";  Filename: "{app}\digger.exe"; WorkingDir: "{app}"; Parameters: "/2"
+Name: "{group}\Digger (Gauntlet Mode)";            Filename: "{app}\digger.exe"; WorkingDir: "{app}"; Parameters: "/G"
+Name: "{group}\Redefine Keyboard (One Player)";    Filename: "{app}\digger.exe"; WorkingDir: "{app}"; Parameters: "/K"
+Name: "{group}\Redefine Keyboard (Two Players)";   Filename: "{app}\digger.exe"; WorkingDir: "{app}"; Parameters: "/KA"
+Name: "{group}\Read Me";                           Filename: "{app}\README.txt"
+Name: "{group}\Uninstall";                         Filename: "{uninstallexe}"
 
 [Files]
 Source: "README.txt";     DestDir: "{app}"; DestName: "README.txt"; Flags: isreadme
