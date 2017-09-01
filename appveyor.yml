@@ -8,6 +8,8 @@ build_script:
 
     set ARCH=MINGW
 
+    set WINDRES=windres
+
 
     echo === Download zlib ==================================================
 
