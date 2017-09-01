@@ -13,8 +13,8 @@ cd deps
 wget https://www.libsdl.org/release/SDL2-devel-2.0.5-mingw.tar.gz
 tar xfz SDL2-devel-2.0.5-mingw.tar.gz
 wget http://zlib.net/zlib128-dll.zip
-mkdir zlib-1.2.8
-cd zlib-1.2.8
+mkdir zlib
+cd zlib
 unzip ../zlib128-dll.zip
 cd ../..
 

@@ -15,13 +15,44 @@ build_script:
 
     cd ..
 
-    wget http://zlib.net/zlib128-dll.zip
+    curl -s https://zlib.net/zlib-1.2.11.tar.gz | tar xz
 
-    mkdir zlib-1.2.8
 
-    cd zlib-1.2.8
+    echo === Build zlib =====================================================
 
-    unzip ../zlib128-dll.zip
+    ren zlib-1.2.11 zlib
+
+    cd zlib
+
+    call "%VS90COMNTOOLS%\vsvars32.bat"
+
+    nmake -f win32/Makefile.msc
+
+
+    echo === Copy zlib include files ========================================
+
+    mkdir include
+
+    copy zlib.h include
+
+    copy zconf.h include
+
+
+    echo === Copy zlib import libraries =====================================
+
+    mkdir lib
+
+    copy zlib.lib lib
+
+    copy zdll.lib lib
+
+
+    echo === Copy zlib binary ===============================================
+
+    mkdir bin
+
+    copy zlib1.dll bin
+
 
     cd ..
 
@@ -40,7 +71,7 @@ build_script:
 
     echo === Create Artifact ================================================
 
-    copy ..\zlib-1.2.8\zlib1.dll
+    copy ..\zlib\zlib1.dll
 
     copy ..\SDL2-2.0.5\i686-w64-mingw32\bin\SDL2.dll
 

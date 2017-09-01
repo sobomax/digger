@@ -16,8 +16,8 @@ ifeq ($(ARCH),MINGW)
 MINGW_DEPS_ROOT ?= ../
 CC	=  i686-w64-mingw32-gcc
 WINDRES	?=  i686-w64-mingw32-windres
-RCFLAGS	+= -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-1.2.8/include -I${MINGW_DEPS_ROOT}/SDL2-2.0.5/i686-w64-mingw32/include/SDL2
-LIBS	+= -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-2.0.5/i686-w64-mingw32/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -L${MINGW_DEPS_ROOT}/zlib-1.2.8/lib -lzdll -lm
+RCFLAGS	+= -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib/include -I${MINGW_DEPS_ROOT}/SDL2-2.0.5/i686-w64-mingw32/include/SDL2
+LIBS	+= -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-2.0.5/i686-w64-mingw32/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -L${MINGW_DEPS_ROOT}/zlib/lib -lzdll -lm
 ESUFFIX	=  .exe
 OBJS	+=  digger.res
 endif
