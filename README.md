@@ -2,6 +2,7 @@
 [![Build Status](https://travis-ci.org/michaelknigge/digger.svg?branch=master)](https://travis-ci.org/michaelknigge/digger)
 [![Build status](https://ci.appveyor.com/api/projects/status/j89k9v2qrxqp6mgt/branch/master?svg=true)](https://ci.appveyor.com/project/michaelknigge/digger/branch/master)
 [![Download ZIP](https://img.shields.io/badge/Windows-Download_ZIP-orange.svg)](https://ci.appveyor.com/api/projects/michaelknigge/digger/artifacts/digger-win32.zip?branch=master)
+[![Download Installer](https://img.shields.io/badge/Windows-Download_Installer-orange.svg)](https://ci.appveyor.com/api/projects/michaelknigge/digger/artifacts/DiggerRemastered-Setup.exe?branch=master)
 
 # This is Digger Reloaded, aka UNIX/Linux Digger, however it also works on Windows.
 
@@ -18,6 +19,11 @@ Later on, Maksym Sobolyev <sobomax@gmail.com>, ported Adnrew's code to run
 on Linux/FreeBSD/Windows using SDL library, or on FreeBSD console using
 native "VGL" VESA graphics interface. That version is now being actively
 developed to move Digger into XXI century.
+
+Furthermore, Michael Knigge <michael.knigge@gmx.de>, did some minor enhancements (i. e. switching
+fullscreen and window mode with F11), cleaned up the code a little bit, fixed some minor bugs
+and provided an Installer for Microsoft Windows.
+
 
 Some plans for the future releases include:
 
