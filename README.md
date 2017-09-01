@@ -20,7 +20,16 @@ Some plans for the future releases include:
 
 - 2.0, aka "Digger Reset"
   - [x] SDL 2.0 port
+  - [x] fullscreen mode for Windows
+  - [x] toggle fullscreen and window mode with F11
+  - [ ] installer for Windows
+  - [ ] make CGA graphics available again (for nostalgia) 
   - [ ] further code cleanup (in-progress)
+      - [x] move logicinto high-level objects
+      - [x] remove obsolete command line options 
+      - [ ] remove obsolete DOS functions (i. e. function s0setupsound() and so on)
+      - [ ] remove ARM specific code (SDL 2.0 is not available on ARM, so the ARM specific code is useless)
+      - [ ] remove DIGGER_VERSION and give Digger a regular version number
   - [ ] headless (VNC?) mode
   - [ ] network play for 2 players
   - [ ] screen update framerate that is independent of game perceived speed, "sub-pixel" updates
