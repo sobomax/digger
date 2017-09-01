@@ -10,6 +10,13 @@ build_script:
 
     set WINDRES=windres
 
+    echo === Environment ====================================================
+
+    echo APPVEYOR_PROJECT_NAME=%APPVEYOR_PROJECT_NAME%
+
+    echo APPVEYOR_BUILD_NUMBER=%APPVEYOR_BUILD_NUMBER%
+
+    echo APPVEYOR_BUILD_VERSION=%APPVEYOR_BUILD_VERSION%
 
     echo === Download zlib ==================================================
 
@@ -77,5 +84,15 @@ build_script:
 
 
     zip -j digger-win32.zip digger.exe digger.txt zlib1.dll SDL2.dll
+
+
+    echo === Create Installer ===============================================
+
+    touch digger.sco
+
+    touch digger.ini
+
+    "C:\Program Files (x86)\Inno Setup 5\iscc.exe" digger.iss
 artifacts:
 - path: digger-win32.zip
+- path: DiggerRemastered-Setup.exe
