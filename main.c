@@ -658,9 +658,7 @@ read_levf(char *levfname)
   }
 
   if (levf == NULL) {
-#if defined(DIGGER_DEBUG)
-      fprintf(digger_log, "read_levf: levels file open error\n");
-#endif
+      fprintf(digger_log, "read_levf: levels file %s open error\n", levfname);
       return (-1);
   }
 
@@ -671,12 +669,11 @@ read_levf(char *levfname)
   if (fread(&data, 1, 1203, levf) == 1202) {
     memcpy((char *)&bonusscore, data, 2);
     memcpy(leveldat, data + 2, 1200);
+    fprintf(digger_log, "read_levf: levels loaded from file %s\n", levfname);
     fclose(levf);
     return(0);
   } else {
-#if defined(DIGGER_DEBUG)
-    fprintf(digger_log, "read_levf: levels load error\n");
-#endif
+    fprintf(digger_log, "read_levf: levels load error, file %s\n", levfname);
     fclose(levf);
     return(-1);
   }
