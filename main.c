@@ -649,35 +649,37 @@ static int
 read_levf(char *levfname)
 {
   FILE *levf;
+  char data[12003];
 
   levf = fopen(levfname, "rb");
   if (levf == NULL) {
-    strcat(levfname,".DLF");
+    strcat(levfname, ".DLF");
     levf = fopen(levfname,"rb");
   }
+
   if (levf == NULL) {
 #if defined(DIGGER_DEBUG)
       fprintf(digger_log, "read_levf: levels file open error\n");
 #endif
       return (-1);
   }
-  if (fread(&bonusscore, 2, 1, levf) < 1) {
+
+  // read into a temp buffer - so if we read garbare we do not have
+  // messed up the internal level data. Not the trick: We try to read
+  // 12003 bytes. Each level file is 12002 bytes in length . If we read
+  // less or more then this is probably not or a corrupted level file.
+  if (fread(&data, 1, 1203, levf) == 1202) {
+    memcpy((char *)&bonusscore, data, 2);
+    memcpy(leveldat, data + 2, 1200);
+    fclose(levf);
+    return(0);
+  } else {
 #if defined(DIGGER_DEBUG)
-    fprintf(digger_log, "read_levf: levels load error 1\n");
+    fprintf(digger_log, "read_levf: levels load error\n");
 #endif
-    goto eout_0;
+    fclose(levf);
+    return(-1);
   }
-  if (fread(leveldat, 1200, 1, levf) <= 0) {
-#if defined(DIGGER_DEBUG)
-    fprintf(digger_log, "read_levf: levels load error 2\n");
-#endif
-    goto eout_0;
-  }
-  fclose(levf);
-  return (0);
-eout_0:
-  fclose(levf);
-  return (-1);
 }
 
 static int
