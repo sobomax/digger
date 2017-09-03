@@ -92,6 +92,8 @@ build_script:
 
     touch digger.ini
 
+    touch digger.log
+
     "C:\Program Files (x86)\Inno Setup 5\iscc.exe" digger.iss
 artifacts:
 - path: digger-win32.zip
