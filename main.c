@@ -651,13 +651,8 @@ read_levf(char *levfname)
   FILE *levf;
   char data[12003];
 
-  levf = fopen(levfname, "rb");
-  if (levf == NULL) {
-    strcat(levfname, ".DLF");
-    levf = fopen(levfname,"rb");
-  }
 
-  if (levf == NULL) {
+  if ((levf = fopen(levfname, "rb")) == NULL) {
       fprintf(digger_log, "read_levf: levels file %s open error\n", levfname);
       return (-1);
   }
