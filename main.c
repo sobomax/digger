@@ -354,7 +354,7 @@ int mainprog(void)
     detectjoy();
     ddap->gclear();
     ddap->gtitle();
-    outtext(ddap, "D I G G E R",100,0,3);
+    outtextcentered(ddap, "D I G G E R",0,3);
     shownplayers();
     showtable(ddap);
     started=false;
@@ -1014,32 +1014,46 @@ void inir(void)
 
 void redefkeyb(bool allf)
 {
-  int i,j,k,l,z,y=0;
-  bool f;
+  int i,j,k,l,keyrow,errorrow1,errorrow2,playerrow,color;
   char kbuf[80],vbuf[80];
 
   maininit();
+  
+  outtextcentered(ddap, "D I G G E R",0,3);
+  outtextcentered(ddap, "REDEFINE KEYBOARD",3*rowheight,1);
+  
+  playerrow=5*rowheight;
+  keyrow=8*rowheight;
+  errorrow1=11*rowheight;
+  errorrow2=13*rowheight;
+  color=3;
 
-  if (diggers==2) {
-    outtext(ddap, "PLAYER 1:",0,y,3);
-    y+=12;
-  }
+  for (i=0;i<17;i++) {
+    eraseline(ddap, playerrow);
+    eraseline(ddap, keyrow);
 
-  outtext(ddap, "PRESS NEW KEY FOR",0,y,3);
-  y+=12;
+    if (i < 5)
+      outtextcentered(ddap, "PLAYER 1",playerrow,2);
+    else if (i < 10)
+      outtextcentered(ddap, "PLAYER 2",playerrow,2);
+    else
+      outtextcentered(ddap, "MISELLANEOUS",playerrow,2);
 
-/* Step one: redefine keys that are always redefined. */
+    outtextcentered(ddap, keynames[i],keyrow,color);
 
-  for (i=0;i<5;i++) {
-    outtext(ddap, keynames[i],0,y,2); /* Red first */
     findkey(i);
-    outtext(ddap, keynames[i],0,y,1); /* Green once got */
-    y+=12;
+
+    eraseline(ddap, errorrow1);
+    eraseline(ddap, errorrow2);
+    color=3;
+
     for (j=0;j<i;j++) { /* Note: only check keys just pressed (I hate it when
                            this is done wrong, and it often is.) */
       if (keycodes[i][0]==keycodes[j][0] && keycodes[i][0]!=0) {
         i--;
-        y-=12;
+        color=2;
+        outtextcentered(ddap, "THIS KEY IS ALREADY USED",errorrow1,2);
+        outtextcentered(ddap, "CHOOSE ANOTHER KEY",errorrow2,2);
         break;
       }
       for (k=2;k<5;k++)
@@ -1048,68 +1062,14 @@ void redefkeyb(bool allf)
             j=i;
             k=5;
             i--;
-            y-=12;
+            color=2;
+            outtextcentered(ddap, "THIS KEY IS ALREADY USED",errorrow1,2);
+            outtextcentered(ddap, "CHOOSE ANOTHER KEY",errorrow2,2);
             break; /* Try again if this key already used */
           }
     }
   }
 
-  if (diggers==2) {
-    outtext(ddap, "PLAYER 2:",0,y,3);
-    y+=12;
-    for (i=5;i<10;i++) {
-      outtext(ddap, keynames[i],0,y,2); /* Red first */
-      findkey(i);
-      outtext(ddap, keynames[i],0,y,1); /* Green once got */
-      y+=12;
-      for (j=0;j<i;j++) { /* Note: only check keys just pressed (I hate it when
-                             this is done wrong, and it often is.) */
-        if (keycodes[i][0]==keycodes[j][0] && keycodes[i][0]!=0) {
-          i--;
-          y-=12;
-          break;
-        }
-        for (k=2;k<5;k++)
-          for (l=2;l<5;l++)
-            if (keycodes[i][k]==keycodes[j][l] && keycodes[i][k]!=-2) {
-              j=i;
-              k=5;
-              i--;
-              y-=12;
-              break; /* Try again if this key already used */
-            }
-      }
-    }
-  }
-
-/* Step two: redefine other keys which step one has caused to conflict */
-
-  z=0;
-  y-=12;
-  for (i=10;i<17;i++) {
-    f=false;
-    for (j=0;j<10;j++)
-      for (k=0;k<5;k++)
-        for (l=2;l<5;l++)
-          if (keycodes[i][k]==keycodes[j][l] && keycodes[i][k]!=-2)
-            f=true;
-    for (j=10;j<i;j++)
-      for (k=0;k<5;k++)
-        for (l=0;l<5;l++)
-          if (keycodes[i][k]==keycodes[j][l] && keycodes[i][k]!=-2)
-            f=true;
-    if (f || (allf && i!=z)) {
-      if (i!=z)
-        y+=12;
-      outtext(ddap, keynames[i],0,y,2); /* Red first */
-      findkey(i);
-      outtext(ddap, keynames[i],0,y,1); /* Green once got */
-      z=i;
-      i--;
-    }
-  }
-
-/* Step three: save the INI file */
 
   for (i=0;i<17;i++)
     if (krdf[i]) {

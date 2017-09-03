@@ -21,8 +21,8 @@ native "VGL" VESA graphics interface. That version is now being actively
 developed to move Digger into XXI century.
 
 Furthermore, Michael Knigge <michael.knigge@gmx.de>, did some minor enhancements (i. e. switching
-fullscreen and window mode with F11), cleaned up the code a little bit, fixed some minor bugs
-and provided an Installer for Microsoft Windows.
+fullscreen and window mode with F11), cleaned up the code a little bit, fixed some minor bugs, gave the
+"redefine keyboard" dialog a new look and feel and provided an Installer for Microsoft Windows.
 
 
 Some plans for the future releases include:
@@ -32,6 +32,7 @@ Some plans for the future releases include:
   - [x] fullscreen mode for Windows
   - [x] toggle fullscreen and window mode with F11
   - [x] installer for Windows
+  - [x] revised redefine keyboard
   - [ ] make CGA graphics available again (for nostalgia) 
   - [ ] further code cleanup (in-progress)
       - [x] move logic into high-level objects

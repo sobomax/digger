@@ -23,18 +23,36 @@ uint16_t bitmasks[12]={0xfffe,0xfffd,0xfffb,0xfff7,0xffef,0xffdf,0xffbf,0xff7f,
 
 int16_t digspr[DIGGERS],digspd[DIGGERS],firespr[FIREBALLS];
 
+int16_t charwidth = 12;
+int16_t rowheight = 12;
+
 void drawlife(int16_t t,int16_t x,int16_t y);
 void createdbfspr(void);
 void initdbfspr(void);
 void drawbackg(int16_t l);
 void drawfield(void);
 
+void eraseline(struct digger_draw_api *ddap, int16_t y)
+{
+  // A line can contain nearly 27 characters, so we just draw 27 spaces to erase the whole line
+  outtext(ddap, "                           ", 0, y, 0);
+}
+
+void outtextcentered(struct digger_draw_api *ddap, char *p,int16_t y,int16_t c)
+{
+  if (strlen(p) >= 27) {
+    outtext(ddap, p, 0, y, c);
+  } else {
+    outtext(ddap, p, ((27 - strlen(p)) / 2)*charwidth, y, c);
+  }
+}
+
 void outtext(struct digger_draw_api *ddap, char *p,int16_t x,int16_t y,int16_t c)
 {
   int16_t i;
   for (i=0;p[i];i++) {
     ddap->gwrite(x,y,isalnum(p[i]) ? p[i] : ' ',c);
-    x+=12;
+    x+=charwidth;
   }
 }
 

@@ -400,7 +400,7 @@ The command line options are:
   /E:name = Playback game file "name" and exit program.
   /O      = Go back to the beginning of the command line and start again. Handy
             for playing recorded games as screensavers.
-  /K      = Redefine keyboard. To redefine all the redefinable keys, use /KA.
+  /K      = Redefine keyboard.
   /G:time = Gauntlet mode.
   /2      = Put two diggers on screen at once.
   /?      = Display this list.
@@ -420,15 +420,8 @@ with the F9 and F7 keys.
 the program will let you redefine the keys to move Digger around and fire, but
 if you override another key (by making the space bar fire, for example) other
 keys will be redefined. If you specify the /K option, the program enters
-keyboard redefinition mode before the title screen appears. In keyboard
-redefinition mode, the name of each action which needs a key comes up on the
-screen in red, and changes to green once you've pressed the key for that
-action. Note that the name of the key does not appear on the screen: it would
-be too complicated to program Digger with knowledge of all known keyboard
-layouts. However, I may program it with knowledge of some of the keys in a
-future version. I do not recommend redefining N, Esc or F8 as anything else, as
-these keys cannot currently be redefined so this could cause confusion. To
-return all the keys to their defaults, delete the DIGGER.INI file.
+keyboard redefinition mode before the title screen appears. To return all the
+keys to their defaults, delete the DIGGER.INI file.
 
 /G starts Gauntlet mode: infinite lives but only finite time. You can specify a
 time on the command line, for example "DIGGER /G:60" for one minute play. If
