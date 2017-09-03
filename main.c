@@ -354,7 +354,7 @@ int mainprog(void)
     detectjoy();
     ddap->gclear();
     ddap->gtitle();
-    outtextcentered(ddap, "D I G G E R",0,3);
+    outtextcentered(ddap, "D I G G E R",2,3);
     shownplayers();
     showtable(ddap);
     started=false;
@@ -1019,7 +1019,7 @@ void redefkeyb(bool allf)
 
   maininit();
   
-  outtextcentered(ddap, "D I G G E R",0,3);
+  outtextcentered(ddap, "D I G G E R",2,3);
   outtextcentered(ddap, "REDEFINE KEYBOARD",3*rowheight,1);
   
   playerrow=5*rowheight;
