@@ -25,10 +25,6 @@
 #include "ini.h"
 #include "draw_api.h"
 
-#if defined(_SDL)
-#include "sdl_vid.h"
-#endif
-
 /* global variables */
 char pldispbuf[14];
 int16_t curplayer=0,nplayers=1,penalty=0,diggers=1,startlev=1;
@@ -305,6 +301,10 @@ void game(void)
 
 static bool quiet=false;
 static uint16_t sound_rate,sound_length;
+
+#if defined(_SDL)
+#include "sdl_vid.h"
+#endif
 
 void maininit(void)
 {
@@ -745,7 +745,6 @@ void parsecmd(int argc,char *argv[])
         sdl_set_x11_parent(x11_parent);
       }
 #endif
-
 #if defined(_SDL)
       if (argch == 'F') {
         sdl_enable_fullscreen();
@@ -808,7 +807,6 @@ void parsecmd(int argc,char *argv[])
 #if defined(UNIX) && defined(_SDL)
                          "[/X:xid] "
 #endif
-
 #if defined(_SDL)
                          "[/F]"
 #endif
@@ -965,6 +963,21 @@ void inir(void)
   if (ftime == 0) {
       ftime=GetINIInt(INI_GAME_SETTINGS,"Speed",80000l,ININAME);
   }
+  gauntlet=GetINIBool(INI_GAME_SETTINGS,"GauntletMode",false,ININAME);
+  GetINIString(INI_GAME_SETTINGS,"Players","1",vbuf,80,ININAME);
+  strupr(vbuf);
+  if (vbuf[0]=='2' && vbuf[1]=='S') {
+    diggers=2;
+    nplayers=1;
+  }
+  else {
+    diggers=1;
+    nplayers=atoi(vbuf);
+    if (nplayers<1 || nplayers>2)
+      nplayers=1;
+  }
+  soundflag=GetINIBool(INI_SOUND_SETTINGS,"SoundOn",true,ININAME);
+  musicflag=GetINIBool(INI_SOUND_SETTINGS,"MusicOn",true,ININAME);
   sound_rate=(int)GetINIInt(INI_SOUND_SETTINGS,"Rate",22050,ININAME);
   sound_length=(int)GetINIInt(INI_SOUND_SETTINGS,"BufferSize",DEFAULT_BUFFER,ININAME);
 
