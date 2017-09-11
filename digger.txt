@@ -393,9 +393,6 @@ The command line options are:
   /C      = Use CGA graphics - these are faster than VGA but this is only
             really noticeable if you have a slower computer or are playing at
             high speeds.
-  /B      = Use CGA graphics with BIOS palette functions (try this if the
-            palette doesn't work properly with the /C option, but be warned: it
-            might cause a crash if you get a high score).
   /Q      = Quiet mode (no sound at all).
   /M      = Turn background music off.
   /R:name = Record game to file "name".
@@ -403,12 +400,10 @@ The command line options are:
   /E:name = Playback game file "name" and exit program.
   /O      = Go back to the beginning of the command line and start again. Handy
             for playing recorded games as screensavers.
-  /K      = Redefine keyboard. To redefine all the redefinable keys, use /KA.
+  /K      = Redefine keyboard.
   /G:time = Gauntlet mode.
   /2      = Put two diggers on screen at once.
   /?      = Display this list.
-  /A:1,port,irq, dma,rate,length
-          = Use SoundBlaster sound, e.g. /A:1,220,7,1,20000,128.
   /V      = Synchronize timing to screen refresh.
   /U      = Allow unlimited lives.
   /I:level= Start on the specified level instead of level 1. You can't go on
@@ -425,15 +420,8 @@ with the F9 and F7 keys.
 the program will let you redefine the keys to move Digger around and fire, but
 if you override another key (by making the space bar fire, for example) other
 keys will be redefined. If you specify the /K option, the program enters
-keyboard redefinition mode before the title screen appears. In keyboard
-redefinition mode, the name of each action which needs a key comes up on the
-screen in red, and changes to green once you've pressed the key for that
-action. Note that the name of the key does not appear on the screen: it would
-be too complicated to program Digger with knowledge of all known keyboard
-layouts. However, I may program it with knowledge of some of the keys in a
-future version. I do not recommend redefining N, Esc or F8 as anything else, as
-these keys cannot currently be redefined so this could cause confusion. To
-return all the keys to their defaults, delete the DIGGER.INI file.
+keyboard redefinition mode before the title screen appears. To return all the
+keys to their defaults, delete the DIGGER.INI file.
 
 /G starts Gauntlet mode: infinite lives but only finite time. You can specify a
 time on the command line, for example "DIGGER /G:60" for one minute play. If
@@ -459,24 +447,6 @@ works, but games recorded with this version might not play back with future
 versions. When one digger dies the other can continue, and after a while the
 digger that died will be reincarnated (if he has any lives left). He will flash
 for a short time after being reincarnated. During this time, he is invincible.
-
-/A may eventually be used to enable many different sound cards. However, the
-only one currently supported is SoundBlaster, but most sound cards seem to be
-able emulate this one. If you do not have a genuine SoundBlaster card, ensure
-that your sound card is set up to emulate SoundBlaster before you run the game.
-How you do this will depend on your card. If you've set up games before, you
-should know how to do this. You should also know the port address, IRQ number
-and DMA channel that your card uses. Factory defaults are usually 220,7,1. To
-enable SoundBlaster sound, use the /A option as follows:
-/A:1,220,7,1,20000,128. The first "1", after the colon, means SoundBlaster. No
-other values for the first option have any meaning at the moment. The second
-"1" (the fourth option) is the DMA channel, so if you use port 210, IRQ 5 and
-DMA channel 3, the option is /A:1,210,5,3,20000,128. The 20000 is the sample
-rate (this means 20,000 samples per second). You can change this: higher
-numbers give better sound quality, but if this number is too high the sound may
-break up. The last option is the buffer length. If the sound is breaking up you
-can try increasing this instead of decreasing the sample rate. If the sound
-seems to "lag" behind the action, decrease this value.
 
 /U gives you the ability to save up as many lives as you like. See the FAQ
 section for more information about this.
@@ -535,7 +505,7 @@ and Windows with Cygwin toolkit) then do the following:
 * Make sure that you have the SDL library installed, if not then install it.
   The SDL library can be found at http://www.devolution.com/~slouken/SDL/
 * Build it using "make -f Makefile.sdl".
-* Have fun with Digger. To enable sound start it with "/A" option.
+* Have fun with Digger.
 
 NOTE: If you are using FreeBSD, then it would be much easier for your to check
 official ports collection first, as it is likely that when you are reading this

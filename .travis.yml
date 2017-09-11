@@ -5,4 +5,3 @@ compiler:
   - gcc
 script:
     make do-test
-

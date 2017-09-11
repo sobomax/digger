@@ -4,6 +4,8 @@
 struct digger_draw_api;
 
 void outtext(struct digger_draw_api *, char *p,int16_t x,int16_t y,int16_t c);
+void outtextcentered(struct digger_draw_api *, char *p,int16_t y,int16_t c);
+void eraseline(struct digger_draw_api *, int16_t y);
 
 void creatembspr(void);
 void initmbspr(void);
@@ -26,4 +28,5 @@ void drawfurryblob(int16_t x,int16_t y);
 void drawsquareblob(int16_t x,int16_t y);
 
 extern int16_t field[];
-extern int16_t fireheight;
+extern int16_t charwidth;
+extern int16_t rowheight;

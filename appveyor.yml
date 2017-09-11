@@ -1,0 +1,100 @@
+version: 1.0.{build}
+build_script:
+- cmd: >-
+    set MINGW=C:\mingw-w64\i686-6.3.0-posix-dwarf-rt_v5-rev1\mingw32
+
+
+    set PATH=%MINGW%\bin;C:\MinGW\msys\1.0\bin;%PATH%
+
+    set ARCH=MINGW
+
+    set WINDRES=windres
+
+    echo === Environment ====================================================
+
+    echo APPVEYOR_PROJECT_NAME=%APPVEYOR_PROJECT_NAME%
+
+    echo APPVEYOR_BUILD_NUMBER=%APPVEYOR_BUILD_NUMBER%
+
+    echo APPVEYOR_BUILD_VERSION=%APPVEYOR_BUILD_VERSION%
+
+    echo === Download zlib ==================================================
+
+    cd ..
+
+    curl -s https://zlib.net/zlib-1.2.11.tar.gz | tar xz
+
+
+    echo === Build zlib =====================================================
+
+    ren zlib-1.2.11 zlib
+
+    cd zlib
+
+    call "%VS90COMNTOOLS%\vsvars32.bat"
+
+    nmake -f win32/Makefile.msc
+
+
+    echo === Copy zlib include files ========================================
+
+    mkdir include
+
+    copy zlib.h include
+
+    copy zconf.h include
+
+
+    echo === Copy zlib import libraries =====================================
+
+    mkdir lib
+
+    copy zlib.lib lib
+
+    copy zdll.lib lib
+
+
+    echo === Copy zlib binary ===============================================
+
+    mkdir bin
+
+    copy zlib1.dll bin
+
+
+    cd ..
+
+
+    echo === Download SDL ===================================================
+
+    curl -s https://www.libsdl.org/release/SDL2-devel-2.0.5-mingw.tar.gz | tar -xz
+
+
+    echo === Build Digger ===================================================
+
+    cd digger
+
+    make
+
+
+    echo === Create Artifact ================================================
+
+    copy ..\zlib\zlib1.dll
+
+    copy ..\SDL2-2.0.5\i686-w64-mingw32\bin\SDL2.dll
+
+
+    zip -j digger-win32.zip digger.exe digger.txt zlib1.dll SDL2.dll
+
+
+    echo === Create Installer ===============================================
+
+    touch digger.sco
+
+    touch digger.ini
+
+    touch digger.log
+
+    "C:\Program Files (x86)\Inno Setup 5\iscc.exe" digger.iss
+artifacts:
+- path: digger-win32.zip
+- path: DiggerRemastered-Setup.exe
