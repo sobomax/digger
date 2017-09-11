@@ -364,8 +364,7 @@ int mainprog(void)
     teststart();
     while (!started) {
       started=teststart();
-      if ((akeypressed==27 || akeypressed=='n' || akeypressed=='N') &&
-          !gauntlet && diggers==1) {
+      if (akeypressed==27 || akeypressed=='n' || akeypressed=='N') {
         switchnplayers();
         shownplayers();
         akeypressed=0;
@@ -496,31 +495,50 @@ void finish(void)
   graphicsoff();
 }
 
+struct label {
+  const char *text;
+  int xpos;
+};
+
+static struct game_mode {
+  bool gauntlet;
+  int nplayers;
+  int diggers;
+  bool last;
+  struct label title[2];
+} possible_modes[] = {
+  {false, 1, 1, false, {{"ONE", 220}, {" PLAYER ", 192}}},
+  {false, 2, 1, false, {{"TWO", 220}, {" PLAYERS", 184}}},
+  {false, 2, 2, false, {{"TWO PLAYER", 180}, {"SIMULTANEOUS", 170}}},
+  {true,  1, 1, false, {{"GAUNTLET", 192}, {"MODE", 216}}},
+  {true,  1, 2, true,  {{"TWO PLAYER", 180}, {"GAUNTLET", 192}}}
+};
+
+static int getnmode(void)
+{
+  int i;
+
+  for (i = 0; !possible_modes[i].last;i++) {
+    if (possible_modes[i].gauntlet != gauntlet)
+      continue;
+    if (possible_modes[i].nplayers != nplayers)
+      continue;
+    if (possible_modes[i].diggers != diggers)
+      continue;
+    break;
+  }
+  return i;
+}
+
 void shownplayers(void)
 {
-  if (diggers==2)
-    if (gauntlet) {
-      outtext(ddap, "TWO PLAYER",180,25,3);
-      outtext(ddap, "GAUNTLET",192,39,3);
-    }
-    else {
-      outtext(ddap, "TWO PLAYER",180,25,3);
-      outtext(ddap, "SIMULTANEOUS",170,39,3);
-    }
-  else
-    if (gauntlet) {
-      outtext(ddap, "GAUNTLET",192,25,3);
-      outtext(ddap, "MODE",216,39,3);
-    }
-    else
-      if (nplayers==1) {
-        outtext(ddap, "ONE",220,25,3);
-        outtext(ddap, " PLAYER ",192,39,3);
-      }
-      else {
-        outtext(ddap, "TWO",220,25,3);
-        outtext(ddap, " PLAYERS",184,39,3);
-      }
+  struct game_mode *gmp;
+
+  outtext(ddap, "          ", 180, 25, 3);
+  outtext(ddap, "            ", 170, 39, 3);
+  gmp = &possible_modes[getnmode()];
+  outtext(ddap, gmp->title[0].text, gmp->title[0].xpos, 25, 3);
+  outtext(ddap, gmp->title[1].text, gmp->title[1].xpos, 39, 3);
 }
 
 int getalllives(void)
@@ -533,7 +551,13 @@ int getalllives(void)
 
 void switchnplayers(void)
 {
-  nplayers=3-nplayers;
+  int i, j;
+
+  i = getnmode();
+  j = possible_modes[i].last ? 0 : i + 1;
+  gauntlet = possible_modes[j].gauntlet;
+  nplayers = possible_modes[j].nplayers;
+  diggers = possible_modes[j].diggers;
 }
 
 void initlevel(void)
