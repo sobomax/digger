@@ -18,7 +18,7 @@ MGW_PREF ?= i686-w64-mingw32
 ifeq ($(ARCH),MINGW)
 MINGW_DEPS_ROOT ?= ../
 CC	=  ${MGW_PREF}-gcc
-WINDRES	=  ${MGW_PREF}-windres
+WINDRES	?=  ${MGW_PREF}-windres
 RCFLAGS	+= -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW_PREF}/include/SDL2
 LIBS	+= -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -lz -lm
 ESUFFIX	=  .exe
