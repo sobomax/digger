@@ -23,6 +23,7 @@ RCFLAGS	+= -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -I${MIN
 LIBS	+= -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -lz -lm
 ESUFFIX	=  .exe
 OBJS	+=  digger.res
+VPATH   += ./pkg/windows
 endif
 
 ifeq ($(ARCH),FREEBSD)
