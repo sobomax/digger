@@ -23,9 +23,11 @@ then
   cd ..
 fi
 
-make ARCH=LINUX all
-if [ "${CC}" != "clang" ]
-then
-  make ARCH=MINGW clean
-  make ARCH=MINGW MINGW_DEPS_ROOT=`pwd`/deps all
-fi
+for build_type in debug production
+do
+  make ARCH=LINUX BUILD_TYPE=${build_type} clean all
+  if [ "${CC}" != "clang" ]
+  then
+    make ARCH=MINGW MINGW_DEPS_ROOT=`pwd`/deps clean all
+  fi
+done
