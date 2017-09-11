@@ -12,14 +12,14 @@ ARCH	?= LINUX
 #ARCH	?= FREEBSD
 #ARCH	?= FooOS
 SDL_VER =  2.0.5
-ZLIB_VER =  1.2.8
+ZLIB_VER =  1.2.11
 
 ifeq ($(ARCH),MINGW)
 MINGW_DEPS_ROOT ?= ../
 ARCH_PREF ?= i686-w64-mingw32
 CC	=  ${ARCH_PREF}-gcc
 WINDRES	=  ${ARCH_PREF}-windres
-RCFLAGS	+= -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER}/include -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${ARCH_PREF}/include
+RCFLAGS	+= -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER}/include -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${ARCH_PREF}/include/SDL2
 LIBS	+= -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${ARCH_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER}/lib -lzdll -lm
 ESUFFIX	=  .exe
 OBJS	+=  digger.res
