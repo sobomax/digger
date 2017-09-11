@@ -1,0 +1,4 @@
+*.o
+digger
+digger.exe
+digger.res
