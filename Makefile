@@ -1,7 +1,9 @@
 CC	?= gcc
-CFLAGS	+= -O -g -pipe
-ifneq (${BUILD_TYPE},production)
-CFLAGS  += -DDIGGER_DEBUG
+CFLAGS	+= -pipe
+ifeq (${BUILD_TYPE},production)
+CFLAGS  += -O3
+else
+CFLAGS  += -O0 -g3 -DDIGGER_DEBUG
 endif
 RCFLAGS = -D_SDL -std=c99 -Wall
 OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o sound.o \
