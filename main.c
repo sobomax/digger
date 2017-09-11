@@ -310,7 +310,7 @@ void game(void)
 }
 
 static bool quiet=false;
-static int sound_rate,sound_length;
+static uint16_t sound_rate,sound_length;
 
 void maininit(void)
 {
