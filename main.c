@@ -42,7 +42,7 @@ bool started;
 
 char levfname[132];
 bool levfflag=false;
-FILE *digger_log;
+FILE *digger_log = NULL;
 
 void shownplayers(void);
 void switchnplayers(void);
@@ -327,9 +327,16 @@ void maininit(void)
 
 int main(int argc,char *argv[])
 {
+  int rval;
+
   parsecmd(argc,argv);
   maininit();
-  return mainprog();
+  rval = mainprog();
+  if (digger_log != NULL) {
+    fflush(digger_log);
+    fclose(digger_log);
+  }
+  return rval;
 }
 
 int mainprog(void)
