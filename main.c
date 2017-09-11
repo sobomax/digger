@@ -42,7 +42,6 @@ bool started;
 
 char levfname[132];
 bool levfflag=false;
-static bool biosflag=false;
 FILE *digger_log;
 
 void shownplayers(void);
@@ -704,9 +703,9 @@ void parsecmd(int argc,char *argv[])
     word=argv[arg];
     if (word[0]=='/' || word[0]=='-') {
 #if defined(UNIX) && defined(_SDL)
-      argch = getarg(word[1], "FOUH?QM2BCKVL:R:P:S:E:G:X:I:", &hasopt);
+      argch = getarg(word[1], "FOUH?QM2CKVL:R:P:S:E:G:X:I:", &hasopt);
 #else
-      argch = getarg(word[1], "OUH?QM2BCKVL:R:P:S:E:G:I:", &hasopt);
+      argch = getarg(word[1], "OUH?QM2CKVL:R:P:S:E:G:I:", &hasopt);
 #endif
       i = 2;
       if (argch != -1 && hasopt && word[2] == ':') {
@@ -726,6 +725,8 @@ void parsecmd(int argc,char *argv[])
         x11_parent = strtol (&word[i], 0, 0);
         sdl_set_x11_parent(x11_parent);
       }
+#endif
+#if defined(_SDL)
       if (argch == 'F') {
         sdl_enable_fullscreen();
       }
@@ -777,19 +778,21 @@ void parsecmd(int argc,char *argv[])
                "Version: "DIGGER_VERSION"\n\n"
 
                "Command line syntax:\n"
-               "  DIGGER [[/S:]speed] [[/L:]level file] [/C] [/B] [/Q] [/M] "
+               "  DIGGER [[/S:]speed] [[/L:]level file] [/C] [/Q] [/M] "
                                                          "[/P:playback file]\n"
                "         [/E:playback file] [/R:record file] [/O] [/K[A]] "
                                                            "[/G[:time]] [/2]\n"
                "         [/V] [/U] [/I:level] "
 
 #if defined(UNIX) && defined(_SDL)
-                                                               "[/X:xid]"
+                         "[/X:xid] "
+#endif
+#if defined(_SDL)
+                         "[/F]"
 #endif
                          "\n\n"
 #ifndef UNIX
                "/C = Use CGA graphics\n"
-               "/B = Use BIOS palette functions for CGA (slow!)\n"
 #endif
                "/Q = Quiet mode (no sound at all)       "
                "/M = No music\n"
@@ -805,6 +808,9 @@ void parsecmd(int argc,char *argv[])
 #endif
 #if defined(UNIX) && defined(_SDL)
                "/X = Embed in window\n"
+#endif
+#if defined(_SDL)
+               "/F = Full-Screen\n"
 #endif
                "/U = Allow unlimited lives\n"
                "/I = Start on a level other than 1\n");
@@ -827,8 +833,6 @@ void parsecmd(int argc,char *argv[])
         ddap->gputim=cgaputim;
         ddap->gwrite=cgawrite;
         ddap->gtitle=cgatitle;
-        if (argch == 'B')
-          biosflag=true;
         ddap->ginit();
         ddap->gpal(0);
       }
@@ -984,8 +988,7 @@ void inir(void)
                                       ININAME);
   synchvid=GetINIBool(INI_GRAPHICS_SETTINGS,"Synch",false,ININAME);
   cgaflag=GetINIBool(INI_GRAPHICS_SETTINGS,"CGA",false,ININAME);
-  biosflag=GetINIBool(INI_GRAPHICS_SETTINGS,"BIOSPalette",false,ININAME);
-  if (cgaflag || biosflag) {
+  if (cgaflag) {
     ddap->ginit=cgainit;
     ddap->gpal=cgapal;
     ddap->ginten=cgainten;

@@ -393,9 +393,6 @@ The command line options are:
   /C      = Use CGA graphics - these are faster than VGA but this is only
             really noticeable if you have a slower computer or are playing at
             high speeds.
-  /B      = Use CGA graphics with BIOS palette functions (try this if the
-            palette doesn't work properly with the /C option, but be warned: it
-            might cause a crash if you get a high score).
   /Q      = Quiet mode (no sound at all).
   /M      = Turn background music off.
   /R:name = Record game to file "name".
