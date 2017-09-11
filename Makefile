@@ -1,5 +1,10 @@
 CC	?= gcc
-CFLAGS	+= -O -g -pipe
+CFLAGS	+= -pipe
+ifeq (${BUILD_TYPE},production)
+CFLAGS  += -O3
+else
+CFLAGS  += -O0 -g3 -DDIGGER_DEBUG
+endif
 RCFLAGS = -D_SDL -std=c99 -Wall
 OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o sound.o \
 		newsnd.o ini.o input.o monster.o bags.o alpha.o vgagrafx.o \

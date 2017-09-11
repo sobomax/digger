@@ -325,7 +325,6 @@ void maininit(void)
   setretr(true);
   initkeyb();
   detectjoy();
-  inir();
   initsound();
   recstart();
   maininited = 1;
@@ -335,6 +334,7 @@ int main(int argc,char *argv[])
 {
   int rval;
 
+  inir();
   parsecmd(argc,argv);
   maininit();
   rval = mainprog();
