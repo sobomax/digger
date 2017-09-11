@@ -302,7 +302,7 @@ void game(void)
 static bool quiet=false;
 static uint16_t sound_rate,sound_length;
 
-#if defined(UNIX) && defined(_SDL)
+#if defined(_SDL)
 #include "sdl_vid.h"
 #endif
 
