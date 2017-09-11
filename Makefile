@@ -11,13 +11,15 @@ ARCH	?= LINUX
 #ARCH	?= MINGW
 #ARCH	?= FREEBSD
 #ARCH	?= FooOS
+SDL_VER =  2.0.3
+ZLIB_VER =  1.2.8
 
 ifeq ($(ARCH),MINGW)
 MINGW_DEPS_ROOT ?= ../
 CC	=  i686-w64-mingw32-gcc
 WINDRES	=  i686-w64-mingw32-windres
-RCFLAGS	+= -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-1.2.8/include -I${MINGW_DEPS_ROOT}/SDL2-2.0.3/include
-LIBS	+= -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-2.0.3/i686-w64-mingw32/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -L${MINGW_DEPS_ROOT}/zlib-1.2.8/lib -lzdll -lm
+RCFLAGS	+= -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER}/include -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/include
+LIBS	+= -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/i686-w64-mingw32/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER}/lib -lzdll -lm
 ESUFFIX	=  .exe
 OBJS	+=  digger.res
 endif
@@ -56,3 +58,6 @@ digger$(ESUFFIX): $(OBJS)
 
 clean:
 	rm -f $(OBJS) digger$(ESUFFIX)
+
+do-test:
+	SDL_VER=${SDL_VER} ZLIB_VER=${ZLIB_VER} sh -x ./scripts/do-test.sh
