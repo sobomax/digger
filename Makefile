@@ -11,7 +11,7 @@ ARCH	?= LINUX
 #ARCH	?= MINGW
 #ARCH	?= FREEBSD
 #ARCH	?= FooOS
-SDL_VER =  2.0.3
+SDL_VER =  2.0.5
 ZLIB_VER =  1.2.8
 
 ifeq ($(ARCH),MINGW)
