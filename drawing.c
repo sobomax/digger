@@ -29,7 +29,7 @@ void initdbfspr(void);
 void drawbackg(int16_t l);
 void drawfield(void);
 
-void outtext(struct digger_draw_api *ddap, char *p,int16_t x,int16_t y,int16_t c)
+void outtext(struct digger_draw_api *ddap, const char *p,int16_t x,int16_t y,int16_t c)
 {
   int16_t i;
   for (i=0;p[i];i++) {
