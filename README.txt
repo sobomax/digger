@@ -16,5 +16,3 @@ Furthermore, Michael Knigge <michael.knigge@gmx.de>, provided some minor
 enhancements (i. e. switching fullscreen and window mode with F11), cleaned
 up the code a little bit, fixed some minor bugs and provided an Installer
 for Microsoft Windows.
-
-Digger Remastered is licensed under the terms of GNU General Public License version 2.
