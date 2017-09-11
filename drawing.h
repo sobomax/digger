@@ -3,7 +3,7 @@
 
 struct digger_draw_api;
 
-void outtext(struct digger_draw_api *, char *p,int16_t x,int16_t y,int16_t c);
+void outtext(struct digger_draw_api *, const char *p,int16_t x,int16_t y,int16_t c);
 
 void creatembspr(void);
 void initmbspr(void);
