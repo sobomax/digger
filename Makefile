@@ -16,10 +16,11 @@ ZLIB_VER =  1.2.8
 
 ifeq ($(ARCH),MINGW)
 MINGW_DEPS_ROOT ?= ../
-CC	=  i686-w64-mingw32-gcc
-WINDRES	=  i686-w64-mingw32-windres
-RCFLAGS	+= -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER}/include -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/include
-LIBS	+= -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/i686-w64-mingw32/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER}/lib -lzdll -lm
+ARCH_PREF ?= i686-w64-mingw32
+CC	=  ${ARCH_PREF}-gcc
+WINDRES	=  ${ARCH_PREF}-windres
+RCFLAGS	+= -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER}/include -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${ARCH_PREF}/include
+LIBS	+= -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${ARCH_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER}/lib -lzdll -lm
 ESUFFIX	=  .exe
 OBJS	+=  digger.res
 endif
