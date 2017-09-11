@@ -46,7 +46,7 @@ bool started;
 
 char levfname[132];
 bool levfflag=false;
-FILE *digger_log;
+FILE *digger_log = NULL;
 
 void shownplayers(void);
 void switchnplayers(void);
@@ -333,9 +333,16 @@ void maininit(void)
 
 int main(int argc,char *argv[])
 {
+  int rval;
+
   parsecmd(argc,argv);
   maininit();
-  return mainprog();
+  rval = mainprog();
+  if (digger_log != NULL) {
+    fflush(digger_log);
+    fclose(digger_log);
+  }
+  return rval;
 }
 
 int mainprog(void)
@@ -694,6 +701,10 @@ getarg(char argch, const char *allargs, bool *hasopt)
   return (-1);
 }
 
+#define BASE_OPTS "OUH?QM2CKVL:R:P:S:E:G:I:"
+#define X11_OPTS "X:"
+#define SDL_OPTS  "F"
+
 void parsecmd(int argc,char *argv[])
 {
   char *word;
@@ -713,11 +724,13 @@ void parsecmd(int argc,char *argv[])
     word=argv[arg];
     if (word[0]=='/' || word[0]=='-') {
 #if defined(UNIX) && defined(_SDL)
-      argch = getarg(word[1], "FOUH?QM2CKVL:R:P:S:E:G:X:I:", &hasopt);
-#elif defined(_SDL)
-      argch = getarg(word[1], "FOUH?QM2CKVL:R:P:S:E:G:I:", &hasopt);
+      argch = getarg(word[1], (BASE_OPTS X11_OPTS SDL_OPTS), &hasopt);
 #else
-      argch = getarg(word[1], "OUH?QM2CKVL:R:P:S:E:G:I:", &hasopt);
+# if defined(_SDL)
+      argch = getarg(word[1], (BASE_OPTS SDL_OPTS), &hasopt);
+# else
+      argch = getarg(word[1], BASE_OPTS, &hasopt);
+# endif
 #endif
       i = 2;
       if (argch != -1 && hasopt && word[2] == ':') {
