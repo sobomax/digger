@@ -12,7 +12,7 @@
 #endif
 
 /* global variables first */
-bool escape=false,firepflag=false,fire2pflag=false,pausef=false,toggle=false;
+bool escape=false,firepflag=false,fire2pflag=false,pausef=false;
 bool krdf[17]={false,false,false,false,false,false,false,false,false,false,
                false,false,false,false,false,false,false};
 
@@ -329,10 +329,6 @@ void checkkeyb(void)
     }
     if (akeypressed==ASCIIF8) /* Save DRF */
       savedrf=true;
-#if defined(_SDL)
-    if (akeypressed==ASCIIF11) /* Toggle Full-Screen / Window */
-      toggle=true;
-#endif
     if (akeypressed!=27 && akeypressed!='n' && akeypressed!='N')
       start=true;                                /* Change number of players */
   }

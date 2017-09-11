@@ -231,12 +231,6 @@ void game(void)
         readdirect(i);
       while (!alldead && !gamedat[curplayer].levdone && !escape && !timeout) {
         penalty=0;
-#if defined(_SDL)
-        if (toggle) {
-          switchmode();
-          toggle=false;
-        } 
-#endif
         dodigger(ddap);
         domonsters(ddap);
         dobags(ddap);
@@ -454,13 +448,6 @@ int mainprog(void)
       if (frame>250)
         frame=0;
     }
-#if defined(_SDL)
-    if (toggle) {
-      switchmode();
-      toggle=false;
-      continue;
-    }
-#endif
     if (savedrf) {
       if (gotgame) {
         recsavedrf();
@@ -480,7 +467,6 @@ int mainprog(void)
     }
     savedrf=false;
     escape=false;
-    toggle=false;
   } while (!escape);
   finish();
   return 0;
