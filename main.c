@@ -217,7 +217,7 @@ void game(void)
       }
       else
         initchars();
-      outtext(ddap, "        ",108,0,3);
+      erasetext(ddap, 8, 108,0,3);
       initscores(ddap);
       drawlives(ddap);
       music(1);
@@ -371,7 +371,7 @@ int mainprog(void)
       }
       if (frame==0)
         for (t=54;t<174;t+=12)
-          outtext(ddap, "            ",164,t,0);
+          erasetext(ddap, 12, 164,t,0);
       if (frame==50) {
         if (nobbin != NULL) {
           CALL_METHOD(nobbin, dtor);
@@ -520,8 +520,8 @@ void shownplayers(void)
 {
   struct game_mode *gmp;
 
-  outtext(ddap, "          ", 180, 25, 3);
-  outtext(ddap, "            ", 170, 39, 3);
+  erasetext(ddap, 10, 180, 25, 3);
+  erasetext(ddap, 12, 170, 39, 3);
   gmp = &possible_modes[getnmode()];
   outtext(ddap, gmp->title[0].text, gmp->title[0].xpos, 25, 3);
   outtext(ddap, gmp->title[1].text, gmp->title[1].xpos, 39, 3);
@@ -587,8 +587,8 @@ void incpenalty(void)
 
 void cleartopline(void)
 {
-  outtext(ddap, "                          ",0,0,3);
-  outtext(ddap, " ",308,0,3);
+  erasetext(ddap, 26, 0,0,3);
+  erasetext(ddap, 1, 308,0,3);
 }
 
 int16_t levplan(void)

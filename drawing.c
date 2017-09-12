@@ -1,6 +1,7 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -12,6 +13,8 @@
 #include "sprite.h"
 #include "digger.h"
 #include "sound.h"
+
+#define MAX_TEXT_LEN (MAX_W / CHR_W)
 
 int16_t field1[MSIZE],field2[MSIZE],field[MSIZE];
 
@@ -34,26 +37,48 @@ void drawfield(void);
 
 void eraseline(struct digger_draw_api *ddap, int16_t y)
 {
-  // A line can contain nearly 27 characters, so we just draw 27 spaces to erase the whole line
-  outtext(ddap, "                           ", 0, y, 0);
+
+  erasetext(ddap, MAX_TEXT_LEN, 0, y, 0);
 }
 
-void outtextcentered(struct digger_draw_api *ddap, char *p,int16_t y,int16_t c)
+void outtextcentered(struct digger_draw_api *ddap, char *p, int16_t y, int16_t c)
 {
-  if (strlen(p) >= 27) {
-    outtext(ddap, p, 0, y, c);
-  } else {
-    outtext(ddap, p, ((27 - strlen(p)) / 2)*charwidth, y, c);
+  int16_t xpos;
+
+  xpos = ((MAX_TEXT_LEN - strlen(p)) / 2) * CHR_W;
+  xpos -= (xpos % CHR_W);
+#if defined(DIGGER_DEBUG)
+  assert(strlen(p) <= MAX_TEXT_LEN);
+#endif
+
+  outtext(ddap, p, xpos, y, c);
+}
+
+const char empty_line[MAX_TEXT_LEN + 1] = "                          ";
+
+static void outtextl(struct digger_draw_api *ddap, const char *p,int16_t x,int16_t y,int16_t c, int16_t l)
+{
+  int16_t i;
+
+#if defined(DIGGER_DEBUG)
+  assert(l > 0 && l <= MAX_TEXT_LEN);
+#endif
+  for (i=0;i < l;i++) {
+    ddap->gwrite(x,y,isalnum(p[i]) ? p[i] : ' ',c);
+    x+=CHR_W;
   }
 }
 
 void outtext(struct digger_draw_api *ddap, const char *p,int16_t x,int16_t y,int16_t c)
 {
-  int16_t i;
-  for (i=0;p[i];i++) {
-    ddap->gwrite(x,y,isalnum(p[i]) ? p[i] : ' ',c);
-    x+=charwidth;
-  }
+
+  outtextl(ddap, p, x, y, c, strlen(p));
+}
+
+void erasetext(struct digger_draw_api *ddap, int16_t n, int16_t x, int16_t y, int16_t c)
+{
+
+  outtextl(ddap, empty_line, x, y, c, n);
 }
 
 void makefield(void)
@@ -364,7 +389,7 @@ void drawlives(struct digger_draw_api *ddap)
     return;
   }
   n=getlives(0)-1;
-  outtext(ddap, "     ",96,0,2);
+  erasetext(ddap, 5, 96,0,2);
   if (n>4) {
     drawlife(0,80,0);
     sprintf(buf,"X%i",n);
@@ -376,11 +401,11 @@ void drawlives(struct digger_draw_api *ddap)
       n--;
     }
   if (nplayers==2) {
-    outtext(ddap, "     ",164,0,2);
+    erasetext(ddap, 5, 164,0,2);
     n=getlives(1)-1;
     if (n>4) {
       sprintf(buf,"%iX",n);
-      outtext(ddap, buf,220-strlen(buf)*12,0,2);
+      outtext(ddap, buf,220-strlen(buf)*CHR_W,0,2);
       drawlife(1,224,0);
     }
     else
@@ -390,11 +415,11 @@ void drawlives(struct digger_draw_api *ddap)
       }
   }
   if (diggers==2) {
-    outtext(ddap, "     ",164,0,1);
+    erasetext(ddap, 5, 164,0,1);
     n=getlives(1)-1;
     if (n>4) {
       sprintf(buf,"%iX",n);
-      outtext(ddap, buf,220-strlen(buf)*12,0,1);
+      outtext(ddap, buf,220-strlen(buf)*CHR_W,0,1);
       drawlife(3,224,0);
     }
     else
