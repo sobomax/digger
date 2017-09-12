@@ -76,7 +76,7 @@ static SDL_Surface *screen = NULL;
 static SDL_Surface *screen16 = NULL;
 
 struct ch2bmap_plane {
-	uint8_t const **sprites;
+	uint8_t const * const *sprites;
 	SDL_Surface *caches[256];
 };
 
