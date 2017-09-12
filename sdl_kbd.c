@@ -15,7 +15,6 @@
 #include "def.h"
 #include "hardware.h"
 #include "input.h"
-#include "keyboard.h"
 #include "sdl_kbd.h"
 #include "sdl_vid.h"
 
