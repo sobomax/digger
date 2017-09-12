@@ -14,8 +14,6 @@
 #include "digger.h"
 #include "sound.h"
 
-#define MAX_TEXT_LEN (MAX_W / CHR_W)
-
 int16_t field1[MSIZE],field2[MSIZE],field[MSIZE];
 
 uint8_t monbufs[MONSTERS][480],bagbufs[BAGS][480],bonusbufs[BONUSES][480],
