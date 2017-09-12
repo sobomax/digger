@@ -1,8 +1,6 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
-#define NKEYS 17
-
 extern const char *keynames[NKEYS];
 
 struct digger_draw_api;
