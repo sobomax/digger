@@ -16,7 +16,8 @@
 
 const char *keynames[NKEYS]={"Right","Up","Left","Down","Fire",
                     "Right","Up","Left","Down","Fire",
-                    "Cheat","Accel","Brake","Music","Sound","Exit","Pause"};
+                    "Cheat","Accel","Brake","Music","Sound","Exit","Pause",
+                    "Mode Change"};
 
 void redefkeyb(struct digger_draw_api *ddap, bool allf)
 {

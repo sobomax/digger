@@ -14,8 +14,8 @@ extern bool firepflag,fire2pflag,escape;
 extern int8_t keypressed;
 extern int16_t akeypressed;
 
-#define NKEYS 17
+#define NKEYS 18
 
 extern int keycodes[NKEYS][5];
 extern bool krdf[NKEYS];
-extern bool pausef;
+extern bool pausef,mode_change;

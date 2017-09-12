@@ -15,7 +15,7 @@
 #endif
 
 /* global variables first */
-bool escape=false,firepflag=false,fire2pflag=false,pausef=false;
+bool escape=false,firepflag=false,fire2pflag=false,pausef=false,mode_change=false;
 bool krdf[NKEYS]={false,false,false,false,false,false,false,false,false,false,
                false,false,false,false,false,false,false};
 
@@ -110,10 +110,14 @@ void checkkeyb(void)
         break;
       case 16: /* Pause */
         pausef=true;
+        break;
+      case 17:
+        mode_change=true;
+        break;
     }
     if (akeypressed==ASCIIF8) /* Save DRF */
       savedrf=true;
-    if (akeypressed!=27 && akeypressed!='n' && akeypressed!='N')
+    if (!mode_change)
       start=true;                                /* Change number of players */
   }
 }

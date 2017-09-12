@@ -20,23 +20,24 @@
 
 #define KBLEN		30
 
-int keycodes[NKEYS][5]={{SDL_SCANCODE_RIGHT,-2,-2,-2,-2},          /* 1 Right */
-                     {SDL_SCANCODE_UP,-2,-2,-2,-2},             /* 1 Up */
-                     {SDL_SCANCODE_LEFT,-2,-2,-2,-2},           /* 1 Left */
-                     {SDL_SCANCODE_DOWN,-2,-2,-2,-2},           /* 1 Down */
-                     {SDL_SCANCODE_F1,-2,-2,-2,-2},             /* 1 Fire */
-                     {SDL_SCANCODE_S,-2,-2,-2,-2},              /* 2 Right */
-                     {SDL_SCANCODE_W,-2,-2,-2,-2},              /* 2 Up */
-                     {SDL_SCANCODE_A,-2,-2,-2,-2},              /* 2 Left */
-                     {SDL_SCANCODE_Z,-2,-2,-2,-2},              /* 2 Down */
-                     {SDL_SCANCODE_TAB,-2,-2,-2,-2},            /* 2 Fire */
-                     {SDL_SCANCODE_T,-2,-2,-2,-2},              /* Cheat */
-                     {SDL_SCANCODE_KP_PLUS,-2,-2,-2,-2},        /* Accelerate */
-                     {SDL_SCANCODE_KP_MINUS,-2,-2,-2,-2},       /* Brake */
-                     {SDL_SCANCODE_F7,-2,-2,-2,-2},             /* Music */
-                     {SDL_SCANCODE_F9,-2,-2,-2,-2},             /* Sound */
-                     {SDL_SCANCODE_F10,-2,-2,-2,-2},            /* Exit */
-                     {SDL_SCANCODE_SPACE,-2,-2,-2,-2}};         /* Pause */
+int keycodes[NKEYS][5]={{SDL_SCANCODE_RIGHT,-2,-2,-2,-2}, /* 1 Right */
+                     {SDL_SCANCODE_UP,-2,-2,-2,-2},       /* 1 Up */
+                     {SDL_SCANCODE_LEFT,-2,-2,-2,-2},     /* 1 Left */
+                     {SDL_SCANCODE_DOWN,-2,-2,-2,-2},     /* 1 Down */
+                     {SDL_SCANCODE_F1,-2,-2,-2,-2},       /* 1 Fire */
+                     {SDL_SCANCODE_S,-2,-2,-2,-2},        /* 2 Right */
+                     {SDL_SCANCODE_W,-2,-2,-2,-2},        /* 2 Up */
+                     {SDL_SCANCODE_A,-2,-2,-2,-2},        /* 2 Left */
+                     {SDL_SCANCODE_Z,-2,-2,-2,-2},        /* 2 Down */
+                     {SDL_SCANCODE_TAB,-2,-2,-2,-2},      /* 2 Fire */
+                     {SDL_SCANCODE_T,-2,-2,-2,-2},        /* Cheat */
+                     {SDL_SCANCODE_KP_PLUS,-2,-2,-2,-2},  /* Accelerate */
+                     {SDL_SCANCODE_KP_MINUS,-2,-2,-2,-2}, /* Brake */
+                     {SDL_SCANCODE_F7,-2,-2,-2,-2},       /* Music */
+                     {SDL_SCANCODE_F9,-2,-2,-2,-2},       /* Sound */
+                     {SDL_SCANCODE_F10,-2,-2,-2,-2},      /* Exit */
+                     {SDL_SCANCODE_SPACE,-2,-2,-2,-2},    /* Pause */
+                     {SDL_SCANCODE_N,-2,-2,-2,-2}};       /* Change mode */
 
 struct kbent {
     int16_t sym;

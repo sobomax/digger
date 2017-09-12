@@ -364,10 +364,10 @@ int mainprog(void)
     teststart();
     while (!started) {
       started=teststart();
-      if (akeypressed==27 || akeypressed=='n' || akeypressed=='N') {
+      if (mode_change) {
         switchnplayers();
         shownplayers();
-        akeypressed=0;
+        mode_change=false;
       }
       if (frame==0)
         for (t=54;t<174;t+=12)
