@@ -25,9 +25,9 @@ Name: "{group}\Uninstall";                         Filename: "{uninstallexe}"
 Source: "README.txt";     DestDir: "{app}"; DestName: "README.txt"; Flags: isreadme
 Source: "LICENSE";        DestDir: "{app}"
 
-Source: "digger.exe";     DestDir: "{app}"; Flags: ignoreversion
-Source: "zlib1.dll";      DestDir: "{app}"; Flags: ignoreversion
-Source: "SDL2.dll";       DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\digger.exe";     DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\zlib1.dll";      DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\SDL2.dll";       DestDir: "{app}"; Flags: ignoreversion
 
 Source: "digger.log";     DestDir: "{app}"; Permissions: everyone-modify
 Source: "digger.sco";     DestDir: "{app}"; Permissions: everyone-modify; Flags: onlyifdoesntexist
