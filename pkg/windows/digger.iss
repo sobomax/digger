@@ -2,8 +2,8 @@
 AppName=Digger Remastered
 AppVerName=Digger Remastered {#GetEnv("APPVEYOR_BUILD_VERSION")}
 AppVersion={#GetEnv("APPVEYOR_BUILD_VERSION")}
-AppContact=michael.knigge@gmx.de
-AppPublisher=Michael Knigge
+AppContact=sobomax@gmail.com
+AppPublisher=Maksym Sobolyev
 AppPublisherURL=https://github.com/michaelknigge/digger
 
 DefaultDirName={pf}\Digger
@@ -29,6 +29,6 @@ Source: "..\..\digger.exe";     DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\zlib1.dll";      DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\SDL2.dll";       DestDir: "{app}"; Flags: ignoreversion
 
-Source: "digger.log";     DestDir: "{app}"; Permissions: everyone-modify
-Source: "digger.sco";     DestDir: "{app}"; Permissions: everyone-modify; Flags: onlyifdoesntexist
-Source: "digger.ini";     DestDir: "{app}"; Permissions: everyone-modify; Flags: onlyifdoesntexist
+Source: "..\..\digger.log";     DestDir: "{app}"; Permissions: everyone-modify
+Source: "..\..\digger.sco";     DestDir: "{app}"; Permissions: everyone-modify; Flags: onlyifdoesntexist
+Source: "..\..\digger.ini";     DestDir: "{app}"; Permissions: everyone-modify; Flags: onlyifdoesntexist
