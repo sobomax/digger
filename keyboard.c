@@ -20,7 +20,7 @@ const char *keynames[NKEYS]={"Right","Up","Left","Down","Fire",
 
 void redefkeyb(struct digger_draw_api *ddap, bool allf)
 {
-  int i,j,k,l,z,y=0,x;
+  int i,j,k,l,z,y=0,x,savey;
   bool f;
   char kbuf[80],vbuf[80];
 
@@ -36,6 +36,7 @@ void redefkeyb(struct digger_draw_api *ddap, bool allf)
 
 /* Step one: redefine keys that are always redefined. */
 
+  savey = y;
   for (i=0;i<5;i++) {
     outtext(ddap, keynames[i],0,y,2); /* Red first */
     findkey(i);
@@ -109,7 +110,7 @@ void redefkeyb(struct digger_draw_api *ddap, bool allf)
       if (i!=z)
         y+=CHR_H;
       if (y >= MAX_H - CHR_H) {
-        y = 0;
+        y = savey;
         x = (MAX_TEXT_LEN / 2) * CHR_W;
       }
       outtext(ddap, keynames[i],x,y,2); /* Red first */
