@@ -43,9 +43,8 @@ void outtextcentered(struct digger_draw_api *ddap, char *p, int16_t y, int16_t c
   int16_t xpos;
 
   xpos = ((MAX_TEXT_LEN - strlen(p)) / 2) * CHR_W;
-  xpos -= (xpos % CHR_W);
 #if defined(DIGGER_DEBUG)
-  assert(strlen(p) <= MAX_TEXT_LEN);
+  assert(strlen(p) <= MAX_TEXT_LEN && xpos >= 0 && xpos < (MAX_W - CHR_W));
 #endif
 
   outtext(ddap, p, xpos, y, c);
