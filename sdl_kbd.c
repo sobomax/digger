@@ -19,7 +19,7 @@
 
 #define KBLEN		30
 
-int keycodes[17][5]={{SDL_SCANCODE_RIGHT,-2,-2,-2,-2},          /* 1 Right */
+int keycodes[NKEYS][5]={{SDL_SCANCODE_RIGHT,-2,-2,-2,-2},          /* 1 Right */
                      {SDL_SCANCODE_UP,-2,-2,-2,-2},             /* 1 Up */
                      {SDL_SCANCODE_LEFT,-2,-2,-2,-2},           /* 1 Left */
                      {SDL_SCANCODE_DOWN,-2,-2,-2,-2},           /* 1 Down */

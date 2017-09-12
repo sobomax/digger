@@ -15,6 +15,7 @@
 #include "scores.h"
 #include "drawing.h"
 #include "digger.h"
+#include "keyboard.h"
 #include "monster.h"
 #include "monster_obj.h"
 #include "digger_obj.h"
@@ -57,7 +58,6 @@ void patchcga(void);
 void initlevel(void);
 void finish(void);
 void inir(void);
-void redefkeyb(bool allf);
 int getalllives(void);
 
 int8_t leveldat[8][MHEIGHT][MWIDTH]=
@@ -877,9 +877,9 @@ void parsecmd(int argc,char *argv[])
       }
       if (argch == 'K') {
         if (word[2]=='A' || word[2]=='a')
-          redefkeyb(true);
+          redefkeyb(ddap, true);
         else
-          redefkeyb(false);
+          redefkeyb(ddap, false);
       }
       if (argch == 'Q')
         quiet=true;
@@ -949,10 +949,6 @@ int16_t randno(int16_t n)
   return (int16_t)((randv&0x7fffffffl)%n);
 }
 
-char *keynames[17]={"Right","Up","Left","Down","Fire",
-                    "Right","Up","Left","Down","Fire",
-                    "Cheat","Accel","Brake","Music","Sound","Exit","Pause"};
-
 int dx_sound_volume;
 bool g_bWindowed,use_640x480_fullscreen,use_async_screen_updates;
 
@@ -962,7 +958,7 @@ void inir(void)
   int i,j,p;
   bool cgaflag;
 
-  for (i=0;i<17;i++) {
+  for (i=0;i<NKEYS;i++) {
     sprintf(kbuf,"%s%c",keynames[i],(i>=5 && i<10) ? '2' : 0);
     sprintf(vbuf,"%i/%i/%i/%i/%i",keycodes[i][0],keycodes[i][1],
             keycodes[i][2],keycodes[i][3],keycodes[i][4]);
@@ -1043,112 +1039,4 @@ void inir(void)
   }
   unlimlives=GetINIBool(INI_GAME_SETTINGS,"UnlimitedLives",false,ININAME);
   startlev=(int)GetINIInt(INI_GAME_SETTINGS,"StartLevel",1,ININAME);
-}
-
-void redefkeyb(bool allf)
-{
-  int i,j,k,l,z,y=0;
-  bool f;
-  char kbuf[80],vbuf[80];
-
-  maininit();
-
-  if (diggers==2) {
-    outtext(ddap, "PLAYER 1:",0,y,3);
-    y+=12;
-  }
-
-  outtext(ddap, "PRESS NEW KEY FOR",0,y,3);
-  y+=12;
-
-/* Step one: redefine keys that are always redefined. */
-
-  for (i=0;i<5;i++) {
-    outtext(ddap, keynames[i],0,y,2); /* Red first */
-    findkey(i);
-    outtext(ddap, keynames[i],0,y,1); /* Green once got */
-    y+=12;
-    for (j=0;j<i;j++) { /* Note: only check keys just pressed (I hate it when
-                           this is done wrong, and it often is.) */
-      if (keycodes[i][0]==keycodes[j][0] && keycodes[i][0]!=0) {
-        i--;
-        y-=12;
-        break;
-      }
-      for (k=2;k<5;k++)
-        for (l=2;l<5;l++)
-          if (keycodes[i][k]==keycodes[j][l] && keycodes[i][k]!=-2) {
-            j=i;
-            k=5;
-            i--;
-            y-=12;
-            break; /* Try again if this key already used */
-          }
-    }
-  }
-
-  if (diggers==2) {
-    outtext(ddap, "PLAYER 2:",0,y,3);
-    y+=12;
-    for (i=5;i<10;i++) {
-      outtext(ddap, keynames[i],0,y,2); /* Red first */
-      findkey(i);
-      outtext(ddap, keynames[i],0,y,1); /* Green once got */
-      y+=12;
-      for (j=0;j<i;j++) { /* Note: only check keys just pressed (I hate it when
-                             this is done wrong, and it often is.) */
-        if (keycodes[i][0]==keycodes[j][0] && keycodes[i][0]!=0) {
-          i--;
-          y-=12;
-          break;
-        }
-        for (k=2;k<5;k++)
-          for (l=2;l<5;l++)
-            if (keycodes[i][k]==keycodes[j][l] && keycodes[i][k]!=-2) {
-              j=i;
-              k=5;
-              i--;
-              y-=12;
-              break; /* Try again if this key already used */
-            }
-      }
-    }
-  }
-
-/* Step two: redefine other keys which step one has caused to conflict */
-
-  z=0;
-  y-=12;
-  for (i=10;i<17;i++) {
-    f=false;
-    for (j=0;j<10;j++)
-      for (k=0;k<5;k++)
-        for (l=2;l<5;l++)
-          if (keycodes[i][k]==keycodes[j][l] && keycodes[i][k]!=-2)
-            f=true;
-    for (j=10;j<i;j++)
-      for (k=0;k<5;k++)
-        for (l=0;l<5;l++)
-          if (keycodes[i][k]==keycodes[j][l] && keycodes[i][k]!=-2)
-            f=true;
-    if (f || (allf && i!=z)) {
-      if (i!=z)
-        y+=12;
-      outtext(ddap, keynames[i],0,y,2); /* Red first */
-      findkey(i);
-      outtext(ddap, keynames[i],0,y,1); /* Green once got */
-      z=i;
-      i--;
-    }
-  }
-
-/* Step three: save the INI file */
-
-  for (i=0;i<17;i++)
-    if (krdf[i]) {
-      sprintf(kbuf,"%s%c",keynames[i],(i>=5 && i<10) ? '2' : 0);
-      sprintf(vbuf,"%i/%i/%i/%i/%i",keycodes[i][0],keycodes[i][1],
-              keycodes[i][2],keycodes[i][3],keycodes[i][4]);
-      WriteINIString(INI_KEY_SETTINGS,kbuf,vbuf,ININAME);
-    }
 }

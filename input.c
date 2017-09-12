@@ -2,6 +2,7 @@
    Copyright (c) Andrew Jenner 1998-2004 */
 
 #include "def.h"
+#include "keyboard.h"
 #include "main.h"
 #include "sound.h"
 #include "hardware.h"
@@ -13,7 +14,7 @@
 
 /* global variables first */
 bool escape=false,firepflag=false,fire2pflag=false,pausef=false;
-bool krdf[17]={false,false,false,false,false,false,false,false,false,false,
+bool krdf[NKEYS]={false,false,false,false,false,false,false,false,false,false,
                false,false,false,false,false,false,false};
 
 static bool aleftpressed=false,arightpressed=false,
@@ -49,7 +50,7 @@ static bool joyflag=false;
 
 /* Default key codes for ARM */
 
-int keycodes[17][5]={{134,0,-2,-2,-2},   /* 1 Right */
+int keycodes[NKEYS][5]={{134,0,-2,-2,-2},   /* 1 Right */
                      {198,0,-2,-2,-2},   /* 1 Up */
                      {230,0,-2,-2,-2},   /* 1 Left */
                      {214,0,-2,-2,-2},   /* 1 Down */
@@ -122,7 +123,7 @@ bool GetAsyncKeyState(int);
 #define F9KEY		67+128
 #define F10KEY		68+128
 
-int keycodes[17][5]={{RIGHTKEY,-2,-2,-2,-2},		/* 1 Right */
+int keycodes[NKEYS][5]={{RIGHTKEY,-2,-2,-2,-2},		/* 1 Right */
                      {UPKEY,-2,-2,-2,-2},		/* 1 Up */
                      {LEFTKEY,-2,-2,-2,-2},		/* 1 Left */
                      {DOWNKEY,-2,-2,-2,-2},		/* 1 Down */
@@ -163,7 +164,7 @@ bool leftpressed=false,rightpressed=false,uppressed=false,downpressed=false,
 
 /* Default key codes */
 
-int keycodes[17][5]={{0x4d,0xcd,0x14d,-2,-2}, /* 1 Right */
+int keycodes[NKEYS][5]={{0x4d,0xcd,0x14d,-2,-2}, /* 1 Right */
                      {0x48,0xc8,0x148,-2,-2}, /* 1 Up */
                      {0x4b,0xcb,0x14b,-2,-2}, /* 1 Left */
                      {0x50,0xd0,0x150,-2,-2}, /* 1 Down */
@@ -297,7 +298,7 @@ void checkkeyb(void)
       for (j=2;j<5;j++)
         if (akeypressed==keycodes[i][j])
           *aflagp[i]=true;
-    for (i=10;i<17;i++)
+    for (i=10;i<NKEYS;i++)
       for (j=0;j<5;j++)
         if (akeypressed==keycodes[i][j])
           k=i;
