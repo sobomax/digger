@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdint.h>
+
+#include "alpha.h"
 #include "def.h"
 #include "draw_api.h"
 #include "drawing.h"
@@ -40,7 +43,7 @@ static void outtextl(struct digger_draw_api *ddap, const char *p,int16_t x,int16
   assert(l > 0 && l <= MAX_TEXT_LEN);
 #endif
   for (i=0;i < l;i++) {
-    ddap->gwrite(x,y,isalnum(p[i]) ? p[i] : ' ',c);
+    ddap->gwrite(x,y,isvalchar(p[i]) ? p[i] : ' ',c);
     x+=CHR_W;
   }
 }
