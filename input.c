@@ -35,9 +35,6 @@ static int16_t keydir=0,keydir2=0,jleftthresh=0,jupthresh=0,jrightthresh=0,
 
 static bool joyflag=false;
 
-void findkey(int kn) { keycodes[kn][0] = getkey(true); }
-
-
 void readjoy(void);
 
 /* The standard ASCII keyboard is also checked so that very short keypresses
@@ -86,35 +83,35 @@ void checkkeyb(void)
         if (akeypressed==keycodes[i][j])
           k=i;
     switch (k) {
-      case 10: /* Cheat! */
+      case DKEY_CHT: /* Cheat! */
         if (!gauntlet) {
           playing=false;
           drfvalid=false;
         }
         break;
-      case 11: /* Increase speed */
+      case DKEY_SUP: /* Increase speed */
         if (ftime>10000l)
           ftime-=10000l;
         break;
-      case 12: /* Decrease speed */
+      case DKEY_SDN: /* Decrease speed */
         ftime+=10000l;
         break;
-      case 13: /* Toggle music */
+      case DKEY_MTG: /* Toggle music */
         musicflag=!musicflag;
         break;
-      case 14: /* Toggle sound */
+      case DKEY_STG: /* Toggle sound */
         soundflag=!soundflag;
         break;
-      case 15: /* Exit */
+      case DKEY_EXT: /* Exit */
         escape=true;
         break;
-      case 16: /* Pause */
+      case DKEY_PUS: /* Pause */
         pausef=true;
         break;
-      case 17: /* Mode change */
+      case DKEY_MCH: /* Mode change */
         mode_change=true;
         break;
-      case 18: /* Save DRF */
+      case DKEY_SDR: /* Save DRF */
         savedrf=true;
         break;
     }

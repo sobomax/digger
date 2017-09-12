@@ -9,6 +9,7 @@
 
 #include "draw_api.h"
 #include "drawing.h"
+#include "hardware.h"
 #include "input.h"
 #include "ini.h"
 #include "keyboard.h"
@@ -19,6 +20,19 @@ const char *keynames[NKEYS]={"Right","Up","Left","Down","Fire",
                     "Cheat","Accel","Brake","Music","Sound","Exit","Pause",
                     "Mode Change","Save DRF"};
 
+#define FINDKEY_EX(i) {if (prockey(i) == -1) return;}
+
+static int prockey(int kn)
+{
+  int16_t key;
+
+  key = getkey(true);
+  if (kn != DKEY_EXT && key == keycodes[DKEY_EXT][0])
+    return -1;
+  keycodes[kn][0] = key;
+  return (0);
+}
+
 void redefkeyb(struct digger_draw_api *ddap, bool allf)
 {
   int i,j,k,l,z,y=0,x,savey;
@@ -27,20 +41,20 @@ void redefkeyb(struct digger_draw_api *ddap, bool allf)
 
   maininit();
 
+  outtext(ddap, "PRESS NEW KEY FOR",0,y,3);
+  y+=CHR_H;
+
   if (diggers==2) {
     outtext(ddap, "PLAYER 1:",0,y,3);
     y+=CHR_H;
   }
-
-  outtext(ddap, "PRESS NEW KEY FOR",0,y,3);
-  y+=CHR_H;
 
 /* Step one: redefine keys that are always redefined. */
 
   savey = y;
   for (i=0;i<5;i++) {
     outtext(ddap, keynames[i],0,y,2); /* Red first */
-    findkey(i);
+    FINDKEY_EX(i);
     outtext(ddap, keynames[i],0,y,1); /* Green once got */
     y+=CHR_H;
     for (j=0;j<i;j++) { /* Note: only check keys just pressed (I hate it when
@@ -67,7 +81,7 @@ void redefkeyb(struct digger_draw_api *ddap, bool allf)
     y+=CHR_H;
     for (i=5;i<10;i++) {
       outtext(ddap, keynames[i],0,y,2); /* Red first */
-      findkey(i);
+      FINDKEY_EX(i);
       outtext(ddap, keynames[i],0,y,1); /* Green once got */
       y+=CHR_H;
       for (j=0;j<i;j++) { /* Note: only check keys just pressed (I hate it when
@@ -92,6 +106,11 @@ void redefkeyb(struct digger_draw_api *ddap, bool allf)
 
 /* Step two: redefine other keys which step one has caused to conflict */
 
+  if (allf) {
+    outtext(ddap, "OTHER:",0,y,3);
+    y+=CHR_H;
+  }
+
   z=0;
   x=0;
   y-=CHR_H;
@@ -115,7 +134,7 @@ void redefkeyb(struct digger_draw_api *ddap, bool allf)
         x = (MAX_TEXT_LEN / 2) * CHR_W;
       }
       outtext(ddap, keynames[i],x,y,2); /* Red first */
-      findkey(i);
+      FINDKEY_EX(i);
       outtext(ddap, keynames[i],x,y,1); /* Green once got */
       z=i;
       i--;
