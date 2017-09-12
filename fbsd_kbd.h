@@ -38,5 +38,3 @@ bool GetAsyncKeyState(int);
 #define down2pressed  (GetAsyncKeyState(keycodes[8][0]))
 #define f12pressed    (GetAsyncKeyState(keycodes[9][0]))
 
-#define F8KEY           (66+128)
-#define ASCIIF8 F8KEY
