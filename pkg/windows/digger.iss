@@ -4,7 +4,7 @@ AppVerName=Digger Remastered {#GetEnv("APPVEYOR_BUILD_VERSION")}
 AppVersion={#GetEnv("APPVEYOR_BUILD_VERSION")}
 AppContact=sobomax@gmail.com
 AppPublisher=Maksym Sobolyev
-AppPublisherURL=https://github.com/michaelknigge/digger
+AppPublisherURL=https://github.com/sobomax/digger
 
 DefaultDirName={pf}\Digger
 DefaultGroupName=Digger
