@@ -1,6 +1,7 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
+#include <assert.h>
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -12,6 +13,8 @@
 #include "sprite.h"
 #include "digger.h"
 #include "sound.h"
+
+#define MAX_TEXT_LEN (MAX_W / CHR_W)
 
 int16_t field1[MSIZE],field2[MSIZE],field[MSIZE];
 
@@ -33,8 +36,11 @@ void outtext(struct digger_draw_api *ddap, const char *p,int16_t x,int16_t y,int
 {
   int16_t i;
   for (i=0;p[i];i++) {
+#if defined(DIGGER_DEBUG)
+    assert(i < MAX_TEXT_LEN);
+#endif
     ddap->gwrite(x,y,isalnum(p[i]) ? p[i] : ' ',c);
-    x+=12;
+    x+=CHR_W;
   }
 }
 
@@ -362,7 +368,7 @@ void drawlives(struct digger_draw_api *ddap)
     n=getlives(1)-1;
     if (n>4) {
       sprintf(buf,"%iX",n);
-      outtext(ddap, buf,220-strlen(buf)*12,0,2);
+      outtext(ddap, buf,220-strlen(buf)*CHR_W,0,2);
       drawlife(1,224,0);
     }
     else
@@ -376,7 +382,7 @@ void drawlives(struct digger_draw_api *ddap)
     n=getlives(1)-1;
     if (n>4) {
       sprintf(buf,"%iX",n);
-      outtext(ddap, buf,220-strlen(buf)*12,0,1);
+      outtext(ddap, buf,220-strlen(buf)*CHR_W,0,1);
       drawlife(3,224,0);
     }
     else
