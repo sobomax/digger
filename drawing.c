@@ -26,9 +26,6 @@ uint16_t bitmasks[12]={0xfffe,0xfffd,0xfffb,0xfff7,0xffef,0xffdf,0xffbf,0xff7f,
 
 int16_t digspr[DIGGERS],digspd[DIGGERS],firespr[FIREBALLS];
 
-int16_t charwidth = 12;
-int16_t rowheight = 12;
-
 void drawlife(int16_t t,int16_t x,int16_t y);
 void createdbfspr(void);
 void initdbfspr(void);

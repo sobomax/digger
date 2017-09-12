@@ -1034,12 +1034,12 @@ void redefkeyb(bool allf)
   maininit();
   
   outtextcentered(ddap, "D I G G E R",2,3);
-  outtextcentered(ddap, "REDEFINE KEYBOARD",3*rowheight,1);
+  outtextcentered(ddap, "REDEFINE KEYBOARD",3*CHR_H,1);
   
-  playerrow=5*rowheight;
-  keyrow=8*rowheight;
-  errorrow1=11*rowheight;
-  errorrow2=13*rowheight;
+  playerrow=5*CHR_H;
+  keyrow=8*CHR_H;
+  errorrow1=11*CHR_H;
+  errorrow2=13*CHR_H;
   color=3;
 
   for (i=0;i<17;i++) {
