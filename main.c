@@ -15,6 +15,7 @@
 #include "scores.h"
 #include "drawing.h"
 #include "digger.h"
+#include "keyboard.h"
 #include "monster.h"
 #include "monster_obj.h"
 #include "digger_obj.h"
@@ -57,7 +58,6 @@ void patchcga(void);
 void initlevel(void);
 void finish(void);
 void inir(void);
-void redefkeyb(bool allf);
 int getalllives(void);
 
 int8_t leveldat[8][MHEIGHT][MWIDTH]=
@@ -364,10 +364,10 @@ int mainprog(void)
     teststart();
     while (!started) {
       started=teststart();
-      if (akeypressed==27 || akeypressed=='n' || akeypressed=='N') {
+      if (mode_change) {
         switchnplayers();
         shownplayers();
-        akeypressed=0;
+        mode_change=false;
       }
       if (frame==0)
         for (t=54;t<174;t+=12)
@@ -858,9 +858,9 @@ void parsecmd(int argc,char *argv[])
       }
       if (argch == 'K') {
         if (word[2]=='A' || word[2]=='a')
-          redefkeyb(true);
+          redefkeyb(ddap, true);
         else
-          redefkeyb(false);
+          redefkeyb(ddap, false);
       }
       if (argch == 'Q')
         quiet=true;
@@ -930,10 +930,6 @@ int16_t randno(int16_t n)
   return (int16_t)((randv&0x7fffffffl)%n);
 }
 
-char *keynames[17]={"Right","Up","Left","Down","Fire",
-                    "Right","Up","Left","Down","Fire",
-                    "Cheat","Accel","Brake","Music","Sound","Exit","Pause"};
-
 int dx_sound_volume;
 bool g_bWindowed,use_640x480_fullscreen,use_async_screen_updates;
 
@@ -943,7 +939,7 @@ void inir(void)
   int i,j,p;
   bool cgaflag;
 
-  for (i=0;i<17;i++) {
+  for (i=0;i<NKEYS;i++) {
     sprintf(kbuf,"%s%c",keynames[i],(i>=5 && i<10) ? '2' : 0);
     sprintf(vbuf,"%i/%i/%i/%i/%i",keycodes[i][0],keycodes[i][1],
             keycodes[i][2],keycodes[i][3],keycodes[i][4]);
@@ -1024,72 +1020,4 @@ void inir(void)
   }
   unlimlives=GetINIBool(INI_GAME_SETTINGS,"UnlimitedLives",false,ININAME);
   startlev=(int)GetINIInt(INI_GAME_SETTINGS,"StartLevel",1,ININAME);
-}
-
-void redefkeyb(bool allf)
-{
-  int i,j,k,l,keyrow,errorrow1,errorrow2,playerrow,color;
-  char kbuf[80],vbuf[80];
-
-  maininit();
-  
-  outtextcentered(ddap, "D I G G E R",2,3);
-  outtextcentered(ddap, "REDEFINE KEYBOARD",3*CHR_H,1);
-  
-  playerrow=5*CHR_H;
-  keyrow=8*CHR_H;
-  errorrow1=11*CHR_H;
-  errorrow2=13*CHR_H;
-  color=3;
-
-  for (i=0;i<17;i++) {
-    eraseline(ddap, playerrow);
-    eraseline(ddap, keyrow);
-
-    if (i < 5)
-      outtextcentered(ddap, "PLAYER 1",playerrow,2);
-    else if (i < 10)
-      outtextcentered(ddap, "PLAYER 2",playerrow,2);
-    else
-      outtextcentered(ddap, "MISELLANEOUS",playerrow,2);
-
-    outtextcentered(ddap, keynames[i],keyrow,color);
-
-    findkey(i);
-
-    eraseline(ddap, errorrow1);
-    eraseline(ddap, errorrow2);
-    color=3;
-
-    for (j=0;j<i;j++) { /* Note: only check keys just pressed (I hate it when
-                           this is done wrong, and it often is.) */
-      if (keycodes[i][0]==keycodes[j][0] && keycodes[i][0]!=0) {
-        i--;
-        color=2;
-        outtextcentered(ddap, "THIS KEY IS ALREADY USED",errorrow1,2);
-        outtextcentered(ddap, "CHOOSE ANOTHER KEY",errorrow2,2);
-        break;
-      }
-      for (k=2;k<5;k++)
-        for (l=2;l<5;l++)
-          if (keycodes[i][k]==keycodes[j][l] && keycodes[i][k]!=-2) {
-            j=i;
-            k=5;
-            i--;
-            color=2;
-            outtextcentered(ddap, "THIS KEY IS ALREADY USED",errorrow1,2);
-            outtextcentered(ddap, "CHOOSE ANOTHER KEY",errorrow2,2);
-            break; /* Try again if this key already used */
-          }
-    }
-  }
-
-
-  for (i=0;i<17;i++)
-    if (krdf[i]) {
-      sprintf(kbuf,"%s%c",keynames[i],(i>=5 && i<10) ? '2' : 0);
-      sprintf(vbuf,"%i/%i/%i/%i/%i",keycodes[i][0],keycodes[i][1],
-              keycodes[i][2],keycodes[i][3],keycodes[i][4]);
-      WriteINIString(INI_KEY_SETTINGS,kbuf,vbuf,ININAME);
-    }
 }

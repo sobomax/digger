@@ -18,6 +18,7 @@
 #include <SDL.h>
 #include <SDL_syswm.h>
 
+#include "alpha.h"
 #include "def.h"
 #include "hardware.h"
 #include "title_gz.h"
@@ -25,7 +26,6 @@
 #include "sdl_vid.h"
 
 extern uint8_t const *vgatable[];
-extern const uint8_t const *ascii2vga[];
 
 static int16_t xratio = 2;
 static int16_t yratio = 2;
@@ -76,7 +76,7 @@ static SDL_Surface *screen = NULL;
 static SDL_Surface *screen16 = NULL;
 
 struct ch2bmap_plane {
-	uint8_t const **sprites;
+	uint8_t const * const *sprites;
 	SDL_Surface *caches[256];
 };
 
@@ -367,7 +367,7 @@ void vgawrite(int16_t x, int16_t y, int16_t ch, int16_t c)
 	int16_t w=3, h=12, size;
 	int16_t i;
 
-	if(((ch - 32) >= 0x5f) || (ch < 32))
+	if (!isvalchar(ch))
 		return;
 	tmp = ch2bmap(&alphas, ch-32, w, h);
 	size = tmp->w*tmp->h;

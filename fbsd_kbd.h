@@ -1,7 +1,5 @@
 /*
- * Copyright (c) 1983 Windmill Software
- * Copyright (c) 1989-2002 Andrew Jenner <aj@digger.org>
- * Copyright (c) 2002-2014 Maxim Sobolev <sobomax@FreeBSD.org>
+ * Copyright (c) 2002-2017 Maxim Sobolev <sobomax@FreeBSD.org>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,11 +25,6 @@
  *
  */
 
-#ifndef __SDL_KBD_H
-#define __SDL_KBD_H
-
-#include <SDL.h>
-
 bool GetAsyncKeyState(int);
 
 #define rightpressed  (GetAsyncKeyState(keycodes[0][0]))
@@ -45,4 +38,3 @@ bool GetAsyncKeyState(int);
 #define down2pressed  (GetAsyncKeyState(keycodes[8][0]))
 #define f12pressed    (GetAsyncKeyState(keycodes[9][0]))
 
-#endif

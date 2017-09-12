@@ -5,6 +5,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <stdint.h>
+
+#include "alpha.h"
 #include "def.h"
 #include "draw_api.h"
 #include "drawing.h"
@@ -13,8 +16,6 @@
 #include "sprite.h"
 #include "digger.h"
 #include "sound.h"
-
-#define MAX_TEXT_LEN (MAX_W / CHR_W)
 
 int16_t field1[MSIZE],field2[MSIZE],field[MSIZE];
 
@@ -38,7 +39,7 @@ void eraseline(struct digger_draw_api *ddap, int16_t y)
   erasetext(ddap, MAX_TEXT_LEN, 0, y, 0);
 }
 
-void outtextcentered(struct digger_draw_api *ddap, char *p, int16_t y, int16_t c)
+void outtextcentered(struct digger_draw_api *ddap, const char *p, int16_t y, int16_t c)
 {
   int16_t xpos;
 
@@ -60,7 +61,7 @@ static void outtextl(struct digger_draw_api *ddap, const char *p,int16_t x,int16
   assert(l > 0 && l <= MAX_TEXT_LEN);
 #endif
   for (i=0;i < l;i++) {
-    ddap->gwrite(x,y,isalnum(p[i]) ? p[i] : ' ',c);
+    ddap->gwrite(x,y,isvalchar(p[i]) ? p[i] : ' ',c);
     x+=CHR_W;
   }
 }
