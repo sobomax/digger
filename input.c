@@ -17,7 +17,7 @@
 /* global variables first */
 bool escape=false,firepflag=false,fire2pflag=false,pausef=false,mode_change=false;
 bool krdf[NKEYS]={false,false,false,false,false,false,false,false,false,false,
-               false,false,false,false,false,false,false};
+               false,false,false,false,false,false,false,false};
 
 static bool aleftpressed=false,arightpressed=false,
      auppressed=false,adownpressed=false,start=false,af1pressed=false;
@@ -111,12 +111,13 @@ void checkkeyb(void)
       case 16: /* Pause */
         pausef=true;
         break;
-      case 17:
+      case 17: /* Mode change */
         mode_change=true;
         break;
+      case 18: /* Save DRF */
+        savedrf=true;
+        break;
     }
-    if (akeypressed==ASCIIF8) /* Save DRF */
-      savedrf=true;
     if (!mode_change)
       start=true;                                /* Change number of players */
   }

@@ -37,7 +37,8 @@ int keycodes[NKEYS][5]={{SDL_SCANCODE_RIGHT,-2,-2,-2,-2}, /* 1 Right */
                      {SDL_SCANCODE_F9,-2,-2,-2,-2},       /* Sound */
                      {SDL_SCANCODE_F10,-2,-2,-2,-2},      /* Exit */
                      {SDL_SCANCODE_SPACE,-2,-2,-2,-2},    /* Pause */
-                     {SDL_SCANCODE_N,-2,-2,-2,-2}};       /* Change mode */
+                     {SDL_SCANCODE_N,-2,-2,-2,-2},        /* Change mode */
+                     {SDL_SCANCODE_F8,-2,-2,-2,-2}};      /* Save DRF */
 
 struct kbent {
     int16_t sym;
