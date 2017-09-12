@@ -32,16 +32,31 @@ void initdbfspr(void);
 void drawbackg(int16_t l);
 void drawfield(void);
 
-void outtext(struct digger_draw_api *ddap, const char *p,int16_t x,int16_t y,int16_t c)
+const char empty_line[MAX_TEXT_LEN + 1] = "                          ";
+
+static void outtextl(struct digger_draw_api *ddap, const char *p,int16_t x,int16_t y,int16_t c, int16_t l)
 {
   int16_t i;
-  for (i=0;p[i];i++) {
+
 #if defined(DIGGER_DEBUG)
-    assert(i < MAX_TEXT_LEN);
+  assert(l > 0 && l <= MAX_TEXT_LEN);
 #endif
+  for (i=0;i < l;i++) {
     ddap->gwrite(x,y,isalnum(p[i]) ? p[i] : ' ',c);
     x+=CHR_W;
   }
+}
+
+void outtext(struct digger_draw_api *ddap, const char *p,int16_t x,int16_t y,int16_t c)
+{
+
+  outtextl(ddap, p, x, y, c, strlen(p));
+}
+
+void erasetext(struct digger_draw_api *ddap, int16_t n, int16_t x, int16_t y, int16_t c)
+{
+
+  outtextl(ddap, empty_line, x, y, c, n);
 }
 
 void makefield(void)
@@ -352,7 +367,7 @@ void drawlives(struct digger_draw_api *ddap)
     return;
   }
   n=getlives(0)-1;
-  outtext(ddap, "     ",96,0,2);
+  erasetext(ddap, 5, 96,0,2);
   if (n>4) {
     drawlife(0,80,0);
     sprintf(buf,"X%i",n);
@@ -364,7 +379,7 @@ void drawlives(struct digger_draw_api *ddap)
       n--;
     }
   if (nplayers==2) {
-    outtext(ddap, "     ",164,0,2);
+    erasetext(ddap, 5, 164,0,2);
     n=getlives(1)-1;
     if (n>4) {
       sprintf(buf,"%iX",n);
@@ -378,7 +393,7 @@ void drawlives(struct digger_draw_api *ddap)
       }
   }
   if (diggers==2) {
-    outtext(ddap, "     ",164,0,1);
+    erasetext(ddap, 5, 164,0,1);
     n=getlives(1)-1;
     if (n>4) {
       sprintf(buf,"%iX",n);

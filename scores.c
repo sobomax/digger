@@ -214,7 +214,7 @@ void endofgame(struct digger_draw_api *ddap)
     outtext(ddap, "TIME UP",120,0,3);
     for (i=0;i<50 && !escape;i++)
       newframe();
-    outtext(ddap, "       ",120,0,3);
+    erasetext(ddap, 7, 120,0,3);
   }
   for (i=curplayer;i<curplayer+diggers;i++) {
     scoret=scdat[i].score;
@@ -239,7 +239,7 @@ void endofgame(struct digger_draw_api *ddap)
     outtext(ddap, "GAME OVER",104,0,3);
     for (i=0;i<50 && !escape;i++)
       newframe();
-    outtext(ddap, "         ",104,0,3);
+    erasetext(ddap, 9, 104,0,3);
     setretr(true);
   }
 }
