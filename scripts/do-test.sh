@@ -19,7 +19,10 @@ then
   ZLIB_SVER=`echo ${ZLIB_VER} | sed 's|[.]||g'`
   wget http://zlib.net/zlib${ZLIB_SVER}.zip
   unzip zlib${ZLIB_SVER}.zip
-  make -C zlib-${ZLIB_VER} PREFIX="${MGW_PREF}-" -f win32/Makefile.gcc
+  make -C zlib-${ZLIB_VER} PREFIX="${MGW64_PREF}-" -f win32/Makefile.gcc
+  mkdir "${MGW64_PREF}"
+  mv *.dll *.a "${MGW64_PREF}"
+  make -C zlib-${ZLIB_VER} PREFIX="${MGW_PREF}-" -f win32/Makefile.gcc clean all
   cd ..
 fi
 
@@ -29,5 +32,6 @@ do
   if [ "${CC}" != "clang" ]
   then
     make ARCH=MINGW MINGW_DEPS_ROOT=`pwd`/deps clean all
+    make ARCH=MINGW64 MINGW_DEPS_ROOT=`pwd`/deps clean all
   fi
 done
