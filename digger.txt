@@ -92,6 +92,7 @@ The keys you can use during the game are (by default):
 * + to increase the game speed by 5.
 * - to decrease the game speed by 5.
 * Ctrl-T (cheat) to take over whilst playing back a recorded game.
+* Alt-Enter to toggle full-screen mode on or off.
 
 In two player mode the default keys for the second player are:
 * W, A, S and Z to move Digger around.
@@ -100,7 +101,7 @@ In two player mode the default keys for the second player are:
 for you - you'll just have to redefine the keys.)
 
 On the title screen press:
-* Esc or N to toggle one or two player mode.
+* N to toggle one or two player mode.
 * F8 to save the last game if you didn't put a name on the command line.
 * F10 to exit the program.
 
