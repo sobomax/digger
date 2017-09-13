@@ -31,13 +31,13 @@ Some plans for the future releases include:
 - 2.0, aka "Digger Reset"
   - [x] SDL 2.0 port
   - [x] fullscreen mode for Windows
-  - [x] toggle fullscreen and window mode with F11
+  - [x] toggle fullscreen and window mode with Alt-Enter
   - [x] installer for Windows
   - [x] revised redefine keyboard
-  - [ ] make CGA graphics available again (for nostalgia) 
+  - [ ] make CGA graphics available again (for nostalgia)
   - [ ] further code cleanup (in-progress)
       - [x] move logic into high-level objects
-      - [x] remove obsolete command line options 
+      - [x] remove obsolete command line options
       - [ ] remove obsolete DOS functions (i. e. function s0setupsound() and
             so on)
       - [ ] remove ARM specific code (SDL 2.0 is not available on ARM, so the
