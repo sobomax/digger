@@ -37,6 +37,7 @@ Some plans for the future releases include:
   - [ ] further code cleanup (in-progress)
       - [x] move logic into high-level objects
       - [x] remove obsolete command line options
+      - [x] 64-bit Windows build
       - [ ] remove obsolete DOS functions (i. e. function s0setupsound() and
             so on)
       - [ ] remove ARM specific code (SDL 2.0 is not available on ARM, so the
