@@ -45,6 +45,7 @@ build_script:
     cd digger
 
     make BUILD_TYPE=debug clean all
+
     make BUILD_TYPE=production clean all
 
 
@@ -67,6 +68,7 @@ build_script:
     touch digger.log
 
     "C:\Program Files (x86)\Inno Setup 5\iscc.exe" pkg\windows\digger.iss
+
 artifacts:
 - path: digger-win32.zip
-- path: DiggerRemastered-Setup.exe
+- path: pkg\windows\DiggerRemastered-Setup.exe
