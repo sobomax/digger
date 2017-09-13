@@ -19,28 +19,48 @@ on Linux/FreeBSD/Windows using SDL library, or on FreeBSD console using
 native "VGL" VESA graphics interface. That version is now being actively
 developed to move Digger into XXI century.
 
+Furthermore, Michael Knigge <michael.knigge@gmx.de>, did some minor
+enhancements, cleaned up the code a little bit, fixed some minor bugs, gave
+the "redefine keyboard" dialog a new look and feel and provided an Installer
+for Microsoft Windows along with the Appveyor CI scripts.
+
+
 Some plans for the future releases include:
 
 - 2.0, aka "Digger Reset"
-
- o SDL 2.0 port (done);
- o further code cleanup (i.e. elimination of the d3adc0d3: WIN16, ETC), more
-   logic moved into high-level objects (in-progress);
- o headless (VNC?) mode;
- o network play for 2 players;
- o screen update framerate that is independent of game perceived speed,
-   "sub-pixel" updates.
+  - [x] SDL 2.0 port
+  - [x] fullscreen mode for Windows
+  - [x] toggle fullscreen and window mode with Alt-Enter
+  - [x] installer for Windows
+  - [x] revised redefine keyboard
+  - [ ] make CGA graphics available again (for nostalgia)
+  - [ ] further code cleanup (in-progress)
+      - [x] move logic into high-level objects
+      - [x] remove obsolete command line options
+      - [ ] remove obsolete DOS functions (i. e. function s0setupsound() and
+            so on)
+      - [ ] remove ARM specific code (SDL 2.0 is not available on ARM, so the
+            ARM specific code is useless)
+      - [ ] remove DIGGER_VERSION and give Digger a regular version number
+  - [ ] headless (VNC?) mode
+  - [ ] network play for 2 players
+  - [ ] screen update framerate that is independent of game perceived speed,
+        "sub-pixel" updates
 
 - 3.0, aka "Digger Reloaded"
 
- o bigger (open?) game world;
- o MMOG mode;
- o deathmatch mode;
- o new capabilities to the characters (i.e. superpowers), and interactions between
-   them (i.e. gradual damage);
- o few types of diggers: scout, soldier, sniper etc.
- o monster AI 2.0?
- o digger AI to make teamplay/deathmatch interesting even in single-player mode.
- o teamplay.
+  - [ ] bigger (open?) game world
+  - [ ] MMOG mode
+  - [ ] deathmatch mode
+  - [ ] new capabilities to the characters (i.e. superpowers), and interactions
+        between them (i.e. gradual damage)
+  - [ ] few types of diggers: scout, soldier, sniper etc.
+  - [ ] monster AI 2.0?
+  - [ ] digger AI to make teamplay/deathmatch interesting even in single-player mode
+  - [ ] teamplay
 
-We plan to keep the source code free and open at all times.
+The source code will be free and open at all times. Digger Remastered is
+source code has been contributed by different people and licensed under the
+terms of several licenses including Public Domain, Beer-Ware, 2-clause BSD
+and GNU General Public License version 2. Please refer to a specific source
+file as well as source code history to find out more.
