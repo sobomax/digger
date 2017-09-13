@@ -1,5 +1,4 @@
 CC	?= gcc
-STRIP   ?= strip
 CFLAGS	+= -pipe
 ifeq (${BUILD_TYPE},production)
 CFLAGS  += -O3
@@ -26,7 +25,7 @@ MGW64_PREF ?= x86_64-w64-mingw32
 ifeq ($(ARCH),MINGW)
 CC	=  ${MGW_PREF}-gcc
 WINDRES	?=  ${MGW_PREF}-windres
-STRIP   = ${MGW_PREF}-strip
+STRIP   ?= ${MGW_PREF}-strip
 RCFLAGS	+= -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW_PREF}/include/SDL2
 LIBS	+= -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -lz -lm
 ESUFFIX	=  .exe
@@ -37,7 +36,7 @@ endif
 ifeq ($(ARCH),MINGW64)
 CC      =  ${MGW64_PREF}-gcc
 WINDRES ?=  ${MGW64_PREF}-windres
-STRIP   =  ${MGW64_PREF}-strip
+STRIP   ?=  ${MGW64_PREF}-strip
 RCFLAGS += -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW64_PREF}/include/SDL2
 LIBS    += -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW64_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm \
             -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER}/${MGW64_PREF} -lz -lm
@@ -66,6 +65,8 @@ RCFLAGS	+= -DFooOS	# insert here additional compiler flags which required to fin
 LIBS	+= 		# insert here libs required to compile like zlib, SDL etc
 ESUFFIX	=		# insert here suffix of the executable on your platform if any (like ".exe" on Win32)
 endif
+
+STRIP   ?= strip
 
 all: digger$(ESUFFIX)
 
