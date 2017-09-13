@@ -4,7 +4,8 @@
 [![Download ZIP](https://img.shields.io/badge/Windows-Download_ZIP-orange.svg)](https://ci.appveyor.com/api/projects/michaelknigge/digger/artifacts/digger-win32.zip?branch=master)
 [![Download Installer](https://img.shields.io/badge/Windows-Download_Installer-orange.svg)](https://ci.appveyor.com/api/projects/michaelknigge/digger/artifacts/DiggerRemastered-Setup.exe?branch=master)
 
-# This is Digger Reloaded, aka UNIX/Linux Digger, however it also works on Windows.
+# This is Digger Reloaded, aka UNIX/Linux Digger, however it also works on
+Windows.
 
 Digger was originally created by Windmill Software in 1983 and released as a
 copy-protected, bootable 5.25" floppy disk for the IBM PC. As it requires a
@@ -20,9 +21,10 @@ on Linux/FreeBSD/Windows using SDL library, or on FreeBSD console using
 native "VGL" VESA graphics interface. That version is now being actively
 developed to move Digger into XXI century.
 
-Furthermore, Michael Knigge <michael.knigge@gmx.de>, did some minor enhancements (i. e. switching
-fullscreen and window mode with F11), cleaned up the code a little bit, fixed some minor bugs, gave the
-"redefine keyboard" dialog a new look and feel and provided an Installer for Microsoft Windows.
+Furthermore, Michael Knigge <michael.knigge@gmx.de>, did some minor
+enhancements, cleaned up the code a little bit, fixed some minor bugs, gave
+the "redefine keyboard" dialog a new look and feel and provided an Installer
+for Microsoft Windows along with the Appveyor CI scripts.
 
 
 Some plans for the future releases include:
@@ -37,23 +39,29 @@ Some plans for the future releases include:
   - [ ] further code cleanup (in-progress)
       - [x] move logic into high-level objects
       - [x] remove obsolete command line options 
-      - [ ] remove obsolete DOS functions (i. e. function s0setupsound() and so on)
-      - [ ] remove ARM specific code (SDL 2.0 is not available on ARM, so the ARM specific code is useless)
+      - [ ] remove obsolete DOS functions (i. e. function s0setupsound() and
+            so on)
+      - [ ] remove ARM specific code (SDL 2.0 is not available on ARM, so the
+            ARM specific code is useless)
       - [ ] remove DIGGER_VERSION and give Digger a regular version number
   - [ ] headless (VNC?) mode
   - [ ] network play for 2 players
-  - [ ] screen update framerate that is independent of game perceived speed, "sub-pixel" updates
-  - [ ] build Digger on FreeBSD automatically, see http://erouault.blogspot.de/2016/09/running-freebsd-in-travis-ci.html
+  - [ ] screen update framerate that is independent of game perceived speed,
+        "sub-pixel" updates
 
 - 3.0, aka "Digger Reloaded"
 
   - [ ] bigger (open?) game world
   - [ ] MMOG mode
   - [ ] deathmatch mode
-  - [ ] new capabilities to the characters (i.e. superpowers), and interactions between them (i.e. gradual damage)
+  - [ ] new capabilities to the characters (i.e. superpowers), and interactions
+        between them (i.e. gradual damage)
   - [ ] few types of diggers: scout, soldier, sniper etc.
   - [ ] monster AI 2.0?
   - [ ] digger AI to make teamplay/deathmatch interesting even in single-player mode
   - [ ] teamplay
 
-The source code will be free and open at all times. Digger Remastered is licensed under the terms of GNU General Public License version 2.
+The source code will be free and open at all times. Digger Remastered is
+licensed under the terms of several licenses including Public Domain, Beer-Ware,
+2-clause BSD and GNU General Public License version 2. Please refer to a
+specific source file as well as source code history to find out more.
