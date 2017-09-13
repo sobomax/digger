@@ -2,9 +2,9 @@
 AppName=Digger Remastered
 AppVerName=Digger Remastered {#GetEnv("APPVEYOR_BUILD_VERSION")}
 AppVersion={#GetEnv("APPVEYOR_BUILD_VERSION")}
-AppContact=michael.knigge@gmx.de
-AppPublisher=Michael Knigge
-AppPublisherURL=https://github.com/michaelknigge/digger
+AppContact=sobomax@gmail.com
+AppPublisher=Maksym Sobolyev
+AppPublisherURL=https://github.com/sobomax/digger
 
 DefaultDirName={pf}\Digger
 DefaultGroupName=Digger
@@ -25,10 +25,10 @@ Name: "{group}\Uninstall";                         Filename: "{uninstallexe}"
 Source: "README.txt";     DestDir: "{app}"; DestName: "README.txt"; Flags: isreadme
 Source: "LICENSE";        DestDir: "{app}"
 
-Source: "digger.exe";     DestDir: "{app}"; Flags: ignoreversion
-Source: "zlib1.dll";      DestDir: "{app}"; Flags: ignoreversion
-Source: "SDL2.dll";       DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\digger.exe";     DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\zlib1.dll";      DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\SDL2.dll";       DestDir: "{app}"; Flags: ignoreversion
 
-Source: "digger.log";     DestDir: "{app}"; Permissions: everyone-modify
-Source: "digger.sco";     DestDir: "{app}"; Permissions: everyone-modify; Flags: onlyifdoesntexist
-Source: "digger.ini";     DestDir: "{app}"; Permissions: everyone-modify; Flags: onlyifdoesntexist
+Source: "..\..\digger.log";     DestDir: "{app}"; Permissions: everyone-modify
+Source: "..\..\digger.sco";     DestDir: "{app}"; Permissions: everyone-modify; Flags: onlyifdoesntexist
+Source: "..\..\digger.ini";     DestDir: "{app}"; Permissions: everyone-modify; Flags: onlyifdoesntexist
