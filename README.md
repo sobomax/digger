@@ -32,7 +32,7 @@ Some plans for the future releases include:
   - [x] fullscreen mode for Windows
   - [x] toggle fullscreen and window mode with Alt-Enter
   - [x] installer for Windows
-  - [x] revised redefine keyboard
+  - [ ] revised redefine keyboard
   - [ ] make CGA graphics available again (for nostalgia)
   - [ ] further code cleanup (in-progress)
       - [x] move logic into high-level objects
