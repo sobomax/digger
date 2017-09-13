@@ -1,4 +1,7 @@
 [![Build Status](https://travis-ci.org/sobomax/digger.svg?branch=master)](https://travis-ci.org/sobomax/digger)
+[![Build status](https://ci.appveyor.com/api/projects/status/s3nmvbv7xnt9uuyh/branch/master?svg=true)](https://ci.appveyor.com/project/sobomax/digger/branch/master)
+[![Download ZIP](https://img.shields.io/badge/Windows-Download_ZIP-orange.svg)](https://ci.appveyor.com/api/projects/sobomax/digger/artifacts/digger-win32.zip?branch=master)
+[![Download Installer](https://img.shields.io/badge/Windows-Download_Installer-orange.svg)](https://ci.appveyor.com/api/projects/sobomax/digger/artifacts/DiggerRemastered-Setup.exe?branch=master)
 
 # This is Digger Reloaded, aka UNIX/Linux Digger, however it also works on Windows.
 
@@ -7,7 +10,9 @@ copy-protected, bootable 5.25" floppy disk for the IBM PC. As it requires a
 genuine CGA card, it didn't work on modern PCs.
 
 In 1998, Andrew Jenner <aj@digger.org>, created Digger Remastered, which runs
-on all PCs with CGA or better and plays just like the original. 
+on all PCs with CGA or better and plays just like the original. See
+http://digger.org for more information about his remake, the history of the
+game as well as the history of Windmill Software and their other games.
 
 Later on, Maksym Sobolyev <sobomax@gmail.com>, ported Adnrew's code to run
 on Linux/FreeBSD/Windows using SDL library, or on FreeBSD console using
