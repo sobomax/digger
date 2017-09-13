@@ -31,7 +31,7 @@ do
   make ARCH=LINUX BUILD_TYPE=${build_type} clean all
   if [ "${CC}" != "clang" ]
   then
-    make ARCH=MINGW MINGW_DEPS_ROOT=`pwd`/deps clean all
-    make ARCH=MINGW64 MINGW_DEPS_ROOT=`pwd`/deps clean all
+    make ARCH=MINGW BUILD_TYPE=${build_type} MINGW_DEPS_ROOT=`pwd`/deps clean all
+    make ARCH=MINGW64 BUILD_TYPE=${build_type} MINGW_DEPS_ROOT=`pwd`/deps clean all
   fi
 done
