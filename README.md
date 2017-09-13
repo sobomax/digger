@@ -11,9 +11,9 @@ copy-protected, bootable 5.25" floppy disk for the IBM PC. As it requires a
 genuine CGA card, it didn't work on modern PCs.
 
 In 1998, Andrew Jenner <aj@digger.org>, created Digger Remastered, which runs
-on all PCs with CGA or better and plays just like the original. See http://digger.org for
-more information about his remake, the history of the game as well as the history
-of Windmill Software and their other games.
+on all PCs with CGA or better and plays just like the original. See
+http://digger.org for more information about his remake, the history of the
+game as well as the history of Windmill Software and their other games.
 
 Later on, Maksym Sobolyev <sobomax@gmail.com>, ported Adnrew's code to run
 on Linux/FreeBSD/Windows using SDL library, or on FreeBSD console using
