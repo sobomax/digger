@@ -69,7 +69,7 @@ build_script:
 
     "C:\Program Files (x86)\Inno Setup 5\iscc.exe" pkg\windows\digger.iss
 
-    copy DiggerRemastered-Setup.exe
+    copy pkg\windows\DiggerRemastered-Setup.exe
 
 artifacts:
 - path: digger-win32.zip
