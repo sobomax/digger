@@ -4,8 +4,7 @@
 [![Download ZIP](https://img.shields.io/badge/Windows-Download_ZIP-orange.svg)](https://ci.appveyor.com/api/projects/michaelknigge/digger/artifacts/digger-win32.zip?branch=master)
 [![Download Installer](https://img.shields.io/badge/Windows-Download_Installer-orange.svg)](https://ci.appveyor.com/api/projects/michaelknigge/digger/artifacts/DiggerRemastered-Setup.exe?branch=master)
 
-# This is Digger Reloaded, aka UNIX/Linux Digger, however it also works on
-Windows.
+# This is Digger Reloaded, aka UNIX/Linux Digger, however it also works on Windows.
 
 Digger was originally created by Windmill Software in 1983 and released as a
 copy-protected, bootable 5.25" floppy disk for the IBM PC. As it requires a
