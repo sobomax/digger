@@ -20,8 +20,8 @@ then
   wget http://zlib.net/zlib${ZLIB_SVER}.zip
   unzip zlib${ZLIB_SVER}.zip
   make -C zlib-${ZLIB_VER} PREFIX="${MGW64_PREF}-" -f win32/Makefile.gcc
-  mkdir "${MGW64_PREF}"
-  mv *.dll *.a "${MGW64_PREF}"
+  mkdir "zlib-${ZLIB_VER}/${MGW64_PREF}"
+  mv zlib-${ZLIB_VER}/*.dll zlib-${ZLIB_VER}/*.a "zlib-${ZLIB_VER}/${MGW64_PREF}"
   make -C zlib-${ZLIB_VER} PREFIX="${MGW_PREF}-" -f win32/Makefile.gcc clean all
   cd ..
 fi
