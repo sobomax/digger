@@ -44,9 +44,9 @@ build_script:
 
     cd digger
 
-    make BUILD_TYPE=debug clean all
+    make STRIP=strip BUILD_TYPE=debug clean all
 
-    make BUILD_TYPE=production clean all
+    make STRIP=strip BUILD_TYPE=production clean all
 
 
     echo === Create Artifact ================================================
