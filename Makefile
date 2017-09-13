@@ -1,4 +1,5 @@
 CC	?= gcc
+STRIP   ?= strip
 CFLAGS	+= -pipe
 ifeq (${BUILD_TYPE},production)
 CFLAGS  += -O3
@@ -25,6 +26,7 @@ MGW64_PREF ?= x86_64-w64-mingw32
 ifeq ($(ARCH),MINGW)
 CC	=  ${MGW_PREF}-gcc
 WINDRES	?=  ${MGW_PREF}-windres
+STRIP   = ${MGW_PREF}-strip
 RCFLAGS	+= -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW_PREF}/include/SDL2
 LIBS	+= -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -lz -lm
 ESUFFIX	=  .exe
@@ -35,6 +37,7 @@ endif
 ifeq ($(ARCH),MINGW64)
 CC      =  ${MGW64_PREF}-gcc
 WINDRES ?=  ${MGW64_PREF}-windres
+STRIP   =  ${MGW64_PREF}-strip
 RCFLAGS += -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW64_PREF}/include/SDL2
 LIBS    += -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW64_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm \
             -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER}/${MGW64_PREF} -lz -lm
@@ -68,6 +71,9 @@ all: digger$(ESUFFIX)
 
 digger$(ESUFFIX): $(OBJS)
 	$(CC) -o digger$(ESUFFIX) $(OBJS) $(LIBS)
+ifeq (${BUILD_TYPE},production)
+	$(STRIP) --strip-unneeded digger$(ESUFFIX)
+endif
 
 %.o : %.c
 	$(CC) -c $(RCFLAGS) $(CFLAGS) $< -o $@
