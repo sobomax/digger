@@ -19,16 +19,16 @@
 #include <osreldate.h>
 #include <stdio.h>
 
+#include "alpha.h"
 #include "def.h"
 #include "digger_math.h"
 #include "hardware.h"
 #include "title_gz.h"
 
 extern uint8_t   *vgatable[];
-extern uint8_t   *ascii2vga[];
 
 static uint8_t **sprites = vgatable;
-static uint8_t **alphas = ascii2vga;
+static const uint8_t * const *alphas = ascii2vga;
 
 static int16_t xratio = 2;
 static int16_t yratio = 2;
@@ -92,7 +92,7 @@ static int vgl_inited = 0;
 static VGLBitmap *sVGLDisplay;
 
 VGLBitmap      *
-ch2bmap(uint8_t * sprite, int16_t w, int16_t h)
+ch2bmap(const uint8_t * sprite, int16_t w, int16_t h)
 {
     int16_t           realw, realh;
     VGLBitmap      *tmp;
@@ -100,7 +100,7 @@ ch2bmap(uint8_t * sprite, int16_t w, int16_t h)
     realw = virt2scrw(w * 4);
     realh = virt2scrh(h);
     tmp = VGLBitmapCreate(MEMBUF, realw, realh, NULL);
-    tmp->Bitmap = sprite;
+    tmp->Bitmap = (void *)sprite;
 
     return (tmp);
 }
@@ -385,7 +385,7 @@ vgawrite(int16_t x, int16_t y, int16_t ch, int16_t c)
     int16_t           w = 3, h = 12, size;
     int16_t           i;
 
-    if(((ch - 32) >= 0x5f) || (ch < 32))
+    if (!isvalchar(ch))
 	return;
     tmp = ch2bmap(alphas[ch - 32], w, h);
     size = tmp->Xsize * tmp->Ysize;

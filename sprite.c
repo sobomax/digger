@@ -1,7 +1,9 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
+#include <assert.h>
 #include <stdlib.h>
+
 #include "def.h"
 #include "sprite.h"
 #include "hardware.h"
@@ -35,6 +37,8 @@ void putims(void);
 void putis(void);
 void bcollides(int bx);
 
+static void gwrite_debug(int16_t x, int16_t y, int16_t ch, int16_t c);
+
 static struct digger_draw_api dda_static = {
   .ginit = &vgainit,
   .gclear = &vgaclear,
@@ -45,7 +49,11 @@ static struct digger_draw_api dda_static = {
   .gputim = &vgaputim,
   .ggetpix = &vgagetpix,
   .gtitle = &vgatitle,
+#if !defined(DIGGER_DEBUG)
   .gwrite = &vgawrite,
+#else
+  .gwrite = &gwrite_debug,
+#endif
   .gflush = &doscreenupdate
 };
 
@@ -278,4 +286,12 @@ void bcollides(int spr)
             coll[next=(coll[next]=spc)]=-1;
 	}
   }
+}
+
+static void gwrite_debug(int16_t x, int16_t y, int16_t ch, int16_t c)
+{
+
+  assert(x + CHR_W <= MAX_W);
+  assert(y + CHR_H <= MAX_H);
+  vgawrite(x, y, ch, c);
 }

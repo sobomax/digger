@@ -1,3 +1,8 @@
+#define MAX_W 320
+#define MAX_H 200
+#define CHR_W 12
+#define CHR_H 12
+
 struct digger_draw_api {
   void (*ginit)(void);
   void (*gclear)(void);

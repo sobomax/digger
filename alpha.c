@@ -2,6 +2,7 @@
    Copyright (c) Andrew Jenner 1998-2004 */
 
 #include "def.h"
+#include "alpha.h"
 
 char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.";
 
@@ -1611,7 +1612,7 @@ static const uint8_t vgasymspace[]={
   0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
   0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
-const uint8_t const *ascii2cga[0x5f]={
+const uint8_t * const ascii2cga[0x5f]={
   cgasymspace,0,0,0,0,0,0,0,0,0,0,0,0,0,cgasymdot,0,     /*  !"#$%&'()*+,-./ */
   cganum0,cganum1,cganum2,cganum3,cganum4,cganum5,cganum6,        /* 0123456 */
   cganum7,cganum8,cganum9,cgasymcolon,0,0,0,0,0,0,cgaletA,    /* 789:;<=>?@A */
@@ -1623,7 +1624,7 @@ const uint8_t const *ascii2cga[0x5f]={
   cgaletH,cgaletI,cgaletJ,cgaletK,cgaletL,cgaletM,cgaletN,        /* hijklmn */
   cgaletO,cgaletP,cgaletQ,cgaletR,cgaletS,cgaletT,cgaletU,        /* opqrstu */
   cgaletV,cgaletW,cgaletX,cgaletY,cgaletZ,0,0,0,0};             /* vwxyz{|}~ */
-const uint8_t const *ascii2vga[0x5f]={
+const uint8_t * const ascii2vga[0x5f]={
   vgasymspace,0,0,0,0,0,0,0,0,0,0,0,0,0,vgasymdot,0,     /*  !"#$%&'()*+,-./ */
   vganum0,vganum1,vganum2,vganum3,vganum4,vganum5,vganum6,        /* 0123456 */
   vganum7,vganum8,vganum9,vgasymcolon,0,0,0,0,0,0,vgaletA,    /* 789:;<=>?@A */
