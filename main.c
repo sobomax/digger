@@ -15,6 +15,7 @@
 #include "scores.h"
 #include "drawing.h"
 #include "digger.h"
+#include "keyboard.h"
 #include "monster.h"
 #include "monster_obj.h"
 #include "digger_obj.h"
@@ -24,10 +25,6 @@
 #include "newsnd.h"
 #include "ini.h"
 #include "draw_api.h"
-
-#if defined(_SDL)
-#include "sdl_vid.h"
-#endif
 
 /* global variables */
 char pldispbuf[14];
@@ -46,7 +43,7 @@ bool started;
 
 char levfname[132];
 bool levfflag=false;
-FILE *digger_log;
+FILE *digger_log = NULL;
 
 void shownplayers(void);
 void switchnplayers(void);
@@ -61,7 +58,6 @@ void patchcga(void);
 void initlevel(void);
 void finish(void);
 void inir(void);
-void redefkeyb(bool allf);
 int getalllives(void);
 
 int8_t leveldat[8][MHEIGHT][MWIDTH]=
@@ -221,7 +217,7 @@ void game(void)
       }
       else
         initchars();
-      outtext(ddap, "        ",108,0,3);
+      erasetext(ddap, 8, 108,0,3);
       initscores(ddap);
       drawlives(ddap);
       music(1);
@@ -231,12 +227,6 @@ void game(void)
         readdirect(i);
       while (!alldead && !gamedat[curplayer].levdone && !escape && !timeout) {
         penalty=0;
-#if defined(_SDL)
-        if (toggle) {
-          switchmode();
-          toggle=false;
-        } 
-#endif
         dodigger(ddap);
         domonsters(ddap);
         dobags(ddap);
@@ -310,7 +300,11 @@ void game(void)
 }
 
 static bool quiet=false;
-static int sound_rate,sound_length;
+static uint16_t sound_rate,sound_length;
+
+#if defined(_SDL)
+#include "sdl_vid.h"
+#endif
 
 void maininit(void)
 {
@@ -325,7 +319,6 @@ void maininit(void)
   setretr(true);
   initkeyb();
   detectjoy();
-  inir();
   initsound();
   recstart();
   maininited = 1;
@@ -333,9 +326,17 @@ void maininit(void)
 
 int main(int argc,char *argv[])
 {
+  int rval;
+
+  inir();
   parsecmd(argc,argv);
   maininit();
-  return mainprog();
+  rval = mainprog();
+  if (digger_log != NULL) {
+    fflush(digger_log);
+    fclose(digger_log);
+  }
+  return rval;
 }
 
 int mainprog(void)
@@ -354,7 +355,7 @@ int mainprog(void)
     detectjoy();
     ddap->gclear();
     ddap->gtitle();
-    outtextcentered(ddap, "D I G G E R",2,3);
+    outtext(ddap, "D I G G E R",100,0,3);
     shownplayers();
     showtable(ddap);
     started=false;
@@ -363,14 +364,14 @@ int mainprog(void)
     teststart();
     while (!started) {
       started=teststart();
-      if (akeypressed==27 || akeypressed=='n' || akeypressed=='N') {
+      if (mode_change) {
         switchnplayers();
         shownplayers();
-        akeypressed=0;
+        mode_change=false;
       }
       if (frame==0)
         for (t=54;t<174;t+=12)
-          outtext(ddap, "            ",164,t,0);
+          erasetext(ddap, 12, 164,t,0);
       if (frame==50) {
         if (nobbin != NULL) {
           CALL_METHOD(nobbin, dtor);
@@ -398,7 +399,6 @@ int mainprog(void)
         }
         hobbin = monster_obj_ctor(1, MON_NOBBIN, DIR_LEFT, 292, 82);
         CALL_METHOD(hobbin, put);
-        CALL_METHOD(hobbin, mutate);
       }
       if (frame>90 && frame<=117) {
         CALL_METHOD(hobbin, getpos, &newpos);
@@ -407,6 +407,9 @@ int mainprog(void)
           newpos.dir = DIR_RIGHT;
         }
         CALL_METHOD(hobbin, setpos, &newpos);
+      }
+      if (frame == 100) {
+        CALL_METHOD(hobbin, mutate);
       }
       if (frame > 90) {
         CALL_METHOD(hobbin, animate);
@@ -442,18 +445,23 @@ int mainprog(void)
         drawbonus(184,158);
       if (frame==223)
         outtext(ddap, "BONUS",216,159,2);
+      if (frame == 235) {
+          CALL_METHOD(nobbin, damage);
+      }
+      if (frame == 239) {
+          CALL_METHOD(nobbin, kill);
+      }
+      if (frame == 242) {
+          CALL_METHOD(hobbin, damage);
+      }
+      if (frame == 246) {
+          CALL_METHOD(hobbin, kill);
+      }
       newframe();
       frame++;
       if (frame>250)
         frame=0;
     }
-#if defined(_SDL)
-    if (toggle) {
-      switchmode();
-      toggle=false;
-      continue;
-    }
-#endif
     if (savedrf) {
       if (gotgame) {
         recsavedrf();
@@ -473,7 +481,6 @@ int mainprog(void)
     }
     savedrf=false;
     escape=false;
-    toggle=false;
   } while (!escape);
   finish();
   return 0;
@@ -488,34 +495,50 @@ void finish(void)
   graphicsoff();
 }
 
+struct label {
+  const char *text;
+  int xpos;
+};
+
+static struct game_mode {
+  bool gauntlet;
+  int nplayers;
+  int diggers;
+  bool last;
+  struct label title[2];
+} possible_modes[] = {
+  {false, 1, 1, false, {{"ONE", 220}, {" PLAYER ", 192}}},
+  {false, 2, 1, false, {{"TWO", 220}, {" PLAYERS", 184}}},
+  {false, 2, 2, false, {{"TWO PLAYER", 180}, {"SIMULTANEOUS", 170}}},
+  {true,  1, 1, false, {{"GAUNTLET", 192}, {"MODE", 216}}},
+  {true,  1, 2, true,  {{"TWO PLAYER", 180}, {"GAUNTLET", 192}}}
+};
+
+static int getnmode(void)
+{
+  int i;
+
+  for (i = 0; !possible_modes[i].last;i++) {
+    if (possible_modes[i].gauntlet != gauntlet)
+      continue;
+    if (possible_modes[i].nplayers != nplayers)
+      continue;
+    if (possible_modes[i].diggers != diggers)
+      continue;
+    break;
+  }
+  return i;
+}
+
 void shownplayers(void)
 {
-  outtext(ddap, "          ",180,25,3);
-  outtext(ddap, "            ",170,39,3);
+  struct game_mode *gmp;
 
-  if (diggers==2)
-    if (gauntlet) {
-      outtext(ddap, "TWO PLAYER",180,25,3);
-      outtext(ddap, "GAUNTLET",192,39,3);
-    }
-    else {
-      outtext(ddap, "TWO PLAYER",180,25,3);
-      outtext(ddap, "SIMULTANEOUS",170,39,3);
-    }
-  else
-    if (gauntlet) {
-      outtext(ddap, "GAUNTLET",192,25,3);
-      outtext(ddap, "MODE",216,39,3);
-    }
-    else
-      if (nplayers==1) {
-        outtext(ddap, "ONE",220,25,3);
-        outtext(ddap, " PLAYER ",192,39,3);
-      }
-      else {
-        outtext(ddap, "TWO",220,25,3);
-        outtext(ddap, " PLAYERS",184,39,3);
-      }
+  erasetext(ddap, 10, 180, 25, 3);
+  erasetext(ddap, 12, 170, 39, 3);
+  gmp = &possible_modes[getnmode()];
+  outtext(ddap, gmp->title[0].text, gmp->title[0].xpos, 25, 3);
+  outtext(ddap, gmp->title[1].text, gmp->title[1].xpos, 39, 3);
 }
 
 int getalllives(void)
@@ -528,21 +551,13 @@ int getalllives(void)
 
 void switchnplayers(void)
 {
-  if (!gauntlet && nplayers==1 && diggers==1) {
-    nplayers=2;
-  } else if (!gauntlet && nplayers==2 && diggers==1) {
-    diggers=2;
-  } else if (!gauntlet && nplayers==2 && diggers==2) {
-    gauntlet=true;
-    diggers=1;
-    nplayers=1;
-  } else if (gauntlet && nplayers==1 && diggers==1) {
-    diggers=2;
-  } else {
-    gauntlet=false;
-    nplayers=1;
-    diggers=1;
-  }
+  int i, j;
+
+  i = getnmode();
+  j = possible_modes[i].last ? 0 : i + 1;
+  gauntlet = possible_modes[j].gauntlet;
+  nplayers = possible_modes[j].nplayers;
+  diggers = possible_modes[j].diggers;
 }
 
 void initlevel(void)
@@ -586,8 +601,8 @@ void incpenalty(void)
 
 void cleartopline(void)
 {
-  outtext(ddap, "                          ",0,0,3);
-  outtext(ddap, " ",308,0,3);
+  erasetext(ddap, 26, 0,0,3);
+  erasetext(ddap, 1, 308,0,3);
 }
 
 int16_t levplan(void)
@@ -649,29 +664,35 @@ static int
 read_levf(char *levfname)
 {
   FILE *levf;
-  char data[12003];
 
-
-  if ((levf = fopen(levfname, "rb")) == NULL) {
-      fprintf(digger_log, "read_levf: levels file %s open error\n", levfname);
+  levf = fopen(levfname, "rb");
+  if (levf == NULL) {
+    strcat(levfname,".DLF");
+    levf = fopen(levfname,"rb");
+  }
+  if (levf == NULL) {
+#if defined(DIGGER_DEBUG)
+      fprintf(digger_log, "read_levf: levels file open error\n");
+#endif
       return (-1);
   }
-
-  // read into a temp buffer - so if we read garbare we do not have
-  // messed up the internal level data. Not the trick: We try to read
-  // 12003 bytes. Each level file is 12002 bytes in length . If we read
-  // less or more then this is probably not or a corrupted level file.
-  if (fread(&data, 1, 1203, levf) == 1202) {
-    memcpy((char *)&bonusscore, data, 2);
-    memcpy(leveldat, data + 2, 1200);
-    fprintf(digger_log, "read_levf: levels loaded from file %s\n", levfname);
-    fclose(levf);
-    return(0);
-  } else {
-    fprintf(digger_log, "read_levf: levels load error, file %s\n", levfname);
-    fclose(levf);
-    return(-1);
+  if (fread(&bonusscore, 2, 1, levf) < 1) {
+#if defined(DIGGER_DEBUG)
+    fprintf(digger_log, "read_levf: levels load error 1\n");
+#endif
+    goto eout_0;
   }
+  if (fread(leveldat, 1200, 1, levf) <= 0) {
+#if defined(DIGGER_DEBUG)
+    fprintf(digger_log, "read_levf: levels load error 2\n");
+#endif
+    goto eout_0;
+  }
+  fclose(levf);
+  return (0);
+eout_0:
+  fclose(levf);
+  return (-1);
 }
 
 static int
@@ -694,6 +715,10 @@ getarg(char argch, const char *allargs, bool *hasopt)
   return (-1);
 }
 
+#define BASE_OPTS "OUH?QM2CKVL:R:P:S:E:G:I:"
+#define X11_OPTS "X:"
+#define SDL_OPTS  "F"
+
 void parsecmd(int argc,char *argv[])
 {
   char *word;
@@ -713,11 +738,13 @@ void parsecmd(int argc,char *argv[])
     word=argv[arg];
     if (word[0]=='/' || word[0]=='-') {
 #if defined(UNIX) && defined(_SDL)
-      argch = getarg(word[1], "FOUH?QM2CKVL:R:P:S:E:G:X:I:", &hasopt);
-#elif defined(_SDL)
-      argch = getarg(word[1], "FOUH?QM2CKVL:R:P:S:E:G:I:", &hasopt);
+      argch = getarg(word[1], (BASE_OPTS X11_OPTS SDL_OPTS), &hasopt);
 #else
-      argch = getarg(word[1], "OUH?QM2CKVL:R:P:S:E:G:I:", &hasopt);
+# if defined(_SDL)
+      argch = getarg(word[1], (BASE_OPTS SDL_OPTS), &hasopt);
+# else
+      argch = getarg(word[1], BASE_OPTS, &hasopt);
+# endif
 #endif
       i = 2;
       if (argch != -1 && hasopt && word[2] == ':') {
@@ -738,7 +765,6 @@ void parsecmd(int argc,char *argv[])
         sdl_set_x11_parent(x11_parent);
       }
 #endif
-
 #if defined(_SDL)
       if (argch == 'F') {
         sdl_enable_fullscreen();
@@ -801,7 +827,6 @@ void parsecmd(int argc,char *argv[])
 #if defined(UNIX) && defined(_SDL)
                          "[/X:xid] "
 #endif
-
 #if defined(_SDL)
                          "[/F]"
 #endif
@@ -809,10 +834,10 @@ void parsecmd(int argc,char *argv[])
 #ifndef UNIX
                "/C = Use CGA graphics\n"
 #endif
-               "/Q = Quiet mode (no sound at all)\n"
+               "/Q = Quiet mode (no sound at all)       "
                "/M = No music\n"
                "/R = Record graphics to file\n"
-               "/P = Playback and restart program\n"
+               "/P = Playback and restart program       "
                "/E = Playback and exit program\n"
                "/O = Loop to beginning of command line\n"
                "/K = Redefine keyboard\n"
@@ -853,9 +878,9 @@ void parsecmd(int argc,char *argv[])
       }
       if (argch == 'K') {
         if (word[2]=='A' || word[2]=='a')
-          redefkeyb(true);
+          redefkeyb(ddap, true);
         else
-          redefkeyb(false);
+          redefkeyb(ddap, false);
       }
       if (argch == 'Q')
         quiet=true;
@@ -925,10 +950,6 @@ int16_t randno(int16_t n)
   return (int16_t)((randv&0x7fffffffl)%n);
 }
 
-char *keynames[17]={"Right","Up","Left","Down","Fire",
-                    "Right","Up","Left","Down","Fire",
-                    "Cheat","Accel","Brake","Music","Sound","Exit","Pause"};
-
 int dx_sound_volume;
 bool g_bWindowed,use_640x480_fullscreen,use_async_screen_updates;
 
@@ -938,7 +959,7 @@ void inir(void)
   int i,j,p;
   bool cgaflag;
 
-  for (i=0;i<17;i++) {
+  for (i=0;i<NKEYS;i++) {
     sprintf(kbuf,"%s%c",keynames[i],(i>=5 && i<10) ? '2' : 0);
     sprintf(vbuf,"%i/%i/%i/%i/%i",keycodes[i][0],keycodes[i][1],
             keycodes[i][2],keycodes[i][3],keycodes[i][4]);
@@ -958,6 +979,21 @@ void inir(void)
   if (ftime == 0) {
       ftime=GetINIInt(INI_GAME_SETTINGS,"Speed",80000l,ININAME);
   }
+  gauntlet=GetINIBool(INI_GAME_SETTINGS,"GauntletMode",false,ININAME);
+  GetINIString(INI_GAME_SETTINGS,"Players","1",vbuf,80,ININAME);
+  strupr(vbuf);
+  if (vbuf[0]=='2' && vbuf[1]=='S') {
+    diggers=2;
+    nplayers=1;
+  }
+  else {
+    diggers=1;
+    nplayers=atoi(vbuf);
+    if (nplayers<1 || nplayers>2)
+      nplayers=1;
+  }
+  soundflag=GetINIBool(INI_SOUND_SETTINGS,"SoundOn",true,ININAME);
+  musicflag=GetINIBool(INI_SOUND_SETTINGS,"MusicOn",true,ININAME);
   sound_rate=(int)GetINIInt(INI_SOUND_SETTINGS,"Rate",22050,ININAME);
   sound_length=(int)GetINIInt(INI_SOUND_SETTINGS,"BufferSize",DEFAULT_BUFFER,ININAME);
 
@@ -1004,72 +1040,4 @@ void inir(void)
   }
   unlimlives=GetINIBool(INI_GAME_SETTINGS,"UnlimitedLives",false,ININAME);
   startlev=(int)GetINIInt(INI_GAME_SETTINGS,"StartLevel",1,ININAME);
-}
-
-void redefkeyb(bool allf)
-{
-  int i,j,k,l,keyrow,errorrow1,errorrow2,playerrow,color;
-  char kbuf[80],vbuf[80];
-
-  maininit();
-  
-  outtextcentered(ddap, "D I G G E R",2,3);
-  outtextcentered(ddap, "REDEFINE KEYBOARD",3*rowheight,1);
-  
-  playerrow=5*rowheight;
-  keyrow=8*rowheight;
-  errorrow1=11*rowheight;
-  errorrow2=13*rowheight;
-  color=3;
-
-  for (i=0;i<17;i++) {
-    eraseline(ddap, playerrow);
-    eraseline(ddap, keyrow);
-
-    if (i < 5)
-      outtextcentered(ddap, "PLAYER 1",playerrow,2);
-    else if (i < 10)
-      outtextcentered(ddap, "PLAYER 2",playerrow,2);
-    else
-      outtextcentered(ddap, "MISELLANEOUS",playerrow,2);
-
-    outtextcentered(ddap, keynames[i],keyrow,color);
-
-    findkey(i);
-
-    eraseline(ddap, errorrow1);
-    eraseline(ddap, errorrow2);
-    color=3;
-
-    for (j=0;j<i;j++) { /* Note: only check keys just pressed (I hate it when
-                           this is done wrong, and it often is.) */
-      if (keycodes[i][0]==keycodes[j][0] && keycodes[i][0]!=0) {
-        i--;
-        color=2;
-        outtextcentered(ddap, "THIS KEY IS ALREADY USED",errorrow1,2);
-        outtextcentered(ddap, "CHOOSE ANOTHER KEY",errorrow2,2);
-        break;
-      }
-      for (k=2;k<5;k++)
-        for (l=2;l<5;l++)
-          if (keycodes[i][k]==keycodes[j][l] && keycodes[i][k]!=-2) {
-            j=i;
-            k=5;
-            i--;
-            color=2;
-            outtextcentered(ddap, "THIS KEY IS ALREADY USED",errorrow1,2);
-            outtextcentered(ddap, "CHOOSE ANOTHER KEY",errorrow2,2);
-            break; /* Try again if this key already used */
-          }
-    }
-  }
-
-
-  for (i=0;i<17;i++)
-    if (krdf[i]) {
-      sprintf(kbuf,"%s%c",keynames[i],(i>=5 && i<10) ? '2' : 0);
-      sprintf(vbuf,"%i/%i/%i/%i/%i",keycodes[i][0],keycodes[i][1],
-              keycodes[i][2],keycodes[i][3],keycodes[i][4]);
-      WriteINIString(INI_KEY_SETTINGS,kbuf,vbuf,ININAME);
-    }
 }

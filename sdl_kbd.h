@@ -34,11 +34,6 @@
 
 bool GetAsyncKeyState(int);
 
-extern int keycodes[17][5];
-
-#define ASCIIF8  SDL_SCANCODE_F8
-#define ASCIIF11 SDL_SCANCODE_F11
-
 #define rightpressed  (GetAsyncKeyState(keycodes[0][0]))
 #define uppressed     (GetAsyncKeyState(keycodes[1][0]))
 #define leftpressed   (GetAsyncKeyState(keycodes[2][0]))

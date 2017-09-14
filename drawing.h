@@ -1,11 +1,12 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
+#define MAX_TEXT_LEN (MAX_W / CHR_W)
+
 struct digger_draw_api;
 
-void outtext(struct digger_draw_api *, char *p,int16_t x,int16_t y,int16_t c);
-void outtextcentered(struct digger_draw_api *, char *p,int16_t y,int16_t c);
-void eraseline(struct digger_draw_api *, int16_t y);
+void outtext(struct digger_draw_api *, const char *p,int16_t x,int16_t y,int16_t c);
+void erasetext(struct digger_draw_api *ddap, int16_t n, int16_t x, int16_t y, int16_t c);
 
 void creatembspr(void);
 void initmbspr(void);
@@ -28,5 +29,3 @@ void drawfurryblob(int16_t x,int16_t y);
 void drawsquareblob(int16_t x,int16_t y);
 
 extern int16_t field[];
-extern int16_t charwidth;
-extern int16_t rowheight;

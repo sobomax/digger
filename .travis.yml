@@ -4,4 +4,5 @@ compiler:
   - clang
   - gcc
 script:
-    sh -x ./scripts/do-test.sh
+    make do-test
+

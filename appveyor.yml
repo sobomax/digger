@@ -27,42 +27,13 @@ build_script:
 
     echo === Build zlib =====================================================
 
-    ren zlib-1.2.11 zlib
-
-    cd zlib
+    cd zlib-1.2.11
 
     call "%VS90COMNTOOLS%\vsvars32.bat"
 
     nmake -f win32/Makefile.msc
 
-
-    echo === Copy zlib include files ========================================
-
-    mkdir include
-
-    copy zlib.h include
-
-    copy zconf.h include
-
-
-    echo === Copy zlib import libraries =====================================
-
-    mkdir lib
-
-    copy zlib.lib lib
-
-    copy zdll.lib lib
-
-
-    echo === Copy zlib binary ===============================================
-
-    mkdir bin
-
-    copy zlib1.dll bin
-
-
     cd ..
-
 
     echo === Download SDL ===================================================
 
@@ -73,12 +44,14 @@ build_script:
 
     cd digger
 
-    make
+    make STRIP=strip BUILD_TYPE=debug clean all
+
+    make STRIP=strip BUILD_TYPE=production clean all
 
 
     echo === Create Artifact ================================================
 
-    copy ..\zlib\zlib1.dll
+    copy ..\zlib-1.2.11\zlib1.dll
 
     copy ..\SDL2-2.0.5\i686-w64-mingw32\bin\SDL2.dll
 
@@ -94,7 +67,10 @@ build_script:
 
     touch digger.log
 
-    "C:\Program Files (x86)\Inno Setup 5\iscc.exe" digger.iss
+    "C:\Program Files (x86)\Inno Setup 5\iscc.exe" pkg\windows\digger.iss
+
+    copy pkg\windows\DiggerRemastered-Setup.exe
+
 artifacts:
 - path: digger-win32.zip
 - path: DiggerRemastered-Setup.exe
