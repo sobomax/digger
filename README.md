@@ -33,11 +33,12 @@ Some plans for the future releases include:
   - [x] fullscreen mode for Windows
   - [x] toggle fullscreen and window mode with Alt-Enter
   - [x] installer for Windows
-  - [x] revised redefine keyboard
+  - [ ] revised redefine keyboard
   - [ ] make CGA graphics available again (for nostalgia)
   - [ ] further code cleanup (in-progress)
       - [x] move logic into high-level objects
       - [x] remove obsolete command line options
+      - [x] 64-bit Windows build
       - [ ] remove obsolete DOS functions (i. e. function s0setupsound() and
             so on)
       - [ ] remove ARM specific code (SDL 2.0 is not available on ARM, so the
