@@ -26,7 +26,7 @@ char *sgets(char *buffer,char *s)
 
 /* These are re-implementations of the Windows version of INI filing. */
 
-void WriteINIString(char *section,char *key,char *value,char *filename)
+void WriteINIString(const char *section,const char *key,const char *value,const char *filename)
 {
   FILE *fp;
   char *buffer,*p,*p0,s1[80],s2[80],s3[80];
@@ -106,8 +106,8 @@ do_write:
   return;
 }
 
-void GetINIString(char *section,char *key,char *def,char *dest,
-                             int destsize,char *filename)
+void GetINIString(const char *section,const char*key,const char*def,char*dest,
+                             int destsize,const char *filename)
 {
   FILE *fp;
   char s1[80],s2[80],s3[80];
@@ -148,7 +148,7 @@ out_0:
   fclose(fp);
 }
 
-int32_t GetINIInt(char *section,char *key,int32_t def,char *filename)
+int32_t GetINIInt(const char *section,const char*key,int32_t def,const char*filename)
 {
   char buf[80];
   sprintf(buf,"%i",def);
@@ -156,7 +156,7 @@ int32_t GetINIInt(char *section,char *key,int32_t def,char *filename)
   return atol(buf);
 }
 
-void WriteINIInt(char *section,char *key,int32_t value,
+void WriteINIIntconst (char *section,const char*key,int32_t value,
                             char *filename)
 {
   char buf[80];
@@ -164,7 +164,7 @@ void WriteINIInt(char *section,char *key,int32_t value,
   WriteINIString(section,key,buf,filename);
 }
 
-bool GetINIBool(char *section,char *key,bool def,char *filename)
+bool GetINIBool(const char *section,const char*key,bool def,const char*filename)
 {
   char buf[80];
   sprintf(buf,"%i",def);
@@ -176,8 +176,8 @@ bool GetINIBool(char *section,char *key,bool def,char *filename)
     return atoi(buf);
 }
 
-void WriteINIBool(char *section,char *key,bool value,
-                             char *filename)
+void WriteINIBool(const char *section,const char*key,bool value,
+                             const char *filename)
 {
   WriteINIString(section,key,value ? "True" : "False",filename);
 }

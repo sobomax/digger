@@ -3,10 +3,10 @@
 
 #include "def.h"
 
-void WriteINIString(char *section,char *key,char *value,char *filename);
-void GetINIString(char *section,char *key,char *def,char *dest,int destsize,
+void WriteINIString(const char *section,const char *key,const char *value,const char *filename);
+void GetINIString(const char *section,const char *key,const char*def,char*dest,int destsize,
                   char *filename);
-int32_t GetINIInt(char *section,char *key,int32_t def,char *filename);
-void WriteINIInt(char *section,char *key,int32_t value,char *filename);
-bool GetINIBool(char *section,char *key,bool def,char *filename);
-void WriteINIBool(char *section,char *key,bool value,char *filename);
+int32_t GetINIInt(const char *section,const char*key,int32_t def,const char*filename);
+void WriteINIInt(const char *section,const char*key,int32_t value,const char*filename);
+bool GetINIBool(const char *section,const char*key,bool def,const char*filename);
+void WriteINIBool(char *section,const char*key,bool value,const char*filename);

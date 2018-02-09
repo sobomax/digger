@@ -25,7 +25,7 @@ int reccc=0,recrl=0,rlleft=0;
 uint32_t recp=0;
 char recd,rld;
 
-void mprintf(char *f,...);
+void mprintf(const char *f,...);
 void makedir(int16_t *dir,bool *fire,char d);
 char maked(int16_t dir,bool fire);
 
@@ -200,7 +200,7 @@ void recstart(void)
   recp=0;
 }
 
-void mprintf(char *f,...)
+void mprintf(const char *f,...)
 {
   va_list ap;
   char buf[80];
