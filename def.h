@@ -82,7 +82,7 @@
 #define PATH_MAX 1024
 #endif
 #endif
-#define ININAME strncat(strncpy(malloc(PATH_MAX),getenv("HOME"),PATH_MAX),"/.digger.rc",PATH_MAX)
+#define ININAME strncat(strncpy((char*)malloc(PATH_MAX),getenv("HOME"),PATH_MAX),"/.digger.rc",PATH_MAX)
 #else
 #define ININAME "DIGGER.INI"
 #endif

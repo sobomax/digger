@@ -371,7 +371,7 @@ void vgawrite(int16_t x, int16_t y, int16_t ch, int16_t c)
 		return;
 	tmp = ch2bmap(&alphas, ch-32, w, h);
 	size = tmp->w*tmp->h;
-	copy = malloc(size);
+	copy = (uint8_t*)malloc(size);
 	memcpy(copy, tmp->pixels, size);
 
 	for(i = size;i!=0;) {
@@ -397,7 +397,7 @@ void vgawrite(int16_t x, int16_t y, int16_t ch, int16_t c)
 			}
 		copy[i] = color;
 	}
-	orig = tmp->pixels;
+	orig = (uint8_t*)tmp->pixels;
 	tmp->pixels = copy;
 	vgaputi(x, y, (uint8_t *)&tmp, w, h);
 	tmp->pixels = orig;
@@ -409,7 +409,7 @@ void vgatitle(void)
 	SDL_Surface *tmp=NULL;
 
 	vgageti(0, 0, (uint8_t *)&tmp, 80, 200);
-	gettitle(tmp->pixels);
+	gettitle((uint8_t*)tmp->pixels);
 	vgaputi(0, 0, (uint8_t *)&tmp, 80, 200);
 	SDL_FreeSurface(tmp);
 }

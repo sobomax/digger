@@ -54,7 +54,7 @@ void soundinitglob(uint16_t bufsize,uint16_t samprate)
 {
   int i;
   setsounddevice(samprate,bufsize);
-  buffer=malloc((bufsize<<1)*sizeof(uint8_t));
+  buffer=(uint8_t*)malloc((bufsize<<1)*sizeof(uint8_t));
   rate=(int)(0x1234ddul/(uint32_t)samprate);
   firsts=0;
   last=1;
