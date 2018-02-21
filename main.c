@@ -498,12 +498,12 @@ struct label {
   int xpos;
 };
 
-static struct game_mode {
+static const struct game_mode {
   bool gauntlet;
   int nplayers;
   int diggers;
   bool last;
-  struct label title[2];
+  const struct label title[2];
 } possible_modes[] = {
   {false, 1, 1, false, {{"ONE", 220}, {" PLAYER ", 192}}},
   {false, 2, 1, false, {{"TWO", 220}, {" PLAYERS", 184}}},
@@ -530,7 +530,7 @@ static int getnmode(void)
 
 static void shownplayers(void)
 {
-  struct game_mode *gmp;
+  const struct game_mode *gmp;
 
   erasetext(ddap, 10, 180, 25, 3);
   erasetext(ddap, 12, 170, 39, 3);

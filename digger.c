@@ -729,7 +729,7 @@ void drawemeralds(void)
         drawemerald(x*20+12,y*18+21);
 }
 
-static int16_t embox[8]={8,12,12,9,16,12,6,9};
+static const int16_t embox[8]={8,12,12,9,16,12,6,9};
 
 bool hitemerald(int16_t x,int16_t y,int16_t rx,int16_t ry,int16_t dir)
 {

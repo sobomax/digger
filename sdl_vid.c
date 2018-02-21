@@ -25,41 +25,41 @@
 #include "icon.h"
 #include "sdl_vid.h"
 
-extern uint8_t const *vgatable[];
+extern const uint8_t *vgatable[];
 
-static int16_t xratio = 2;
-static int16_t yratio = 2;
-static int16_t yoffset = 0;
-static int16_t hratio = 2;
-static int16_t wratio = 2 * 4;
+static const int16_t xratio = 2;
+static const int16_t yratio = 2;
+static const int16_t yoffset = 0;
+static const int16_t hratio = 2;
+static const int16_t wratio = 2 * 4;
 #define virt2scrx(x) (x*xratio)
 #define virt2scry(y) (y*yratio+yoffset)
 #define virt2scrw(w) (w*wratio)
 #define virt2scrh(h) (h*hratio)
 
 /* palette1, normal intensity */
-static SDL_Color vga16_pal1[] = \
+static const SDL_Color vga16_pal1[] = \
 {{0,0,0,0},{0,0,128,0},{0,128,0,0},{0,128,128,0},{128,0,0,0},{128,0,128,0} \
 ,{128,64,0,0},{128,128,128,0},{64,64,64,0},{0,0,255,0},{0,255,0,0} \
 ,{0,255,255,0},{255,0,0,0},{255,0,255,0},{255,255,0,0},{255,255,255,0}};
 /* palette1, high intensity */
-static SDL_Color vga16_pal1i[] = \
+static const SDL_Color vga16_pal1i[] = \
 {{0,0,0,0},{0,0,255,0},{0,255,0,0},{0,255,255,0},{255,0,0,0},{255,0,255,0} \
 ,{255,128,0,0},{196,196,196,0},{128,128,128,0},{128,128,255,0},{128,255,128,0} \
 ,{128,255,255,0},{255,128,128,0},{255,128,255,0},{255,255,128,0},{255,255,255,0}};
 /* palette2, normal intensity */
-static SDL_Color vga16_pal2[] = \
+static const SDL_Color vga16_pal2[] = \
 {{0,0,0,0},{0,128,0,0},{128,0,0,0},{128,64,0,0},{0,0,128,0},{0,128,128,0} \
 ,{128,0,128,0},{128,128,128,0},{64,64,64,0},{0,255,0,0},{255,0,0,0} \
 ,{255,255,0,0},{0,0,255,0},{0,255,255,0},{255,0,255,0},{255,255,255,0}};
 /* palette2, high intensity */
-static SDL_Color vga16_pal2i[] = \
+static const SDL_Color vga16_pal2i[] = \
 {{0,0,0,0},{0,255,0,0},{255,0,0,0},{255,128,0,0},{0,0,255,0},{0,255,255,0} \
 ,{255,0,255,0},{196,196,196,0},{128,128,128,0},{128,255,128,0},{255,128,128,0} \
 ,{255,255,128,0},{128,128,255,0},{128,255,255,0},{255,128,255,0},{255,255,255,0}};
 
-static SDL_Color *npalettes[] = {vga16_pal1, vga16_pal2};
-static SDL_Color *ipalettes[] = {vga16_pal1i, vga16_pal2i};
+static const SDL_Color *npalettes[] = {vga16_pal1, vga16_pal2};
+static const SDL_Color *ipalettes[] = {vga16_pal1i, vga16_pal2i};
 static int16_t	currpal=0;
 
 #ifdef UNIX
@@ -227,7 +227,7 @@ void vgaclear(void)
 }
 
 static void
-setpal(SDL_Color *pal)
+setpal(const SDL_Color *pal)
 {
 
 	SDL_SetPaletteColors(screen16->format->palette, pal, 0, 16);

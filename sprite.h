@@ -14,7 +14,7 @@ void drawmiscspr(int16_t x,int16_t y,int16_t ch,int16_t wid,int16_t hei);
 
 struct digger_draw_api;
 #if 0
-extern struct digger_draw_api *ddap;
+extern const struct digger_draw_api *ddap;
 #endif
 
 #if defined(_SDL) || defined(_VGL)

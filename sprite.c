@@ -39,7 +39,7 @@ static void bcollides(int bx);
 
 static void gwrite_debug(int16_t x, int16_t y, int16_t ch, int16_t c);
 
-static struct digger_draw_api dda_static = {
+static const struct digger_draw_api dda_static = {
   .ginit = &vgainit,
   .gclear = &vgaclear,
   .gpal = &vgapal,
@@ -57,7 +57,7 @@ static struct digger_draw_api dda_static = {
   .gflush = &doscreenupdate
 };
 
-struct digger_draw_api *ddap = &dda_static;
+const struct digger_draw_api *ddap = &dda_static;
 
 void setretr(bool f)
 {
