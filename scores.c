@@ -58,7 +58,7 @@ static void numtostring(char *p,int32_t n);
 
 #elif defined UNIX && !defined _VGL
 
-#define SFNAME strncat(strncpy((char*)malloc(PATH_MAX),getenv("HOME"),PATH_MAX),"/.digger.sco",PATH_MAX)
+#define SFNAME strncat(strncpy((char*)alloca(PATH_MAX),getenv("HOME"),PATH_MAX),"/.digger.sco",PATH_MAX)
 
 #else
 
