@@ -17,26 +17,26 @@
 #include "digger.h"
 #include "record.h"
 
-struct scdat
+static struct scdat
 {
   int32_t score,nextbs;
 } scdat[DIGGERS];
 
-char highbuf[10];
+static char highbuf[10];
 
-int32_t scorehigh[12]={0,0,0,0,0,0,0,0,0,0,0,0};
+static int32_t scorehigh[12]={0,0,0,0,0,0,0,0,0,0,0,0};
 
 char scoreinit[11][4];
 
 int32_t scoret=0;
 
-char hsbuf[36];
+static char hsbuf[36];
 
-char scorebuf[512];
+static char scorebuf[512];
 
 uint16_t bonusscore=20000;
 
-bool gotinitflag=false;
+static bool gotinitflag=false;
 
 static void readscores(void);
 static void writescores(void);

@@ -10,7 +10,7 @@
 #include "digger_log.h"
 #include "newsnd.h"
 
-void fill_audio(void *udata, uint8_t *stream, int len);
+static void fill_audio(void *udata, uint8_t *stream, int len);
 
 bool wave_device_available = false;
 
@@ -72,7 +72,7 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
 	return(result);
 }
 
-void fill_audio(void *udata, uint8_t *stream, int len)
+static void fill_audio(void *udata, uint8_t *stream, int len)
 {
 	int i;
         struct sudata *sud;

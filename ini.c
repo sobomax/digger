@@ -11,7 +11,7 @@
 
 /* Get a line from a buffer. This should be compatible with all 3 text file
    formats: DOS, Unix and Mac. */
-char *sgets(char *buffer,char *s)
+static char *sgets(char *buffer,char *s)
 {
   int i;
   for (i=0;buffer[i]!=10 && buffer[i]!=13 && buffer[i]!=0;i++)

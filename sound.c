@@ -17,45 +17,43 @@
 #include "fbsd_snd.h"
 #endif
 
-int16_t wavetype=0,musvol=0;
-int16_t spkrmode=0,timerrate=0x7d0;
-uint16_t timercount=0,t2val=0,t0val=0;
-int16_t pulsewidth=1;
-int16_t volume=0;
+static int16_t wavetype=0,musvol=0;
+static uint16_t t2val=0,t0val=0;
+int16_t spkrmode=0,timerrate=0x7d0,pulsewidth=1,volume=0;
+uint16_t timercount=0;
 
-int8_t timerclock=0;
+static int8_t timerclock=0;
 
 bool soundflag=true,musicflag=true;
 
-void soundint(void);
-void soundlevdoneoff(void);
-void soundlevdoneupdate(void);
-void soundfallupdate(void);
-void soundbreakoff(void);
-void soundbreakupdate(void);
-void soundwobbleupdate(void);
-void soundfireupdate(void);
-void soundexplodeoff(int n);
-void soundexplodeupdate(void);
-void soundbonusupdate(void);
-void soundemoff(void);
-void soundemupdate(void);
-void soundemeraldoff(void);
-void soundemeraldupdate(void);
-void soundgoldoff(void);
-void soundgoldupdate(void);
-void soundeatmoff(void);
-void soundeatmupdate(void);
-void soundddieoff(void);
-void soundddieupdate(void);
-void sound1upoff(void);
-void sound1upupdate(void);
-void musicupdate(void);
-void sett0(void);
-void setsoundmode(void);
-void s0setupsound(void);
-void s0killsound(void);
-void s0fillbuffer(void);
+static void soundlevdoneoff(void);
+static void soundlevdoneupdate(void);
+static void soundfallupdate(void);
+static void soundbreakoff(void);
+static void soundbreakupdate(void);
+static void soundwobbleupdate(void);
+static void soundfireupdate(void);
+static void soundexplodeoff(int n);
+static void soundexplodeupdate(void);
+static void soundbonusupdate(void);
+static void soundemoff(void);
+static void soundemupdate(void);
+static void soundemeraldoff(void);
+static void soundemeraldupdate(void);
+static void soundgoldoff(void);
+static void soundgoldupdate(void);
+static void soundeatmoff(void);
+static void soundeatmupdate(void);
+static void soundddieoff(void);
+static void soundddieupdate(void);
+static void sound1upoff(void);
+static void sound1upupdate(void);
+static void musicupdate(void);
+static void sett0(void);
+static void setsoundmode(void);
+static void s0setupsound(void);
+static void s0killsound(void);
+static void s0fillbuffer(void);
 
 void (*setupsound)(void)=s0setupsound;
 void (*killsound)(void)=s0killsound;
@@ -185,15 +183,15 @@ void soundlevdone(void)
   soundlevdoneoff();
 }
 
-void soundlevdoneoff(void)
+static void soundlevdoneoff(void)
 {
   soundlevdoneflag=soundpausedflag=false;
 }
 
-int16_t newlevjingle[11]={0x8e8,0x712,0x5f2,0x7f0,0x6ac,0x54c,
+static const int16_t newlevjingle[11]={0x8e8,0x712,0x5f2,0x7f0,0x6ac,0x54c,
                         0x712,0x5f2,0x4b8,0x474,0x474};
 
-void soundlevdoneupdate(void)
+static void soundlevdoneupdate(void)
 {
   if (sndflag) {
     if (nljpointer<11)
@@ -217,8 +215,8 @@ void soundlevdoneupdate(void)
 }
 
 
-bool soundfallflag=false,soundfallf=false;
-int16_t soundfallvalue,soundfalln=0;
+static bool soundfallflag=false,soundfallf=false;
+static int16_t soundfallvalue,soundfalln=0;
 
 void soundfall(void)
 {
@@ -232,7 +230,7 @@ void soundfalloff(void)
   soundfalln=0;
 }
 
-void soundfallupdate(void)
+static void soundfallupdate(void)
 {
   if (soundfallflag) {
     if (soundfalln<1) {
@@ -253,8 +251,8 @@ void soundfallupdate(void)
 }
 
 
-bool soundbreakflag=false;
-int16_t soundbreakduration=0,soundbreakvalue=0;
+static bool soundbreakflag=false;
+static int16_t soundbreakduration=0,soundbreakvalue=0;
 
 void soundbreak(void)
 {
@@ -264,12 +262,12 @@ void soundbreak(void)
   soundbreakflag=true;
 }
 
-void soundbreakoff(void)
+static void soundbreakoff(void)
 {
   soundbreakflag=false;
 }
 
-void soundbreakupdate(void)
+static void soundbreakupdate(void)
 {
   if (soundbreakflag) {
     if (soundbreakduration!=0) {
@@ -282,8 +280,8 @@ void soundbreakupdate(void)
 }
 
 
-bool soundwobbleflag=false;
-int16_t soundwobblen=0;
+static bool soundwobbleflag=false;
+static int16_t soundwobblen=0;
 
 void soundwobble(void)
 {
@@ -296,7 +294,7 @@ void soundwobbleoff(void)
   soundwobblen=0;
 }
 
-void soundwobbleupdate(void)
+static void soundwobbleupdate(void)
 {
   if (soundwobbleflag) {
     soundwobblen++;
@@ -318,9 +316,9 @@ void soundwobbleupdate(void)
 }
 
 
-bool soundfireflag[FIREBALLS]={false,false},sff[FIREBALLS];
-int16_t soundfirevalue[FIREBALLS],soundfiren[FIREBALLS]={0,0};
-int soundfirew=0;
+static bool soundfireflag[FIREBALLS]={false,false},sff[FIREBALLS];
+static int16_t soundfirevalue[FIREBALLS],soundfiren[FIREBALLS]={0,0};
+static int soundfirew=0;
 
 void soundfire(int n)
 {
@@ -334,7 +332,7 @@ void soundfireoff(int n)
   soundfiren[n]=0;
 }
 
-void soundfireupdate(void)
+static void soundfireupdate(void)
 {
   int n;
   bool f=false;
@@ -364,9 +362,9 @@ void soundfireupdate(void)
 }
 
 
-bool soundexplodeflag[FIREBALLS]={false,false},sef[FIREBALLS];
-int16_t soundexplodevalue[FIREBALLS],soundexplodeduration[FIREBALLS];
-int soundexplodew=0;
+static bool soundexplodeflag[FIREBALLS]={false,false},sef[FIREBALLS];
+static int16_t soundexplodevalue[FIREBALLS],soundexplodeduration[FIREBALLS];
+static int soundexplodew=0;
 
 void soundexplode(int n)
 {
@@ -376,12 +374,12 @@ void soundexplode(int n)
   soundfireoff(n);
 }
 
-void soundexplodeoff(int n)
+static void soundexplodeoff(int n)
 {
   soundexplodeflag[n]=false;
 }
 
-void soundexplodeupdate(void)
+static void soundexplodeupdate(void)
 {
   int n;
   bool f=false;
@@ -409,8 +407,8 @@ void soundexplodeupdate(void)
 }
 
 
-bool soundbonusflag=false;
-int16_t soundbonusn=0;
+static bool soundbonusflag=false;
+static int16_t soundbonusn=0;
 
 void soundbonus(void)
 {
@@ -423,7 +421,7 @@ void soundbonusoff(void)
   soundbonusn=0;
 }
 
-void soundbonusupdate(void)
+static void soundbonusupdate(void)
 {
   if (soundbonusflag) {
     soundbonusn++;
@@ -437,19 +435,19 @@ void soundbonusupdate(void)
 }
 
 
-bool soundemflag=false;
+static bool soundemflag=false;
 
 void soundem(void)
 {
   soundemflag=true;
 }
 
-void soundemoff(void)
+static void soundemoff(void)
 {
   soundemflag=false;
 }
 
-void soundemupdate(void)
+static void soundemupdate(void)
 {
   if (soundemflag) {
     t2val=1000;
@@ -458,10 +456,10 @@ void soundemupdate(void)
 }
 
 
-bool soundemeraldflag=false;
-int16_t soundemeraldduration,emerfreq,soundemeraldn;
+static bool soundemeraldflag=false;
+static int16_t soundemeraldduration,emerfreq,soundemeraldn;
 
-int16_t emfreqs[8]={0x8e8,0x7f0,0x712,0x6ac,0x5f2,0x54c,0x4b8,0x474};
+static const int16_t emfreqs[8]={0x8e8,0x7f0,0x712,0x6ac,0x5f2,0x54c,0x4b8,0x474};
 
 void soundemerald(int n)
 {
@@ -471,12 +469,12 @@ void soundemerald(int n)
   soundemeraldflag=true;
 }
 
-void soundemeraldoff(void)
+static void soundemeraldoff(void)
 {
   soundemeraldflag=false;
 }
 
-void soundemeraldupdate(void)
+static void soundemeraldupdate(void)
 {
   if (soundemeraldflag) {
     if (soundemeraldduration!=0) {
@@ -494,8 +492,8 @@ void soundemeraldupdate(void)
 }
 
 
-bool soundgoldflag=false,soundgoldf=false;
-int16_t soundgoldvalue1,soundgoldvalue2,soundgoldduration;
+static bool soundgoldflag=false,soundgoldf=false;
+static int16_t soundgoldvalue1,soundgoldvalue2,soundgoldduration;
 
 void soundgold(void)
 {
@@ -506,12 +504,12 @@ void soundgold(void)
   soundgoldflag=true;
 }
 
-void soundgoldoff(void)
+static void soundgoldoff(void)
 {
   soundgoldflag=false;
 }
 
-void soundgoldupdate(void)
+static void soundgoldupdate(void)
 {
   if (soundgoldflag) {
     if (soundgoldduration!=0)
@@ -533,8 +531,8 @@ void soundgoldupdate(void)
 
 
 
-bool soundeatmflag=false;
-int16_t soundeatmvalue,soundeatmduration,soundeatmn;
+static bool soundeatmflag=false;
+static int16_t soundeatmvalue,soundeatmduration,soundeatmn;
 
 void soundeatm(void)
 {
@@ -544,12 +542,12 @@ void soundeatm(void)
   soundeatmflag=true;
 }
 
-void soundeatmoff(void)
+static void soundeatmoff(void)
 {
   soundeatmflag=false;
 }
 
-void soundeatmupdate(void)
+static void soundeatmupdate(void)
 {
   if (soundeatmflag) {
     if (soundeatmn!=0) {
@@ -573,8 +571,8 @@ void soundeatmupdate(void)
 }
 
 
-bool soundddieflag=false;
-int16_t soundddien,soundddievalue;
+static bool soundddieflag=false;
+static int16_t soundddien,soundddievalue;
 
 void soundddie(void)
 {
@@ -583,12 +581,12 @@ void soundddie(void)
   soundddieflag=true;
 }
 
-void soundddieoff(void)
+static void soundddieoff(void)
 {
   soundddieflag=false;
 }
 
-void soundddieupdate(void)
+static void soundddieupdate(void)
 {
   if (soundddieflag) {
     soundddien++;
@@ -605,8 +603,8 @@ void soundddieupdate(void)
 }
 
 
-bool sound1upflag=false;
-int16_t sound1upduration=0;
+static bool sound1upflag=false;
+static int16_t sound1upduration=0;
 
 void sound1up(void)
 {
@@ -614,12 +612,12 @@ void sound1up(void)
   sound1upflag=true;
 }
 
-void sound1upoff(void)
+static void sound1upoff(void)
 {
   sound1upflag=false;
 }
 
-void sound1upupdate(void)
+static void sound1upupdate(void)
 {
   if (sound1upflag) {
     if ((sound1upduration/3)%2!=0)
@@ -631,8 +629,8 @@ void sound1upupdate(void)
 }
 
 
-bool musicplaying=false;
-int16_t musicp=0,tuneno=0,noteduration=0,notevalue=0,musicmaxvol=0,
+static bool musicplaying=false;
+static int16_t musicp=0,tuneno=0,noteduration=0,notevalue=0,musicmaxvol=0,
       musicattackrate=0,musicsustainlevel=0,musicdecayrate=0,musicnotewidth=0,
       musicreleaserate=0,musicstage=0,musicn=0;
 
@@ -674,7 +672,7 @@ void musicoff(void)
   musicp=0;
 }
 
-int16_t bonusjingle[321]={
+static const int16_t bonusjingle[321]={
   0x11d1,2,0x11d1,2,0x11d1,4,0x11d1,2,0x11d1,2,0x11d1,4,0x11d1,2,0x11d1,2,
    0xd59,4, 0xbe4,4, 0xa98,4,0x11d1,2,0x11d1,2,0x11d1,4,0x11d1,2,0x11d1,2,
   0x11d1,4, 0xd59,2, 0xa98,2, 0xbe4,4, 0xe24,4,0x11d1,4,0x11d1,2,0x11d1,2,
@@ -697,7 +695,7 @@ int16_t bonusjingle[321]={
    0x7f0,4, 0xa98,4, 0x7f0,4, 0x8e8,4, 0x970,4, 0x8e8,4, 0x970,4, 0x8e8,4,
   0x7d64};
 
-int16_t backgjingle[291]={
+static const int16_t backgjingle[291]={
    0xfdf,2,0x11d1,2, 0xfdf,2,0x1530,2,0x1ab2,2,0x1530,2,0x1fbf,4, 0xfdf,2,
   0x11d1,2, 0xfdf,2,0x1530,2,0x1ab2,2,0x1530,2,0x1fbf,4, 0xfdf,2, 0xe24,2,
    0xd59,2, 0xe24,2, 0xd59,2, 0xfdf,2, 0xe24,2, 0xfdf,2, 0xe24,2,0x11d1,2,
@@ -718,13 +716,13 @@ int16_t backgjingle[291]={
    0x970,2, 0xa98,2, 0x970,2, 0xbe4,2, 0xa98,2, 0xbe4,2, 0xd59,2, 0xbe4,2,
    0xa98,4,0x7d64};
 
-int16_t dirge[]={
+static const int16_t dirge[]={
   0x7d00, 2,0x11d1, 6,0x11d1, 4,0x11d1, 2,0x11d1, 6, 0xefb, 4, 0xfdf, 2,
    0xfdf, 4,0x11d1, 2,0x11d1, 4,0x12e0, 2,0x11d1,12,0x7d00,16,0x7d00,16,
   0x7d00,16,0x7d00,16,0x7d00,16,0x7d00,16,0x7d00,16,0x7d00,16,0x7d00,16,
   0x7d00,16,0x7d00,16,0x7d00,16,0x7d64};
 
-void musicupdate(void)
+static void musicupdate(void)
 {
   if (!musicplaying)
     return;
@@ -808,7 +806,7 @@ void soundpauseoff(void)
 #endif
 }
 
-void sett0(void)
+static void sett0(void)
 {
   if (sndflag) {
     timer2(t2val);
@@ -889,20 +887,20 @@ void initsound(void)
   randvs=getlrt();
 }
 
-void s0killsound(void)
+static void s0killsound(void)
 {
   setsoundt2();
   timer2(40);
   stopint8();
 }
 
-void s0setupsound(void)
+static void s0setupsound(void)
 {
   inittimer();
   curtime=0;
   startint8();
 }
 
-void s0fillbuffer(void)
+static void s0fillbuffer(void)
 {
 }

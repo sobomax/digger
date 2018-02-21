@@ -21,12 +21,12 @@
 uint8_t *buffer;
 uint16_t firsts,last,size;           /* data available to output device */
 
-int rate;
-uint16_t t0rate,t2rate,t2new,t0v,t2v;
-int16_t i8pulse=0;
-bool t2f=false,t2sw,i8flag=false;
-uint8_t lut[257];
-uint16_t pwlut[51];
+static int rate;
+static uint16_t t0rate,t2rate,t2new,t0v,t2v;
+static int16_t i8pulse=0;
+static bool t2f=false,t2sw,i8flag=false;
+static uint8_t lut[257];
+static uint16_t pwlut[51];
 
 extern int16_t spkrmode,pulsewidth;
 
@@ -137,7 +137,7 @@ void s1timer2(uint16_t t2)
   t2v=t2rate;
 }
 
-bool addcarry(uint16_t *dest,uint16_t add)
+static bool addcarry(uint16_t *dest,uint16_t add)
 {
   *dest+=add;
   if (*dest<add)
@@ -145,7 +145,7 @@ bool addcarry(uint16_t *dest,uint16_t add)
   return false;
 }
 
-bool subcarry(uint16_t *dest,uint16_t sub)
+static bool subcarry(uint16_t *dest,uint16_t sub)
 {
   *dest-=sub;
   if (*dest>=(uint16_t)(-sub))

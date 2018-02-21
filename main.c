@@ -39,26 +39,24 @@ static struct game
 } gamedat[2];
 
 static bool levnotdrawn=false,alldead=false;
-bool started;
+static bool started;
 
 char levfname[132];
 bool levfflag=false;
 FILE *digger_log = NULL;
 
-void shownplayers(void);
-void switchnplayers(void);
+static void shownplayers(void);
+static void switchnplayers(void);
 static void drawscreen(struct digger_draw_api *);
-void initchars(void);
-void checklevdone(void);
-int16_t levno(void);
-void testpause(void);
-void calibrate(void);
-void parsecmd(int argc,char *argv[]);
-void patchcga(void);
-void initlevel(void);
-void finish(void);
-void inir(void);
-int getalllives(void);
+static void initchars(void);
+static void checklevdone(void);
+static int16_t levno(void);
+static void calibrate(void);
+static void parsecmd(int argc,char *argv[]);
+static void patchcga(void);
+static void initlevel(void);
+static void inir(void);
+static int getalllives(void);
 
 int8_t leveldat[8][MHEIGHT][MWIDTH]=
 {{"S   B     HHHHS",
@@ -530,7 +528,7 @@ static int getnmode(void)
   return i;
 }
 
-void shownplayers(void)
+static void shownplayers(void)
 {
   struct game_mode *gmp;
 
@@ -541,7 +539,7 @@ void shownplayers(void)
   outtext(ddap, gmp->title[1].text, gmp->title[1].xpos, 39, 3);
 }
 
-int getalllives(void)
+static int getalllives(void)
 {
   int t=0,i;
   for (i=curplayer;i<diggers+curplayer;i++)
@@ -549,7 +547,7 @@ int getalllives(void)
   return t;
 }
 
-void switchnplayers(void)
+static void switchnplayers(void)
 {
   int i, j;
 
@@ -560,7 +558,7 @@ void switchnplayers(void)
   diggers = possible_modes[j].diggers;
 }
 
-void initlevel(void)
+static void initlevel(void)
 {
   gamedat[curplayer].levdone=false;
   makefield();
@@ -569,7 +567,7 @@ void initlevel(void)
   levnotdrawn=true;
 }
 
-void drawscreen(struct digger_draw_api *ddap)
+static void drawscreen(struct digger_draw_api *ddap)
 {
   creatembspr();
   drawstatics(ddap);
@@ -579,14 +577,14 @@ void drawscreen(struct digger_draw_api *ddap)
   initmonsters();
 }
 
-void initchars(void)
+static void initchars(void)
 {
   initmbspr();
   initdigger();
   initmonsters();
 }
 
-void checklevdone(void)
+static void checklevdone(void)
 {
   if ((countem()==0 || monleft()==0) && isalive())
     gamedat[curplayer].levdone=true;
@@ -620,7 +618,7 @@ int16_t levof10(void)
   return gamedat[curplayer].level;
 }
 
-int16_t levno(void)
+static int16_t levno(void)
 {
   return gamedat[curplayer].level;
 }
@@ -653,7 +651,7 @@ void testpause(void)
     soundpauseoff();
 }
 
-void calibrate(void)
+static void calibrate(void)
 {
   volume=(int16_t)(getkips()/291);
   if (volume==0)
@@ -719,7 +717,7 @@ getarg(char argch, const char *allargs, bool *hasopt)
 #define X11_OPTS "X:"
 #define SDL_OPTS  "F"
 
-void parsecmd(int argc,char *argv[])
+static void parsecmd(int argc,char *argv[])
 {
   char *word;
   int argch;
@@ -953,7 +951,7 @@ int16_t randno(int16_t n)
 int dx_sound_volume;
 bool g_bWindowed,use_640x480_fullscreen,use_async_screen_updates;
 
-void inir(void)
+static void inir(void)
 {
   char kbuf[80],vbuf[80];
   int i,j,p;
