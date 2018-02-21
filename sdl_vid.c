@@ -106,21 +106,6 @@ void graphicsoff(void)
 {
 }
 
-#ifdef UNIX
-static void
-x11_set_parent(Window parent)
-{
-#if 0
-        SDL_SysWMinfo sdlInfo;
-
-        SDL_VERSION(&sdlInfo.version);
-        SDL_GetWMInfo(&sdlInfo);
-        XReparentWindow(sdlInfo.info.x11.gfxdisplay, sdlInfo.info.x11.window, parent, 0, 0);
-        XDestroyWindow(sdlInfo.info.x11.gfxdisplay, sdlInfo.info.x11.wmwindow);
-#endif
-}
-#endif
-
 static bool
 setmode(void)
 {
