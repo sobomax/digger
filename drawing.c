@@ -33,6 +33,24 @@ void initdbfspr(void);
 void drawbackg(int16_t l);
 void drawfield(void);
 
+void eraseline(struct digger_draw_api *ddap, int16_t y)
+{
+
+  erasetext(ddap, MAX_TEXT_LEN, 0, y, 0);
+}
+
+void outtextcentered(struct digger_draw_api *ddap, const char *p, int16_t y, int16_t c)
+{
+  int16_t xpos;
+
+  xpos = ((MAX_TEXT_LEN - strlen(p)) / 2) * CHR_W;
+#if defined(DIGGER_DEBUG)
+  assert(strlen(p) <= MAX_TEXT_LEN && xpos >= 0 && xpos < (MAX_W - CHR_W));
+#endif
+
+  outtext(ddap, p, xpos, y, c);
+}
+
 const char empty_line[MAX_TEXT_LEN + 1] = "                          ";
 
 static void outtextl(struct digger_draw_api *ddap, const char *p,int16_t x,int16_t y,int16_t c, int16_t l)

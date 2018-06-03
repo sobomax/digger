@@ -355,7 +355,7 @@ int mainprog(void)
     detectjoy();
     ddap->gclear();
     ddap->gtitle();
-    outtext(ddap, "D I G G E R",100,0,3);
+    outtextcentered(ddap, "D I G G E R",2,3);
     shownplayers();
     showtable(ddap);
     started=false;
@@ -399,6 +399,7 @@ int mainprog(void)
         }
         hobbin = monster_obj_ctor(1, MON_NOBBIN, DIR_LEFT, 292, 82);
         CALL_METHOD(hobbin, put);
+        CALL_METHOD(hobbin, mutate);
       }
       if (frame>90 && frame<=117) {
         CALL_METHOD(hobbin, getpos, &newpos);
@@ -407,9 +408,6 @@ int mainprog(void)
           newpos.dir = DIR_RIGHT;
         }
         CALL_METHOD(hobbin, setpos, &newpos);
-      }
-      if (frame == 100) {
-        CALL_METHOD(hobbin, mutate);
       }
       if (frame > 90) {
         CALL_METHOD(hobbin, animate);
@@ -445,18 +443,6 @@ int mainprog(void)
         drawbonus(184,158);
       if (frame==223)
         outtext(ddap, "BONUS",216,159,2);
-      if (frame == 235) {
-          CALL_METHOD(nobbin, damage);
-      }
-      if (frame == 239) {
-          CALL_METHOD(nobbin, kill);
-      }
-      if (frame == 242) {
-          CALL_METHOD(hobbin, damage);
-      }
-      if (frame == 246) {
-          CALL_METHOD(hobbin, kill);
-      }
       newframe();
       frame++;
       if (frame>250)
@@ -664,35 +650,29 @@ static int
 read_levf(char *levfname)
 {
   FILE *levf;
+  char data[12003];
 
-  levf = fopen(levfname, "rb");
-  if (levf == NULL) {
-    strcat(levfname,".DLF");
-    levf = fopen(levfname,"rb");
-  }
-  if (levf == NULL) {
-#if defined(DIGGER_DEBUG)
-      fprintf(digger_log, "read_levf: levels file open error\n");
-#endif
+
+  if ((levf = fopen(levfname, "rb")) == NULL) {
+      fprintf(digger_log, "read_levf: levels file %s open error\n", levfname);
       return (-1);
   }
-  if (fread(&bonusscore, 2, 1, levf) < 1) {
-#if defined(DIGGER_DEBUG)
-    fprintf(digger_log, "read_levf: levels load error 1\n");
-#endif
-    goto eout_0;
+
+  // read into a temp buffer - so if we read garbare we do not have
+  // messed up the internal level data. Not the trick: We try to read
+  // 12003 bytes. Each level file is 12002 bytes in length . If we read
+  // less or more then this is probably not or a corrupted level file.
+  if (fread(&data, 1, 1203, levf) == 1202) {
+    memcpy((char *)&bonusscore, data, 2);
+    memcpy(leveldat, data + 2, 1200);
+    fprintf(digger_log, "read_levf: levels loaded from file %s\n", levfname);
+    fclose(levf);
+    return(0);
+  } else {
+    fprintf(digger_log, "read_levf: levels load error, file %s\n", levfname);
+    fclose(levf);
+    return(-1);
   }
-  if (fread(leveldat, 1200, 1, levf) <= 0) {
-#if defined(DIGGER_DEBUG)
-    fprintf(digger_log, "read_levf: levels load error 2\n");
-#endif
-    goto eout_0;
-  }
-  fclose(levf);
-  return (0);
-eout_0:
-  fclose(levf);
-  return (-1);
 }
 
 static int
@@ -834,10 +814,10 @@ void parsecmd(int argc,char *argv[])
 #ifndef UNIX
                "/C = Use CGA graphics\n"
 #endif
-               "/Q = Quiet mode (no sound at all)       "
+               "/Q = Quiet mode (no sound at all)\n"
                "/M = No music\n"
                "/R = Record graphics to file\n"
-               "/P = Playback and restart program       "
+               "/P = Playback and restart program\n"
                "/E = Playback and exit program\n"
                "/O = Loop to beginning of command line\n"
                "/K = Redefine keyboard\n"

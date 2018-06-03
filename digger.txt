@@ -401,7 +401,7 @@ The command line options are:
   /E:name = Playback game file "name" and exit program.
   /O      = Go back to the beginning of the command line and start again. Handy
             for playing recorded games as screensavers.
-  /K      = Redefine keyboard. To redefine all the redefinable keys, use /KA.
+  /K      = Redefine keyboard.
   /G:time = Gauntlet mode.
   /2      = Put two diggers on screen at once.
   /?      = Display this list.
