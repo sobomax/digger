@@ -41,8 +41,8 @@
 static int
 bullet_obj_put(struct bullet_obj *self)
 {
-
   movedrawspr(FIRSTFIREBALL + self->f_id, self->x, self->y);
+  soundfire(self->f_id);
   return (0);
 }
 

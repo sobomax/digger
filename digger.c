@@ -251,7 +251,6 @@ updatefire(struct digger_draw_api *ddap, int n)
           }
           bullet_obj_init(&digdat[n].bob, n - curplayer, digdat[n].dob.dir, fx, fy);
           CALL_METHOD(&digdat[n].bob, put);
-          soundfire(n);
         }
       }
     }
