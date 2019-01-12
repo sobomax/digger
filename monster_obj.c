@@ -259,7 +259,7 @@ monster_obj_ctor(uint16_t m_id, bool nobf, int16_t dir, int16_t x, int16_t y)
   struct monster_obj_private *mp;
   struct monster_obj *mpub;
 
-  mofp = malloc(sizeof(struct monster_obj_full));
+  mofp = (struct monster_obj_full *)malloc(sizeof(struct monster_obj_full));
   if (mofp == NULL) {
     return (NULL);
   }

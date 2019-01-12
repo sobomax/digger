@@ -19,7 +19,7 @@
 #include "bags.h"
 #include "bullet_obj.h"
 
-struct digger
+static struct digger
 {
   int16_t h,v,rx,ry,mdir,bagtime,rechargetime,
         deathstage,deathbag,deathani,deathtime,emocttime,emn,msc,lives,ivt;
@@ -28,11 +28,11 @@ struct digger
   struct bullet_obj bob;
 } digdat[DIGGERS];
 
-int16_t startbonustimeleft=0,bonustimeleft;
+static int16_t startbonustimeleft=0,bonustimeleft;
 
-int16_t emmask=0;
+static int16_t emmask=0;
 
-int8_t emfield[MSIZE];
+static int8_t emfield[MSIZE];
 
 bool bonusvisible=false,bonusmode=false,digvisible;
 
@@ -513,7 +513,7 @@ void sceatm(struct digger_draw_api *ddap, int n)
   digdat[n].msc<<=1;
 }
 
-int16_t deatharc[7]={3,5,6,6,5,3,0};
+static int16_t deatharc[7]={3,5,6,6,5,3,0};
 
 static void
 diggerdie(struct digger_draw_api *ddap, int n)
@@ -729,7 +729,7 @@ void drawemeralds(void)
         drawemerald(x*20+12,y*18+21);
 }
 
-int16_t embox[8]={8,12,12,9,16,12,6,9};
+static const int16_t embox[8]={8,12,12,9,16,12,6,9};
 
 bool hitemerald(int16_t x,int16_t y,int16_t rx,int16_t ry,int16_t dir)
 {

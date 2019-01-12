@@ -9,37 +9,37 @@
 #include "hardware.h"
 #include "draw_api.h"
 
-bool retrflag=true;
+static bool retrflag=true;
 
-bool sprrdrwf[SPRITES+1];
-bool sprrecf[SPRITES+1];
-bool sprenf[SPRITES];
-int16_t sprch[SPRITES+1];
-uint8_t *sprmov[SPRITES];
-int16_t sprx[SPRITES+1];
-int16_t spry[SPRITES+1];
-int16_t sprwid[SPRITES+1];
-int16_t sprhei[SPRITES+1];
-int16_t sprbwid[SPRITES];
-int16_t sprbhei[SPRITES];
-int16_t sprnch[SPRITES];
-int16_t sprnwid[SPRITES];
-int16_t sprnhei[SPRITES];
-int16_t sprnbwid[SPRITES];
-int16_t sprnbhei[SPRITES];
+static bool sprrdrwf[SPRITES+1];
+static bool sprrecf[SPRITES+1];
+static bool sprenf[SPRITES];
+static int16_t sprch[SPRITES+1];
+static uint8_t *sprmov[SPRITES];
+static int16_t sprx[SPRITES+1];
+static int16_t spry[SPRITES+1];
+static int16_t sprwid[SPRITES+1];
+static int16_t sprhei[SPRITES+1];
+static int16_t sprbwid[SPRITES];
+static int16_t sprbhei[SPRITES];
+static int16_t sprnch[SPRITES];
+static int16_t sprnwid[SPRITES];
+static int16_t sprnhei[SPRITES];
+static int16_t sprnbwid[SPRITES];
+static int16_t sprnbhei[SPRITES];
 
-void clearrdrwf(void);
-void clearrecf(void);
-void setrdrwflgs(int16_t n);
-bool collide(int16_t bx,int16_t si);
-bool bcollide(int16_t bx,int16_t si);
-void putims(void);
-void putis(void);
-void bcollides(int bx);
+static void clearrdrwf(void);
+static void clearrecf(void);
+static void setrdrwflgs(int16_t n);
+static bool collide(int16_t bx,int16_t si);
+static bool bcollide(int16_t bx,int16_t si);
+static void putims(void);
+static void putis(void);
+static void bcollides(int bx);
 
 static void gwrite_debug(int16_t x, int16_t y, int16_t ch, int16_t c);
 
-static struct digger_draw_api dda_static = {
+static const struct digger_draw_api dda_static = {
   .ginit = &vgainit,
   .gclear = &vgaclear,
   .gpal = &vgapal,
@@ -57,7 +57,7 @@ static struct digger_draw_api dda_static = {
   .gflush = &doscreenupdate
 };
 
-struct digger_draw_api *ddap = &dda_static;
+const struct digger_draw_api *ddap = &dda_static;
 
 void setretr(bool f)
 {
@@ -180,7 +180,7 @@ void drawmiscspr(int16_t x,int16_t y,int16_t ch,int16_t wid,int16_t hei)
          sprhei[SPRITES]);
 }
 
-void clearrdrwf(void)
+static void clearrdrwf(void)
 {
   int16_t i;
   clearrecf();
@@ -188,14 +188,14 @@ void clearrdrwf(void)
     sprrdrwf[i]=false;
 }
 
-void clearrecf(void)
+static void clearrecf(void)
 {
   int16_t i;
   for (i=0;i<SPRITES+1;i++)
     sprrecf[i]=false;
 }
 
-void setrdrwflgs(int16_t n)
+static void setrdrwflgs(int16_t n)
 {
   int16_t i;
   if (!sprrecf[n]) {
@@ -210,7 +210,7 @@ void setrdrwflgs(int16_t n)
   }
 }
 
-bool collide(int16_t bx,int16_t si)
+static bool collide(int16_t bx,int16_t si)
 {
   if (sprx[bx]>=sprx[si]) {
     if (sprx[bx]>(sprwid[si]<<2)+sprx[si]-1)
@@ -229,7 +229,7 @@ bool collide(int16_t bx,int16_t si)
   return false;
 }
 
-bool bcollide(int16_t bx,int16_t si)
+static bool bcollide(int16_t bx,int16_t si)
 {
   if (sprx[bx]>=sprx[si]) {
     if (sprx[bx]+sprbwid[bx]>(sprwid[si]<<2)+sprx[si]-sprbwid[si]-1)
@@ -248,7 +248,7 @@ bool bcollide(int16_t bx,int16_t si)
   return false;
 }
 
-void putims(void)
+static void putims(void)
 {
   int i;
   for (i=0;i<SPRITES;i++)
@@ -256,7 +256,7 @@ void putims(void)
       ddap->gputim(sprx[i],spry[i],sprch[i],sprwid[i],sprhei[i]);
 }
 
-void putis(void)
+static void putis(void)
 {
   int i;
   for (i=0;i<SPRITES;i++)
@@ -265,10 +265,10 @@ void putis(void)
 }
 
 int first[TYPES],coll[SPRITES];
-int firstt[TYPES]={FIRSTBONUS,FIRSTBAG,FIRSTMONSTER,FIRSTFIREBALL,FIRSTDIGGER};
-int lastt[TYPES]={LASTBONUS,LASTBAG,LASTMONSTER,LASTFIREBALL,LASTDIGGER};
+static int firstt[TYPES]={FIRSTBONUS,FIRSTBAG,FIRSTMONSTER,FIRSTFIREBALL,FIRSTDIGGER};
+static int lastt[TYPES]={LASTBONUS,LASTBAG,LASTMONSTER,LASTFIREBALL,LASTDIGGER};
 
-void bcollides(int spr)
+static void bcollides(int spr)
 {
   int spc,next,i;
   for (next=0;next<TYPES;next++)

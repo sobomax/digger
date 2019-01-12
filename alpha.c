@@ -4,9 +4,9 @@
 #include "def.h"
 #include "alpha.h"
 
-char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.";
+static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.";
 
-int32_t textoffdat[16]={
+static const int32_t textoffdat[16]={
    72,   0, -72,-72,
   144,   0,-288,144,
   144,-216, 144,-72,

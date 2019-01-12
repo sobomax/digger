@@ -10,7 +10,7 @@
 #include "digger_log.h"
 #include "newsnd.h"
 
-void fill_audio(void *udata, uint8_t *stream, int len);
+static void fill_audio(void *udata, uint8_t *stream, int len);
 
 bool wave_device_available = false;
 
@@ -33,7 +33,7 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
         struct sudata *sud;
 	bool result = false;
 	
-        sud = malloc(sizeof(*sud));
+        sud = (struct sudata*)malloc(sizeof(*sud));
         if (sud == NULL) {
                 fprintf(digger_log, "setsounddevice: malloc(3) failed\n");
 
@@ -58,7 +58,7 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
                 return (false);
         }
         sud->bsize = sud->obtained.size;
-	sud->buf = malloc(sud->bsize);
+	sud->buf = (int16_t*)malloc(sud->bsize);
         if (sud->buf == NULL) {
                 fprintf(digger_log, "setsounddevice: malloc(3) failed\n");
                 SDL_CloseAudio();
@@ -72,7 +72,7 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
 	return(result);
 }
 
-void fill_audio(void *udata, uint8_t *stream, int len)
+static void fill_audio(void *udata, uint8_t *stream, int len)
 {
 	int i;
         struct sudata *sud;

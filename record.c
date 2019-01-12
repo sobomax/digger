@@ -14,20 +14,20 @@
 #include "scores.h"
 #include "sprite.h"
 
-char huge *recb,huge *plb,huge *plp;
+static char huge *recb,huge *plb,huge *plp;
 
 bool playing=false,savedrf=false,gotname=false,gotgame=false,drfvalid=true,
      kludge=false;
 
-char rname[128];
+static char rname[128];
 
-int reccc=0,recrl=0,rlleft=0;
-uint32_t recp=0;
-char recd,rld;
+static int reccc=0,recrl=0,rlleft=0;
+static uint32_t recp=0;
+static char recd,rld;
 
-void mprintf(char *f,...);
-void makedir(int16_t *dir,bool *fire,char d);
-char maked(int16_t dir,bool fire);
+static void mprintf(const char *f,...);
+static void makedir(int16_t *dir,bool *fire,char d);
+static char maked(int16_t dir,bool fire);
 
 #ifdef ARM
 #define DEFAULTSN "Digger:Lastgame"
@@ -200,7 +200,7 @@ void recstart(void)
   recp=0;
 }
 
-void mprintf(char *f,...)
+static void mprintf(const char *f,...)
 {
   va_list ap;
   char buf[80];
@@ -215,7 +215,7 @@ void mprintf(char *f,...)
     recp=0;          /* Give up, file is too long */
 }
 
-void makedir(int16_t *dir,bool *fire,char d)
+static void makedir(int16_t *dir,bool *fire,char d)
 {
   if (d>='A' && d<='Z') {
     *fire=true;
@@ -252,7 +252,7 @@ void playgetdir(int16_t *dir,bool *fire)
   }
 }
 
-char maked(int16_t dir,bool fire)
+static char maked(int16_t dir,bool fire)
 {
   char d;
   if (dir==DIR_NONE)

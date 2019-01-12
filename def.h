@@ -10,6 +10,11 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#if defined(_MSC_VER) || defined(__MINGW32__)
+#include <malloc.h>
+#else
+#include <alloca.h>
+#endif
 
 #define DIR_NONE -1
 #define DIR_RIGHT 0
@@ -82,7 +87,7 @@
 #define PATH_MAX 1024
 #endif
 #endif
-#define ININAME strncat(strncpy(malloc(PATH_MAX),getenv("HOME"),PATH_MAX),"/.digger.rc",PATH_MAX)
+#define ININAME strncat(strncpy((char*)alloca(PATH_MAX),getenv("HOME"),PATH_MAX),"/.digger.rc",PATH_MAX)
 #else
 #define ININAME "DIGGER.INI"
 #endif
