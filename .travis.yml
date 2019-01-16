@@ -5,4 +5,10 @@ compiler:
   - gcc
 script:
     make do-test
-
+    make clean
+    make do-test-cmake
+addons:
+  apt:
+    packages:
+      - cmake
+      - cmake-data
