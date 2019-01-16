@@ -93,4 +93,4 @@ do-test:
 do-test-cmake:
 	sh -x ./scripts/do-test-cmmn.sh
 	cmake -G "Unix Makefiles"
-	$(MAKE) -f Makefile
+	$(MAKE) -f Makefile clean all
