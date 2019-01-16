@@ -89,6 +89,8 @@ do-test:
 	SDL_VER=${SDL_VER} ZLIB_VER=${ZLIB_VER} MGW_PREF="${MGW_PREF}" \
 	  MGW64_PREF="${MGW64_PREF}" sh -x ./scripts/do-test.sh
 
+MAKE?=	make
+
 do-test-cmake:
 	cmake -G "Unix Makefiles"
 	$(MAKE) -f Makefile
