@@ -91,4 +91,4 @@ do-test:
 
 do-test-cmake:
 	cmake -G "Unix Makefiles"
-	${MAKE} -f Makefile
+	$(MAKE) -f Makefile
