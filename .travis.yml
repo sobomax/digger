@@ -8,11 +8,8 @@ addons:
     packages:
       - cmake
       - cmake-data
-matrix:
-  include:
-  - name: "GNU Make"
-    env: TARGET="do-test"
-  - name: "CMake"
-    env: TARGET="do-test-cmake"
+env:
+  - TARGET="do-test"
+  - TARGET="do-test-cmake"
 script:
     make "${TARGET}"
