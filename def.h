@@ -12,8 +12,6 @@
 #include <stdbool.h>
 #if defined(_MSC_VER) || defined(__MINGW32__)
 #include <malloc.h>
-#else
-#include <alloca.h>
 #endif
 
 #define DIR_NONE -1
@@ -81,7 +79,7 @@
 #elif defined UNIX && !defined _VGL
 /* While SDL and other X11 related apps could be runned as ordinary user */
 #ifdef __FreeBSD__
-#include <sys/syslimits.h>
+#include <limits.h>
 #else /* I donno what is analog of PATH_MAX for Linux :( */
 #if !defined(PATH_MAX)
 #define PATH_MAX 1024
