@@ -3,6 +3,8 @@ language: c
 compiler:
   - clang
   - gcc
+before_install:
+  - pip install --user cpp-coveralls
 addons:
   apt:
     packages:
