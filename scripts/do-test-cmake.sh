@@ -6,5 +6,5 @@ cmake -G "Unix Makefiles"
 for build_type in debug production
 do
   make BUILD_TYPE=${build_type} clean all
-  mv digger digger_${build_type}
+  mv digger *.gcno *.o ${build_type}/
 done

@@ -23,7 +23,7 @@ fi
 for build_type in debug production
 do
   make ARCH=LINUX BUILD_TYPE=${build_type} clean all
-  mv digger digger_${build_type}
+  mv digger *.gcno *.o ${build_type}/
   if [ "${CC}" != "clang" ]
   then
     make ARCH=MINGW BUILD_TYPE=${build_type} MINGW_DEPS_ROOT=`pwd`/deps clean all
