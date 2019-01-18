@@ -25,7 +25,7 @@ static int reccc=0,recrl=0,rlleft=0;
 static uint32_t recp=0;
 static char recd,rld;
 
-static void mprintf(const char *f,...);
+static void mprintf(const char *f,...) __attribute__((format(printf, 1, 2)));;
 static void makedir(int16_t *dir,bool *fire,char d);
 static char maked(int16_t dir,bool fire);
 
@@ -342,7 +342,7 @@ void recinit(void)
 
 void recputrand(uint32_t randv)
 {
-  mprintf("%08lX\n",randv);
+  mprintf("%08lX\n", (unsigned long)randv);
   reccc=recrl=0;
 }
 
