@@ -11,9 +11,13 @@
 #include <stdint.h>
 #include <stdbool.h>
 #if defined(_MSC_VER) || defined(__MINGW32__)
-#include <malloc.h>
+# include <malloc.h>
 #else
-#include <stdlib.h>
+# if defined(__linux__)
+#  include <alloca.h>
+# else
+#  include <stdlib.h>
+# endif
 #endif
 
 #define DIR_NONE -1
