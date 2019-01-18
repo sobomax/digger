@@ -11,7 +11,9 @@ addons:
       - cmake
       - cmake-data
 env:
-  - TARGET="do-test"
+  - MAKE_ENV="CI_COVERAGE=1" TARGET="do-test"
   - TARGET="do-test-cmake"
 script:
-    make "${TARGET}"
+  - make ${MAKE_ENV} "${TARGET}"
+after_success:
+  - coveralls --exclude CMakeFiles --gcov-options '\-lp'
