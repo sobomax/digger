@@ -4,14 +4,6 @@
 #include "def.h"
 #include "alpha.h"
 
-static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.";
-
-static const int32_t textoffdat[16]={
-   72,   0, -72,-72,
-  144,   0,-288,144,
-  144,-216, 144,-72,
-  144,-216, -72,144};
-
 static const uint8_t cgaletA[]={
   0x0f,0xff,0x00,
   0x3f,0xff,0xc0,

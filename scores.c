@@ -36,8 +36,6 @@ static char scorebuf[512];
 
 uint16_t bonusscore=20000;
 
-static bool gotinitflag=false;
-
 static void readscores(void);
 static void writescores(void);
 static void savescores(void);

@@ -1,6 +1,8 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
+static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.";
+
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
@@ -53,7 +55,6 @@ static void checklevdone(void);
 static int16_t levno(void);
 static void calibrate(void);
 static void parsecmd(int argc,char *argv[]);
-static void patchcga(void);
 static void initlevel(void);
 static void inir(void);
 static int getalllives(void);
@@ -726,12 +727,6 @@ static void parsecmd(int argc,char *argv[])
 
   gs = norepf = false;
 
-#if defined(UNIX)
-  digger_log = stderr;
-#else
-  digger_log = fopen("DIGGER.log", "w+");
-#endif
-
   for (arg=1;arg<argc;arg++) {
     word=argv[arg];
     if (word[0]=='/' || word[0]=='-') {
@@ -806,7 +801,7 @@ static void parsecmd(int argc,char *argv[])
           fprintf(stderr, "Unknown option \"%c%c\"\n", word[0], word[1]);
         }
         finish();
-        printf("DIGGER - Copyright (c) 1983 Windmill software\n"
+        printf("DIGGER - %s\n"
                "Restored 1998 by AJ Software\n"
 #ifdef ARM
                "Acorn port by Julian Brown\n"
@@ -851,7 +846,7 @@ static void parsecmd(int argc,char *argv[])
                "/F = Full-Screen\n"
 #endif
                "/U = Allow unlimited lives\n"
-               "/I = Start on a level other than 1\n");
+               "/I = Start on a level other than 1\n", copyright);
         exit(1);
       }
       if (argch == 'Q')
@@ -956,6 +951,12 @@ static void inir(void)
   char kbuf[80],vbuf[80];
   int i,j,p;
   bool cgaflag;
+
+#if defined(UNIX)
+  digger_log = stderr;
+#else
+  digger_log = fopen("DIGGER.log", "w+");
+#endif
 
   for (i=0;i<NKEYS;i++) {
     sprintf(kbuf,"%s%c",keynames[i],(i>=5 && i<10) ? '2' : 0);
