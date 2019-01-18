@@ -22,6 +22,11 @@ MGW_PREF ?= i686-w64-mingw32
 MINGW_DEPS_ROOT ?= ../
 MGW64_PREF ?= x86_64-w64-mingw32
 
+ifdef CI_COVERAGE
+CFLAGS += --coverage
+LIBS += --coverage
+endif
+
 ifeq ($(ARCH),MINGW)
 CC	=  ${MGW_PREF}-gcc
 WINDRES	?=  ${MGW_PREF}-windres
