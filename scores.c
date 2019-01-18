@@ -19,7 +19,7 @@
 
 static struct scdat
 {
-  int32_t score,nextbs;
+  int32_t score, nextbs, tscore;
 } scdat[DIGGERS];
 
 static char highbuf[10];
@@ -70,6 +70,11 @@ int32_t getscore0(void)
   return scdat[0].score;
 }
 #endif
+
+int32_t gettscore(int n)
+{
+  return scdat[n].tscore + scdat[n].score;
+}
 
 static void
 readscores(void)
@@ -145,9 +150,10 @@ void loadscores(void)
 
 void zeroscores(void)
 {
-  scdat[0].score=scdat[1].score=0;
-  scdat[0].nextbs=scdat[1].nextbs=bonusscore;
-  scoret=0;
+  scdat[0].score = scdat[1].score = 0;
+  scdat[0].tscore = scdat[1].tscore = 0;
+  scdat[0].nextbs = scdat[1].nextbs = bonusscore;
+  scoret = 0;
 }
 
 void writecurscore(struct digger_draw_api *ddap, int col)
@@ -175,8 +181,10 @@ void drawscores(struct digger_draw_api *ddap)
 void addscore(struct digger_draw_api *ddap, int n,int16_t score)
 {
   scdat[n].score+=score;
-  if (scdat[n].score>999999l)
+  if (scdat[n].score>999999l) {
+    scdat[n].tscore += scdat[n].score;
     scdat[n].score=0;
+  }
   if (n==0)
     writenum(ddap, scdat[n].score,0,0,6,1);
   else

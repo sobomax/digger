@@ -22,6 +22,7 @@ void addscore(struct digger_draw_api *, int n,int16_t score);
 #ifdef INTDRF
 int32_t getscore0(void);
 #endif
+int32_t gettscore(int n);
 
 extern uint16_t bonusscore;
 extern int32_t scoret;
