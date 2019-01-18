@@ -16,4 +16,4 @@ env:
 script:
   - make ${MAKE_ENV} "${TARGET}"
 after_success:
-  - coveralls --exclude CMakeFiles --gcov-options '\-lp'
+  - if [ "${CC}" = "gcc" ]; then coveralls --exclude CMakeFiles --gcov-options '\-lp'; fi
