@@ -30,9 +30,3 @@ do
     make ARCH=MINGW64 BUILD_TYPE=${build_type} MINGW_DEPS_ROOT=`pwd`/deps clean all
   fi
 done
-
-for x in tests/data/*.drf
-do
-  echo -n `basename ${x}`": "
-  SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy DIGGER_CI_RUN=1 ./digger_production /S:0 /E:${x}
-done

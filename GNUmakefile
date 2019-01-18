@@ -94,8 +94,9 @@ do-test:
 	sh -x ./scripts/do-test-cmmn.sh
 	SDL_VER=${SDL_VER} ZLIB_VER=${ZLIB_VER} MGW_PREF="${MGW_PREF}" \
 	  MGW64_PREF="${MGW64_PREF}" sh -x ./scripts/do-test.sh
+	sh -x ./scripts/do-test-run.sh
 
 do-test-cmake:
 	sh -x ./scripts/do-test-cmmn.sh
-	cmake -G "Unix Makefiles"
-	$(MAKE) -f Makefile clean all
+	sh -x ./scripts/do-test-cmake.sh
+	sh -x ./scripts/do-test-run.sh
