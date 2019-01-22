@@ -1,4 +1,6 @@
 *.o
+*.gcda
+*.gcno
 digger
 digger.exe
 digger.res
@@ -8,3 +10,4 @@ CPackConfig.cmake
 CPackSourceConfig.cmake
 Makefile
 cmake_install.cmake
+deps/
