@@ -16,4 +16,4 @@ env:
 script:
   - make ${MAKE_ENV} "${TARGET}"
 after_success:
-  - if [ "${CC}" = "gcc" -a "${TARGET}" = "do-test" ]; then coveralls --exclude CMakeFiles --gcov-options '\-lp'; fi
+  - if [ "${TARGET}" = "do-test" ]; then coveralls --exclude CMakeFiles --gcov-options '\-lp'; fi
