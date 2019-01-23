@@ -104,6 +104,7 @@ void soundint(void)
     else
       soundoff();
 #endif
+#if 0
     soundemeraldupdate();
     soundwobbleupdate();
     soundddieupdate();
@@ -116,6 +117,7 @@ void soundint(void)
     soundfallupdate();
     sound1upupdate();
     soundbonusupdate();
+#endif
     if (t0val==0x7d00 || t2val!=40)
       setsoundt2();
     else {
