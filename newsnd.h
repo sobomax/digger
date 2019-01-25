@@ -14,4 +14,4 @@ void s1settimer0(uint16_t t0);
 void s1timer0(uint16_t t0);
 void s1timer2(uint16_t t2);
 
-uint8_t getsample(void);
+int16_t getsample(void);

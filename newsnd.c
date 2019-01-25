@@ -30,7 +30,7 @@ static uint16_t pwlut[51];
 
 extern int16_t spkrmode,pulsewidth;
 
-uint8_t getsample(void);
+static uint8_t getsampleX(void);
 
 /* Initialise circular buffer and PC speaker emulator
 
@@ -50,9 +50,23 @@ uint8_t getsample(void);
    to take into account. bufsize should also be a power of 2.
 */
 
+#include <assert.h>
+#include "soundgen.h"
+
+static struct sgen_state *ssp;
+
+int16_t getsample(void)
+{
+
+  return (sgen_getsample(ssp));
+}
+
 void soundinitglob(uint16_t bufsize,uint16_t samprate)
 {
   int i;
+
+  ssp = sgen_ctor(samprate, 2);
+  assert(ssp != NULL);
   setsounddevice(samprate,bufsize);
   buffer=(uint8_t*)malloc((bufsize<<1)*sizeof(uint8_t));
   rate=(int)(0x1234ddul/(uint32_t)samprate);
@@ -71,7 +85,7 @@ void s1setupsound(void)
   inittimer();
   curtime=0;
   startint8();
-  buffer[firsts]=getsample();
+  buffer[firsts]=getsampleX();
   fillbuffer();
   initsounddevice();
 }
@@ -90,7 +104,7 @@ void s1killsound(void)
 void s1fillbuffer(void)
 {
   while (firsts!=last) {
-    buffer[last]=getsample();
+    buffer[last]=getsampleX();
     last=(last+1)&(size-1);
   }
 }
@@ -170,7 +184,7 @@ static bool subcarry(uint16_t *dest,uint16_t sub)
    be a little more complicated, but its much faster.
 */
 
-uint8_t getsample(void)
+static uint8_t getsampleX(void)
 {
   bool f=false,t2sw0;
   uint16_t spkrt2=0,noi8=0,complicate=0,not2=0;
