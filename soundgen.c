@@ -15,7 +15,7 @@ struct sgen_band {
     double amp;
     struct {
         double prd;
-        struct pdres lastpos;
+        uint64_t lastspos;
     } wrk;
 };
 
@@ -51,7 +51,7 @@ sgen_setband(struct sgen_state *ssp, int band, double freq, double amp)
 
     ssp->bands[band].freq = freq;
     ssp->bands[band].amp = amp;
-    ssp->bands[band].wrk.prd = 1 / freq;
+    ssp->bands[band].wrk.prd = 1.0 / freq;
 }
 
 static void
@@ -65,7 +65,7 @@ precisediv(uint64_t x, uint64_t y, struct pdres *pdrp)
 }
 
 static void
-precisedivf(struct pdres *xp, double y, struct pdres *pdrp)
+precisedivf(const struct pdres *xp, double y, struct pdres *pdrp)
 {
     double res, nres;
 
@@ -74,15 +74,6 @@ precisedivf(struct pdres *xp, double y, struct pdres *pdrp)
     pdrp->nres = trunc(nres);
     res = xp->ires - nres;
     pdrp->frem = fmod(res + xp->frem, y);
-}
-
-static double
-precisefmod(struct pdres *xp, double y)
-{
-    double res;
-
-    res = xp->ires - (y * trunc(xp->ires / y));
-    return(fmod(res + xp->frem, y));
 }
 
 int16_t
@@ -101,22 +92,17 @@ sgen_getsample(struct sgen_state *ssp)
         struct pdres cpos, tpos;
 
         sbp = &ssp->bands[i];
-#if 1
         tpos = pos;
-        tpos.ires -= sbp->wrk.lastpos.nres;
+        tpos.ires -= sbp->wrk.lastspos;
         precisedivf(&tpos, sbp->wrk.prd, &cpos);
-        cpos.ires += sbp->wrk.lastpos.ires;
-        cpos.nres += sbp->wrk.lastpos.nres;
-#else
-        cpos.frem = precisefmod(&pos, sbp->wrk.prd) * 2;
-#endif
+        if (cpos.nres > 0)
+            sbp->wrk.lastspos += cpos.nres;
 
         if ((cpos.frem * 2) < sbp->wrk.prd) {
             osample += sbp->amp * INT16_MAX;
         } else {
             osample += -sbp->amp * INT16_MAX;
         }
-        sbp->wrk.lastpos = cpos;
     }
     osample /= ssp->nbands;
     ssp->step += 1;
@@ -150,6 +136,7 @@ sgen_test(void)
     ssp = sgen_ctor(TEST_SRATE, 2);
     assert(ssp != NULL);
     sgen_setband(ssp, 0, 1607, 1.0);
+    //sgen_setband(ssp, 0, 1.0 / 3.0, 1.0);
     sgen_setband(ssp, 1, 2087, 0.0);
     for (j = 0; j < 64; j += 1) {
         ssp->step = ((uint64_t)1 << j) - 1;
