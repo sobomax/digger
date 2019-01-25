@@ -7,6 +7,7 @@
 #include "hardware.h"
 #include "digger.h"
 #include "sound.h"
+#include "newsnd.h"
 
 /* The function which empties the circular buffer should get samples from
    buffer[firsts] and then do firsts=(firsts+1)&(size-1); This function is
@@ -58,6 +59,7 @@ static struct sgen_state *ssp;
 int16_t getsample(void)
 {
 
+  getsampleX();
   return (sgen_getsample(ssp));
 }
 
@@ -74,8 +76,11 @@ void soundinitglob(uint16_t bufsize,uint16_t samprate)
   last=1;
   size=bufsize<<1;
   t2sw=false;     /* As it should be left */
-  for (i=0;i<=rate;i++)
+  for (i=0;i<=rate;i++) {
+    //j = ((MIN_SAMP - MAX_SAMP) / 2) + (i * (MAX_SAMP - MIN_SAMP)) / rate;
+    //lut[i] = (j >= 0) ? (uint8_t)j : (uint8_t)(-j);
     lut[i]=(uint8_t)(MIN_SAMP+(i*(MAX_SAMP-MIN_SAMP))/rate);
+  }
   for (i=1;i<=50;i++)
     pwlut[i]=(16+i*18)>>2; /* Counted timer ticks in original */
 }
@@ -116,6 +121,13 @@ void s1fillbuffer(void)
 
 void s1settimer2(uint16_t t2)
 {
+
+  if (t2 > 40 && t2 < 0x4000) {
+    sgen_setband(ssp, 1, t2, 1.0);
+  } else {
+    sgen_setband(ssp, 1, 0.0, 0.0);
+  }
+
   if (t2==40)
     t2=rate;   /* Otherwise aliasing would cause noise artifacts */
   t2>>=1;
@@ -144,6 +156,13 @@ void s1timer0(uint16_t t0)
 
 void s1timer2(uint16_t t2)
 {
+
+  if (t2 > 40 && t2 < 0x4000) {
+    sgen_setband(ssp, 1, t2, 1.0);
+  } else {
+    sgen_setband(ssp, 1, 0.0, 0.0);
+  }
+
   if (t2==40)
     t2=rate;    /* Otherwise aliasing would cause noise artifacts */
   t2>>=1;
