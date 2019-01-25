@@ -1,3 +1,29 @@
+/*
+ * Copyright (c) 2018 Sippy Software, Inc., http://www.sippysoft.com
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+ * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+ * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ */
+
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -16,6 +42,7 @@ struct sgen_band {
     struct {
         double prd;
         uint64_t lastspos;
+        int16_t lut[2];
     } wrk;
 };
 
@@ -24,7 +51,8 @@ struct sgen_state {
     uint32_t srate;
     int nbands;
     struct {
-        struct pdres lastpos;
+        uint64_t lastipos;
+        uint64_t lastnpos;
     } wrk;
     struct sgen_band bands[];
 };
@@ -46,12 +74,21 @@ sgen_ctor(uint32_t srate, int nbands)
 }
 
 void
+sgen_dtor(struct sgen_state *ssp)
+{
+
+    free(ssp);
+}
+
+void
 sgen_setband(struct sgen_state *ssp, int band, double freq, double amp)
 {
 
     ssp->bands[band].freq = freq;
     ssp->bands[band].amp = amp;
     ssp->bands[band].wrk.prd = 1.0 / freq;
+    ssp->bands[band].wrk.lut[0] = amp * INT16_MAX;
+    ssp->bands[band].wrk.lut[1] = -amp * INT16_MAX;
 }
 
 static void
@@ -84,9 +121,9 @@ sgen_getsample(struct sgen_state *ssp)
     struct pdres pos;
 
     osample = 0;
-    precisediv(ssp->step - ssp->wrk.lastpos.nres, ssp->srate, &pos);
-    pos.nres += ssp->wrk.lastpos.nres;
-    pos.ires += ssp->wrk.lastpos.ires;
+    precisediv(ssp->step - ssp->wrk.lastnpos, ssp->srate, &pos);
+    ssp->wrk.lastnpos += pos.nres;
+    pos.ires += ssp->wrk.lastipos;
     for (i = 0; i < ssp->nbands; i++) {
         struct sgen_band *sbp;
         struct pdres cpos, tpos;
@@ -99,14 +136,14 @@ sgen_getsample(struct sgen_state *ssp)
             sbp->wrk.lastspos += cpos.nres;
 
         if ((cpos.frem * 2) < sbp->wrk.prd) {
-            osample += sbp->amp * INT16_MAX;
+            osample += sbp->wrk.lut[0];
         } else {
-            osample += -sbp->amp * INT16_MAX;
+            osample += sbp->wrk.lut[1];
         }
     }
     osample /= ssp->nbands;
     ssp->step += 1;
-    ssp->wrk.lastpos = pos;
+    ssp->wrk.lastipos = pos.ires;
     return (osample);
 }
 
