@@ -45,6 +45,7 @@ struct sgen_band {
         double prd;
         uint64_t lastspos;
         int16_t lut[2];
+        int disabled;
     } wrk;
 };
 
@@ -82,15 +83,24 @@ sgen_dtor(struct sgen_state *ssp)
     free(ssp);
 }
 
+#include <assert.h>
+
 void
 sgen_setband(struct sgen_state *ssp, int band, double freq, double amp)
 {
+    struct sgen_band *sbp;
 
-    ssp->bands[band].freq = freq;
-    ssp->bands[band].amp = amp;
-    ssp->bands[band].wrk.prd = 1.0 / freq;
-    ssp->bands[band].wrk.lut[0] = amp * INT16_MAX;
-    ssp->bands[band].wrk.lut[1] = -amp * INT16_MAX;
+    sbp = &ssp->bands[band];
+    sbp->freq = freq;
+    sbp->amp = amp;
+    assert(signbit(freq) == 0);
+    if (freq > 0.0 && amp > 0.0) {
+        sbp->wrk.prd = 1.0 / freq;
+        sbp->wrk.lut[0] = amp * INT16_MAX;
+        sbp->wrk.lut[1] = -amp * INT16_MAX;
+    } else {
+        sbp->wrk.disabled = 1;
+    }
 }
 
 static void
@@ -131,6 +141,8 @@ sgen_getsample(struct sgen_state *ssp)
         struct pdres cpos, tpos;
 
         sbp = &ssp->bands[i];
+        if (sbp->wrk.disabled)
+            continue;
         tpos = pos;
         tpos.ires -= sbp->wrk.lastspos;
         precisedivf(&tpos, sbp->wrk.prd, &cpos);
@@ -149,7 +161,6 @@ sgen_getsample(struct sgen_state *ssp)
     return (osample);
 }
 
-#include <assert.h>
 #include <stdio.h>
 
 //#define TEST_SRATE 44100
