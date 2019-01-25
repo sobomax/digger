@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018 Sippy Software, Inc., http://www.sippysoft.com
+ * Copyright (c) 2019 Sippy Software, Inc., http://www.sippysoft.com
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -28,6 +28,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "soundgen.h"
 
 struct pdres {
     uint64_t ires;
