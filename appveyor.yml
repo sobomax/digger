@@ -46,6 +46,8 @@ build_script:
 
     make STRIP=strip BUILD_TYPE=debug clean all
 
+    copy digger.exe digger_debug.exe
+
     make STRIP=strip BUILD_TYPE=production clean all
 
 
@@ -56,7 +58,7 @@ build_script:
     copy ..\SDL2-2.0.5\i686-w64-mingw32\bin\SDL2.dll
 
 
-    zip -j digger-win32.zip digger.exe digger.txt zlib1.dll SDL2.dll
+    zip -j digger-win32.zip digger.exe digger_debug.exe digger.txt zlib1.dll SDL2.dll
 
 
     echo === Create Installer ===============================================
