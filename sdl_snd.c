@@ -76,11 +76,8 @@ static void fill_audio(void *udata, uint8_t *stream, int len)
 {
 	int i;
         struct sudata *sud;
-#if defined(SND_FILTER)
+#if !defined(NO_SND_FILTER)
         double sample;
-#else
-	int16_t sample;
-	static int zerolength  = 0;
 #endif
 
         sud = (struct sudata *)udata;
@@ -90,22 +87,12 @@ static void fill_audio(void *udata, uint8_t *stream, int len)
 		len = sud->bsize;
         }
 	for (i = 0; i < len / sizeof(int16_t); i++) {
-#if defined(SND_FILTER)
+#if !defined(NO_SND_FILTER)
 		sample = getsample();
 		sample = bqd_apply(sud->hp_fltr, (sample - 127.0) * 128.0);
                 sud->buf[i] = round(bqd_apply(sud->lp_fltr, sample));
 #else
-		sample = getsample();
-		if (sample == 127) {
-			zerolength += 1;
-		} else {
-			static int b=0; while (b);
-			zerolength = 0;
-		}
-		if (zerolength > 0 && zerolength % 1000 == 0) {
-			printf("%d\n", zerolength);
-		}
-		sud->buf[i] = (sample - 127) * 128;
+		sud->buf[i] = (getsample() - 127) * 128;
 #endif
         }
 
