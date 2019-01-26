@@ -57,6 +57,10 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
                 free(sud);
                 return (false);
         }
+#if defined(DIGGER_DEBUG)
+	fprintf(digger_log, "setsounddevice: wanted.samples=%d obtained.samples=%d\n",
+	    wanted.samples, sud->obtained.samples);
+#endif
         sud->bsize = sud->obtained.size;
 	sud->buf = (int16_t*)malloc(sud->bsize);
         if (sud->buf == NULL) {
