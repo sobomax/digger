@@ -88,7 +88,7 @@ endif
 	$(WINDRES) $< -O coff -o $@
 
 clean:
-	rm -f $(OBJS) digger$(ESUFFIX)
+	rm -f $(OBJS) digger$(ESUFFIX) *.gcov *.gcda *.gcno
 
 do-test:
 	sh -x ./scripts/do-test-cmmn.sh
@@ -100,3 +100,14 @@ do-test-cmake:
 	sh -x ./scripts/do-test-cmmn.sh
 	sh -x ./scripts/do-test-cmake.sh
 	sh -x ./scripts/do-test-run.sh
+
+coverage-report:
+	for s in $(OBJS); \
+	do \
+	  gcov "$${s%.o}.c"; \
+	done
+
+coverage-report-html:
+	rm -rf ./digger_lcov
+	lcov --directory . --capture --output-file digger_lcov/digger.info
+	genhtml -o digger_lcov digger_lcov/digger.info
