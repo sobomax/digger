@@ -27,6 +27,7 @@ static int16_t i8pulse=0;
 static bool t2f=false,t2sw,i8flag=false;
 static uint8_t lut[257];
 static uint16_t pwlut[51];
+static uint16_t timercount = 0;
 
 extern int16_t spkrmode,pulsewidth;
 
