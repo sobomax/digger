@@ -6,8 +6,12 @@
 #include "device.h"
 #include "hardware.h"
 #include "digger.h"
+#if !defined(newsnd_test)
 #include "sound.h"
+#endif
 #include "newsnd.h"
+
+#define PIT_FREQ 0x1234ddul
 
 /* The function which empties the circular buffer should get samples from
    buffer[firsts] and then do firsts=(firsts+1)&(size-1); This function is
@@ -30,7 +34,11 @@ static uint8_t lut[257];
 static uint16_t pwlut[51];
 static uint16_t timercount = 0;
 
+#if !defined(newsnd_test)
 extern int16_t spkrmode,pulsewidth;
+#else
+static int16_t spkrmode=0,timerrate=0x7d0,pulsewidth=1;
+#endif
 
 static uint8_t getsampleX(void);
 
@@ -70,9 +78,11 @@ void soundinitglob(uint16_t bufsize,uint16_t samprate)
 
   ssp = sgen_ctor(samprate, 2);
   assert(ssp != NULL);
+#if !defined(newsnd_test)
   setsounddevice(samprate,bufsize);
+#endif
   buffer=(uint8_t*)malloc((bufsize<<1)*sizeof(uint8_t));
-  rate=(int)(0x1234ddul/(uint32_t)samprate);
+  rate=(int)(PIT_FREQ/(uint32_t)samprate);
   firsts=0;
   last=1;
   size=bufsize<<1;
@@ -88,20 +98,26 @@ void soundinitglob(uint16_t bufsize,uint16_t samprate)
 
 void s1setupsound(void)
 {
+#if !defined(newsnd_test)
   inittimer();
   curtime=0;
   startint8();
+#endif
   buffer[firsts]=getsampleX();
+#if !defined(newsnd_test)
   fillbuffer();
   initsounddevice();
+#endif
 }
 
 void s1killsound(void)
 {
+#if !defined(newsnd_test)
   setsoundt2();
   timer2(40);
   stopint8();
   killsounddevice();
+#endif
 }
 
 /* This function is called regularly by the Digger engine to keep the circular
@@ -124,7 +140,7 @@ void s1settimer2(uint16_t t2)
 {
 
   if (t2 > 40 && t2 < 0x4000) {
-    sgen_setband(ssp, 1, t2, 1.0);
+    sgen_setband(ssp, 1, PIT_FREQ / t2, 1.0);
   } else {
     sgen_setband(ssp, 1, 0.0, 0.0);
   }
@@ -253,7 +269,9 @@ static uint8_t getsampleX(void)
 
   if (f) {
     if (addcarry(&timercount,timerrate)) {
+#if !defined(newsnd_test)
       soundint(); /* Update music and sound effects 72.8 Hz */
+#endif
       timercount-=0x4000;
     }
     i8flag=false;
@@ -407,3 +425,29 @@ static uint8_t getsampleX(void)
   }
   return MIN_SAMP; /* This should never happen */
 }
+
+#if defined(newsnd_test)
+int
+newsnd_test(void)
+{
+  int i, ps, ntrans;
+  uint8_t *s;
+  FILE *of;
+
+  s = malloc(62799 * 1000);
+
+  soundinitglob(1024, 62799);
+  s1settimer2(210);
+  t2rate = timerrate = 6834;
+  t2sw = true;
+  pulsewidth = 6;
+
+  for (i = 0; i < 62799 * 1000; i++) {
+    s[i] = getsampleX();
+  }
+  of = fopen("newsnd_test.out", "w");
+  assert(of != NULL);
+  assert(fwrite(s, 62799 * 1000, 1, of) == 1);
+  assert(fclose(of) == 0);
+}
+#endif
