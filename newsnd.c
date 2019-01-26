@@ -157,17 +157,8 @@ void s1timer0(uint16_t t0)
 void s1timer2(uint16_t t2)
 {
 
-  if (t2 > 40 && t2 < 0x4000) {
-    sgen_setband(ssp, 1, t2, 1.0);
-  } else {
-    sgen_setband(ssp, 1, 0.0, 0.0);
-  }
-
-  if (t2==40)
-    t2=rate;    /* Otherwise aliasing would cause noise artifacts */
-  t2>>=1;
-  t2new=t2rate=t2;
-  t2v=t2rate;
+  s1settimer2(t2);
+  t2rate=t2;
 }
 
 static bool addcarry(uint16_t *dest,uint16_t add)
