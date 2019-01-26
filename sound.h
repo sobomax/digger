@@ -38,7 +38,6 @@ void timer2(uint16_t t2v);
 
 extern bool soundflag,musicflag;
 extern int16_t volume,timerrate,spkrmode,pulsewidth;
-extern uint16_t timercount;
 
 extern void (*setupsound)(void);
 extern void (*killsound)(void);
