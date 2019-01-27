@@ -63,7 +63,7 @@
 /* using lesser buffer size will break ie. alsa on linux, no reason to use
  * lesser size anyways...
  */
-#define DEFAULT_BUFFER 2048
+#define DEFAULT_BUFFER 512
 #ifdef ARM
 #define DEF_SND_DEV 1
 #else
