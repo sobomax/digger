@@ -163,11 +163,19 @@ void s1setspkrt2(void)
 
 void s1settimer0(uint16_t t0)
 {
-  t0v=t0rate=t0;
+  s1timer0(t0);
+  t0v=t0;
 }
 
 void s1timer0(uint16_t t0)
 {
+
+  if (t0 > 40 && t0 < 0x4000) {
+    sgen_setband(ssp, 0, PIT_FREQ / t0, (pulsewidth - 1) / 49.0);
+  } else {
+    sgen_setband(ssp, 0, 0.0, 0.0);
+  }
+
   t0rate=t0;
 }
 
