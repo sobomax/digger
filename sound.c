@@ -811,13 +811,13 @@ static void sett0(void)
     timer2(t2val);
     if (t0val<1000 && (wavetype==1 || wavetype==2))
       t0val=1000;
-    timer0(t0val);
     timerrate=t0val;
     if (musvol<1)
       musvol=1;
     if (musvol>50)
       musvol=50;
     pulsewidth=musvol*volume;
+    timer0(t0val);
     setsoundmode();
   }
 }
