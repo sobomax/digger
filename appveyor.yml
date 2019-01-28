@@ -5,8 +5,11 @@ build_script:
 
 
     set PATH=%MINGW%\bin;C:\MinGW\msys\1.0\bin;%PATH%
+
     set ARCH=MINGW
+
     set WINDRES=windres
+
     set SDL_VER=2.0.5
 
     echo === Environment ====================================================
@@ -36,7 +39,7 @@ build_script:
 
     echo === Download SDL ===================================================
 
-    curl -s https://www.libsdl.org/release/SDL2-devel-%SDL_VER%-mingw.tar.gz | tar -xz
+    curl -s "https://www.libsdl.org/release/SDL2-devel-%SDL_VER%-mingw.tar.gz" | tar -xz
 
     echo === Build Digger ===================================================
 
@@ -53,7 +56,7 @@ build_script:
 
     copy ..\zlib-1.2.11\zlib1.dll
 
-    copy ..\SDL2-%SDL_VER%\i686-w64-mingw32\bin\SDL2.dll
+    copy "..\SDL2-%SDL_VER%\i686-w64-mingw32\bin\SDL2.dll"
 
 
     zip -j digger-win32.zip digger.exe digger_debug.exe digger.txt zlib1.dll SDL2.dll
