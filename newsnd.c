@@ -114,7 +114,7 @@ void s1killsound(void)
 {
 #if !defined(newsnd_test)
   setsoundt2();
-  timer2(40);
+  timer2(40, false);
   stopint8();
   killsounddevice();
 #endif
@@ -136,11 +136,19 @@ void s1fillbuffer(void)
    try to mess with, or even understand, the following. I don't understand most
    of it myself, and I wrote it. */
 
-void s1settimer2(uint16_t t2)
+void s1settimer2(uint16_t t2, bool mode)
 {
 
   if (t2 > 40 && t2 < 0x4000) {
-    sgen_setband(ssp, 1, PIT_FREQ / t2, 1.0);
+    if (!mode) {
+      sgen_setband(ssp, 1, PIT_FREQ / t2, 1.0);
+    } else {
+      double frq;
+
+      frq = (double)(PIT_FREQ / t2) - (double)(PIT_FREQ / t0rate);
+      sgen_setband_mod(ssp, 1, frq, 0.0, 1.0);
+      sgen_setmuteband(ssp, 1, 0);
+    }
   } else {
     sgen_setband(ssp, 1, 0.0, 0.0);
   }
@@ -154,6 +162,8 @@ void s1settimer2(uint16_t t2)
 void s1soundoff(void)
 {
   t2sw=false;
+  sgen_setmuteband(ssp, 0, 1);
+  sgen_setmuteband(ssp, 1, 1);
 }
 
 void s1setspkrt2(void)
@@ -161,8 +171,13 @@ void s1setspkrt2(void)
   t2sw=true;
   if (spkrmode == 0) {
       sgen_setmuteband(ssp, 0, 1);
-  } else {
+      sgen_setmuteband(ssp, 1, 0);
+  } else if (spkrmode == 1) {
       sgen_setmuteband(ssp, 0, 0);
+      sgen_setmuteband(ssp, 1, 1);
+  } else {
+      sgen_setmuteband(ssp, 0, 1);
+      sgen_setmuteband(ssp, 1, 1);
   }
 }
 
@@ -184,10 +199,10 @@ void s1timer0(uint16_t t0)
   t0rate=t0;
 }
 
-void s1timer2(uint16_t t2)
+void s1timer2(uint16_t t2, bool mode)
 {
 
-  s1settimer2(t2);
+  s1settimer2(t2, mode);
   t2rate=t2;
 }
 
@@ -450,7 +465,7 @@ newsnd_test(void)
   s = malloc(62799 * 1000);
 
   soundinitglob(1024, 62799);
-  s1settimer2(210);
+  s1settimer2(210, false);
   t2rate = timerrate = 6834;
   t2sw = true;
   pulsewidth = 6;

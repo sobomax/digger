@@ -63,8 +63,8 @@ void (*soundoff)(void)=s0soundoff;
 void (*setspkrt2)(void)=s0setspkrt2;
 void (*settimer0)(uint16_t t0v)=s0settimer0;
 void (*timer0)(uint16_t t0v)=s0timer0;
-void (*settimer2)(uint16_t t2v)=s0settimer2;
-void (*timer2)(uint16_t t2v)=s0timer2;
+void (*settimer2)(uint16_t t2v, bool mode)=s0settimer2;
+void (*timer2)(uint16_t t2v, bool mod)=s0timer2;
 void (*soundkillglob)(void)=s0soundkillglob;
 
 bool sndflag=false,soundpausedflag=false;
@@ -77,10 +77,10 @@ int16_t randnos(int16_t n)
   return (int16_t)((randvs&0x7fffffffl)%n);
 }
 
-void sett2val(int16_t t2v)
+void sett2val(int16_t t2v, bool mode)
 {
   if (sndflag)
-    timer2(t2v);
+    timer2(t2v, mode);
 }
 
 void soundint(void)
@@ -90,7 +90,7 @@ void soundint(void)
     sndflag=musicflag=true;
   if (!soundflag && sndflag) {
     sndflag=false;
-    timer2(40);
+    timer2(40, false);
     setsoundt2();
     soundoff();
   }
@@ -123,7 +123,7 @@ void soundint(void)
       setsoundmode();
       sett0();
     }
-    sett2val(t2val);
+    sett2val(t2val, false);
   }
 }
 
@@ -194,6 +194,7 @@ static const int16_t newlevjingle[11]={0x8e8,0x712,0x5f2,0x7f0,0x6ac,0x54c,
 
 static void soundlevdoneupdate(void)
 {
+
   if (sndflag) {
     if (nljpointer<11)
       t2val=newlevjingle[nljpointer];
@@ -201,7 +202,7 @@ static void soundlevdoneupdate(void)
     musvol=50;
     setsoundmode();
     sett0();
-    sett2val(t2val);
+    sett2val(t2val, true);
     if (nljnoteduration>0)
       nljnoteduration--;
     else {
@@ -810,7 +811,7 @@ void soundpauseoff(void)
 static void sett0(void)
 {
   if (sndflag) {
-    timer2(t2val);
+    timer2(t2val, false);
     if (t0val<1000 && (wavetype==1 || wavetype==2))
       t0val=1000;
     timerrate=t0val;
@@ -863,13 +864,13 @@ void stopint8(void)
     restoreint8();
     int8flag=false;
   }
-  sett2val(40);
+  sett2val(40, false);
   setspkrt2();
 }
 
 void initsound(void)
 {
-  settimer2(40);
+  settimer2(40, false);
   setspkrt2();
   settimer0(0);
   wavetype=2;
@@ -891,7 +892,7 @@ void initsound(void)
 static void s0killsound(void)
 {
   setsoundt2();
-  timer2(40);
+  timer2(40, false);
   stopint8();
 }
 

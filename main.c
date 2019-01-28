@@ -634,7 +634,7 @@ void testpause(void)
   int i;
   if (pausef) {
     soundpause();
-    sett2val(40);
+    sett2val(40, false);
     setsoundt2();
     cleartopline();
     outtext(ddap, "PRESS ANY KEY",80,0,1);
