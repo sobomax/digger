@@ -159,6 +159,11 @@ void s1soundoff(void)
 void s1setspkrt2(void)
 {
   t2sw=true;
+  if (spkrmode == 0) {
+      sgen_setmuteband(ssp, 0, 1);
+  } else {
+      sgen_setmuteband(ssp, 0, 0);
+  }
 }
 
 void s1settimer0(uint16_t t0)
