@@ -29,5 +29,6 @@ struct sgen_state;
 struct sgen_state *sgen_ctor(uint32_t srate, int nbands);
 void sgen_dtor(struct sgen_state *ssp);
 void sgen_setband(struct sgen_state *ssp, int band, double freq, double amp);
+void sgen_setband_mod(struct sgen_state *ssp, int band, double freq, double a0, double a1);
 int sgen_setmuteband(struct sgen_state *ssp, int band, int muted);
 int16_t sgen_getsample(struct sgen_state *ssp);

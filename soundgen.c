@@ -38,7 +38,10 @@ struct pdres {
     double frem;
 };
 
+enum band_types {BND_GEN, BND_MOD};
+
 struct sgen_band {
+    enum band_types b_type;
     double freq;
     double amp;
     struct {
@@ -96,6 +99,7 @@ sgen_setband(struct sgen_state *ssp, int band, double freq, double amp)
     struct sgen_band *sbp;
 
     sbp = &ssp->bands[band];
+    sbp->b_type = BND_GEN;
     sbp->freq = freq;
     sbp->amp = amp;
     assert(signbit(freq) == 0);
@@ -104,6 +108,26 @@ sgen_setband(struct sgen_state *ssp, int band, double freq, double amp)
         sbp->wrk.lut[0] = amp * INT16_MAX;
         sbp->wrk.lut[1] = -amp * INT16_MAX;
 	sbp->wrk.disabled = 0;
+    } else {
+        sbp->wrk.disabled = 1;
+    }
+}
+
+void
+sgen_setband_mod(struct sgen_state *ssp, int band, double freq, double a0, double a1)
+{
+    struct sgen_band *sbp;
+
+    sbp = &ssp->bands[band];
+    sbp->b_type = BND_MOD;
+    sbp->freq = freq;
+    sbp->amp = a1 - a0;
+    assert(signbit(freq) == 0);
+    if (freq > 0.0) {
+        sbp->wrk.prd = 1.0 / freq;
+        sbp->wrk.lut[0] = a0 * INT16_MAX;
+        sbp->wrk.lut[1] = a1 * INT16_MAX;
+        sbp->wrk.disabled = 0;
     } else {
         sbp->wrk.disabled = 1;
     }
@@ -147,10 +171,12 @@ int16_t
 sgen_getsample(struct sgen_state *ssp)
 {
     int32_t osample;
-    int i;
+    int32_t omod;
+    int i, j;
     struct pdres pos;
 
     osample = 0;
+    omod = INT16_MAX;
     precisediv(ssp->step - ssp->wrk.lastnpos, ssp->srate, &pos);
     ssp->wrk.lastnpos += pos.nres;
     pos.ires += ssp->wrk.lastipos;
@@ -168,17 +194,27 @@ sgen_getsample(struct sgen_state *ssp)
             sbp->wrk.lastspos += cpos.nres;
 
         if ((cpos.frem * 2) < sbp->wrk.prd) {
-            osample += sbp->wrk.lut[0];
-        } else {
-            osample += sbp->wrk.lut[1];
-        }
+	    j = 0;
+	} else {
+	    j = 1;
+	}
+        if (sbp->b_type == BND_GEN) {
+            osample += sbp->wrk.lut[j];
+	} else {
+	    omod *= sbp->wrk.lut[j];
+	    omod /= INT16_MAX;
+	}
     }
     osample /= ssp->nbands;
+    if (omod != INT16_MAX) {
+        osample = (osample * omod) / INT16_MAX;
+    }
     ssp->step += 1;
     ssp->wrk.lastipos = pos.ires;
     return (osample);
 }
 
+#if defined(sgen_test)
 #include <stdio.h>
 
 //#define TEST_SRATE 44100
@@ -199,13 +235,16 @@ sgen_test(void)
     struct wavestats wstats, wstats_prev;
     double rfreq;
     FILE *of;
-    int16_t obuf[TEST_SRATE * TEST_DUR];
+    int16_t *obuf;
 
+    obuf = malloc(TEST_SRATE * TEST_DUR * sizeof(obuf[0]));
+    assert(obuf != NULL);
     ssp = sgen_ctor(TEST_SRATE, 2);
     assert(ssp != NULL);
-    sgen_setband(ssp, 0, 1607, 1.0);
+    sgen_setband(ssp, 0, 1607.0, 1.0);
     //sgen_setband(ssp, 0, 1.0 / 3.0, 1.0);
-    sgen_setband(ssp, 1, 2087, 0.0);
+    //sgen_setband(ssp, 1, 2087, 0.0);
+    sgen_setband_mod(ssp, 1, 3.0, 0.1, 1.0);
     for (j = 0; j < 64; j += 1) {
         ssp->step = ((uint64_t)1 << j) - 1;
         memset(&wstats, '\0', sizeof(wstats));
@@ -256,3 +295,4 @@ sgen_test(void)
     }
     return (0);
 }
+#endif
