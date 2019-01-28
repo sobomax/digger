@@ -45,8 +45,9 @@ struct sgen_band {
         double prd;
         uint64_t lastspos;
         int16_t lut[2];
+	int disabled;
     } wrk;
-    int disabled;
+    int muted;
 };
 
 struct sgen_state {
@@ -75,7 +76,7 @@ sgen_ctor(uint32_t srate, int nbands)
     ssp->srate = srate;
     ssp->nbands = nbands;
     for (i = 0; i < nbands; i++) {
-        ssp->bands[i].disabled = 1;
+        ssp->bands[i].wrk.disabled = 1;
     }
     return (ssp);
 }
@@ -102,10 +103,22 @@ sgen_setband(struct sgen_state *ssp, int band, double freq, double amp)
         sbp->wrk.prd = 1.0 / freq;
         sbp->wrk.lut[0] = amp * INT16_MAX;
         sbp->wrk.lut[1] = -amp * INT16_MAX;
-	sbp->disabled = 0;
+	sbp->wrk.disabled = 0;
     } else {
-        sbp->disabled = 1;
+        sbp->wrk.disabled = 1;
     }
+}
+
+int
+sgen_setmuteband(struct sgen_state *ssp, int band, int muted)
+{
+    int rval;
+    struct sgen_band *sbp;
+
+    sbp = &ssp->bands[band];
+    rval = sbp->muted;
+    sbp->muted = muted;
+    return (rval);
 }
 
 static void
@@ -146,7 +159,7 @@ sgen_getsample(struct sgen_state *ssp)
         struct pdres cpos, tpos;
 
         sbp = &ssp->bands[i];
-        if (sbp->disabled)
+        if (sbp->wrk.disabled || sbp->muted)
             continue;
         tpos = pos;
         tpos.ires -= sbp->wrk.lastspos;
