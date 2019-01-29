@@ -67,7 +67,7 @@ void (*settimer2)(uint16_t t2v, bool mode)=s0settimer2;
 void (*timer2)(uint16_t t2v, bool mod)=s0timer2;
 void (*soundkillglob)(void)=s0soundkillglob;
 
-bool sndflag=false,soundpausedflag=false;
+static bool sndflag=false,soundpausedflag=false;
 
 int32_t randvs;
 
@@ -82,6 +82,8 @@ void sett2val(int16_t t2v, bool mode)
   if (sndflag)
     timer2(t2v, mode);
 }
+
+static bool soundlevdoneflag=false;
 
 void soundint(void)
 {
@@ -125,6 +127,8 @@ void soundint(void)
     }
     sett2val(t2val, false);
   }
+  if (soundlevdoneflag)
+    soundlevdoneupdate();
 }
 
 void soundstop(void)
@@ -147,9 +151,7 @@ void soundstop(void)
   sound1upoff();
 }
 
-
-bool soundlevdoneflag=false;
-int16_t nljpointer=0,nljnoteduration=0;
+static int16_t nljpointer=0,nljnoteduration=0;
 
 void soundlevdone(void)
 {
@@ -158,29 +160,19 @@ void soundlevdone(void)
   nljpointer=0;
   nljnoteduration=20;
   soundlevdoneflag=soundpausedflag=true;
-  ftime /= 5;
   while (soundlevdoneflag && !escape) {
-    fillbuffer();
 #if defined _SDL || defined _VGL
 	if (!wave_device_available)
 		soundlevdoneflag=false;
 #endif
 #if defined _SDL || defined _SDL_SOUND
     gethrt();	/* Let some CPU time go away */
-    soundint();
 #endif
-#ifdef ARM
-    gretrace();
-    soundint();
-#else
     if (timerclock==timer)
       continue;
-#endif
-    soundlevdoneupdate();
     checkkeyb();
     timer=timerclock;
   }
-  ftime *= 5;
   soundlevdoneoff();
 }
 
