@@ -32,3 +32,8 @@ Source: "..\..\SDL2.dll";       DestDir: "{app}"; Flags: ignoreversion
 Source: "..\..\digger.log";     DestDir: "{app}"; Permissions: everyone-modify
 Source: "..\..\digger.sco";     DestDir: "{app}"; Permissions: everyone-modify; Flags: onlyifdoesntexist
 Source: "..\..\digger.ini";     DestDir: "{app}"; Permissions: everyone-modify; Flags: onlyifdoesntexist
+
+[Run]
+// User selected... these files are shown for launch after everything is done
+Filename: "{app}\README.txt"; Description: "View the README file"; Flags: postinstall shellexec skipifsilent
+Filename: "{app}\digger.exe"; Description: "Run Digger"; Flags: postinstall nowait skipifsilent unchecked
