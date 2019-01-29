@@ -110,13 +110,6 @@ void s1killsound(void)
 #endif
 }
 
-/* This function is called regularly by the Digger engine to keep the circular
-   buffer filled. */
-
-void s1fillbuffer(void)
-{
-}
-
 /* WARNING: Read only code ahead. Unless you're seriously into how the PC
    speaker and Digger's original low-level sound routines work, you shouldn't
    try to mess with, or even understand, the following. I don't understand most

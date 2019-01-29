@@ -93,16 +93,13 @@ void newframe(void)
   uint32_t t;
   if (synchvid) {
     for (;curtime<ftime;curtime+=17094) { /* 17094 = ticks in a refresh */
-      fillbuffer();
       gretrace();
       checkkeyb();
     }
     curtime-=ftime;
-    fillbuffer();
   }
   else {
     do {
-      fillbuffer();             /* Idle time */
       t=gethrt();
       checkkeyb();
     } while (curtime+ftime>t && t>curtime);
@@ -112,7 +109,6 @@ void newframe(void)
 #else
 
   for (;curtime<ftime;curtime+=15000) {
-    fillbuffer();
     gretrace();
     soundint();
     checkkeyb();

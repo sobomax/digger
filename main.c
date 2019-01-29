@@ -1008,7 +1008,6 @@ static void inir(void)
     volume=1;
     setupsound=s1setupsound;
     killsound=s1killsound;
-    fillbuffer=s1fillbuffer;
     initint8=s1initint8;
     restoreint8=s1restoreint8;
     soundoff=s1soundoff;

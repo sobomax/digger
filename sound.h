@@ -41,7 +41,6 @@ extern int16_t volume,timerrate,spkrmode,pulsewidth;
 
 extern void (*setupsound)(void);
 extern void (*killsound)(void);
-extern void (*fillbuffer)(void);
 extern void (*initint8)(void);
 extern void (*restoreint8)(void);
 extern void (*soundoff)(void);

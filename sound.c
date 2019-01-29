@@ -52,11 +52,9 @@ static void sett0(void);
 static void setsoundmode(void);
 static void s0setupsound(void);
 static void s0killsound(void);
-static void s0fillbuffer(void);
 
 void (*setupsound)(void)=s0setupsound;
 void (*killsound)(void)=s0killsound;
-void (*fillbuffer)(void)=s0fillbuffer;
 void (*initint8)(void)=s0initint8;
 void (*restoreint8)(void)=s0restoreint8;
 void (*soundoff)(void)=s0soundoff;
@@ -893,8 +891,4 @@ static void s0setupsound(void)
   inittimer();
   curtime=0;
   startint8();
-}
-
-static void s0fillbuffer(void)
-{
 }

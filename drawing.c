@@ -308,7 +308,6 @@ static void drawbackg(int16_t l)
 {
   int16_t x,y;
   for (y=14;y<200;y+=4) {
-    fillbuffer();
     for (x=0;x<320;x+=20)
       drawmiscspr(x,y,93+l,5,4);
   }
