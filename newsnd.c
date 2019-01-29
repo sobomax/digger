@@ -23,9 +23,6 @@
    If DMA is used, doubling the buffer so the data is always continguous, and
    giving half of the buffer at once to the DMA driver may be a good idea. */
 
-uint8_t *buffer;
-uint16_t firsts,last,size;           /* data available to output device */
-
 static int rate;
 static uint16_t t0rate,t2rate,t2new,t0v,t2v;
 static int16_t i8pulse=0;
@@ -81,11 +78,7 @@ void soundinitglob(uint16_t bufsize,uint16_t samprate)
 #if !defined(newsnd_test)
   setsounddevice(samprate,bufsize);
 #endif
-  buffer=(uint8_t*)malloc((bufsize<<1)*sizeof(uint8_t));
   rate=(int)(PIT_FREQ/(uint32_t)samprate);
-  firsts=0;
-  last=1;
-  size=bufsize<<1;
   t2sw=false;     /* As it should be left */
   for (i=0;i<=rate;i++) {
     //j = ((MIN_SAMP - MAX_SAMP) / 2) + (i * (MAX_SAMP - MIN_SAMP)) / rate;
@@ -102,10 +95,7 @@ void s1setupsound(void)
   inittimer();
   curtime=0;
   startint8();
-#endif
-  buffer[firsts]=getsampleX();
-#if !defined(newsnd_test)
-  fillbuffer();
+  soundint();
   initsounddevice();
 #endif
 }
@@ -125,10 +115,6 @@ void s1killsound(void)
 
 void s1fillbuffer(void)
 {
-  while (firsts!=last) {
-    buffer[last]=getsampleX();
-    last=(last+1)&(size-1);
-  }
 }
 
 /* WARNING: Read only code ahead. Unless you're seriously into how the PC
