@@ -14,6 +14,7 @@ OutputDir=.
 
 [Icons]
 Name: "{group}\Digger";                            Filename: "{app}\digger.exe"; WorkingDir: "{app}"
+Name: "{group}\Digger (Full-Screen Mode)";         Filename: "{app}\digger.exe"; WorkingDir: "{app}"; Parameters: "/F"
 Name: "{group}\Digger (Two-Player Simultaneous)";  Filename: "{app}\digger.exe"; WorkingDir: "{app}"; Parameters: "/2"
 Name: "{group}\Digger (Gauntlet Mode)";            Filename: "{app}\digger.exe"; WorkingDir: "{app}"; Parameters: "/G"
 Name: "{group}\Redefine Keyboard (One Player)";    Filename: "{app}\digger.exe"; WorkingDir: "{app}"; Parameters: "/K"
@@ -35,5 +36,4 @@ Source: "..\..\digger.ini";     DestDir: "{app}"; Permissions: everyone-modify; 
 
 [Run]
 // User selected... these files are shown for launch after everything is done
-Filename: "{app}\README.txt"; Description: "View the README file"; Flags: postinstall shellexec skipifsilent
 Filename: "{app}\digger.exe"; Description: "Run Digger"; Flags: postinstall nowait skipifsilent unchecked
