@@ -122,10 +122,8 @@ void s1settimer2(uint16_t t2, bool mode)
     if (!mode) {
       sgen_setband(ssp, 1, PIT_FREQ / t2, 1.0);
     } else {
-      double frq;
-
-      frq = (double)(PIT_FREQ / t2) - (double)(PIT_FREQ / t0rate);
-      sgen_setband_mod(ssp, 1, frq, 0.0, 1.0);
+      sgen_setband(ssp, 1, PIT_FREQ / t2, 0.5);
+      sgen_setband(ssp, 0, PIT_FREQ / t0rate, 0.5);
       sgen_setmuteband(ssp, 1, 0);
     }
   } else {
