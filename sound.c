@@ -624,6 +624,8 @@ static int16_t musicp=0,tuneno=0,noteduration=0,notevalue=0,musicmaxvol=0,
       musicattackrate=0,musicsustainlevel=0,musicdecayrate=0,musicnotewidth=0,
       musicreleaserate=0,musicstage=0,musicn=0;
 
+bool sounddiedone = true;
+
 void music(int16_t tune)
 {
   tuneno=tune;
@@ -652,8 +654,10 @@ void music(int16_t tune)
       musicreleaserate=1;
   }
   musicplaying=true;
-  if (tune==2)
+  if (tune==2) {
     soundddieoff();
+    sounddiedone = false;
+  }
 }
 
 void musicoff(void)
@@ -741,6 +745,8 @@ static void musicupdate(void)
         noteduration=dirge[musicp+1]*10;
         musicnotewidth=noteduration-10;
         notevalue=dirge[musicp];
+	if (musicp > 0 && notevalue==0x7d00)
+	  sounddiedone = true;
         musicp+=2;
         if (dirge[musicp]==0x7d64)
           musicp=0;

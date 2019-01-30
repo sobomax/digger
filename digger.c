@@ -582,7 +582,7 @@ diggerdie(struct digger_draw_api *ddap, int n)
     case 4:
       if (digdat[n].deathtime!=0)
         digdat[n].deathtime--;
-      else {
+      else if (sounddiedone) {
         digdat[n].dead=true;
         alldead=true;
         for (i=0;i<diggers;i++)
