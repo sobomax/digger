@@ -815,7 +815,7 @@ static void sett0(void)
   }
 }
 
-bool soundt0flag=false;
+static bool soundt0flag=false;
 
 void setsoundt2(void)
 {
