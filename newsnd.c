@@ -103,10 +103,13 @@ void s1killsound(void)
 
 void s1timer2(uint16_t t2, bool mode)
 {
+  double rphase;
 
   if (t2 > 40 && t2 < 0x4000) {
     if (!mode) {
+      rphase = sgen_getphase(ssp, 0);
       sgen_setband(ssp, 1, PIT_FREQ / t2, 1.0);
+      sgen_setphase(ssp, 0, rphase);
     } else {
       sgen_setband(ssp, 1, PIT_FREQ / t2, 0.5);
       sgen_setband(ssp, 0, PIT_FREQ / t0rate, 0.5);
@@ -141,9 +144,12 @@ void s1setspkrt2(void)
 
 void s1timer0(uint16_t t0)
 {
+  double rphase;
 
   if (t0 > 40 && t0 < 0x4000) {
+    rphase = sgen_getphase(ssp, 0);
     sgen_setband(ssp, 0, PIT_FREQ / t0, (pulsewidth - 1) / 49.0);
+    sgen_setphase(ssp, 0, rphase);
   } else {
     sgen_setband(ssp, 0, 0.0, 0.0);
   }
