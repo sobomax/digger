@@ -58,14 +58,18 @@ static uint8_t getsampleX(void);
 */
 
 #include <assert.h>
+#include <math.h>
 #include "soundgen.h"
 
 static struct sgen_state *ssp;
+unsigned int intmod;
 
 int16_t getsample(void)
 {
 
-  getsampleX();
+  if ((sgen_getstep(ssp) + 1) % intmod == 0)
+    soundint();
+  //getsampleX();
   return (sgen_getsample(ssp));
 }
 
@@ -75,6 +79,7 @@ void soundinitglob(uint16_t bufsize,uint16_t samprate)
 
   ssp = sgen_ctor(samprate, 2);
   assert(ssp != NULL);
+  intmod = round(samprate / 72.8);
 #if !defined(newsnd_test)
   setsounddevice(samprate,bufsize);
 #endif
