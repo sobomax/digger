@@ -130,16 +130,34 @@ sgen_setband(struct sgen_state *ssp, int band, double freq, double amp)
     }
 }
 
-void
-sgen_setphase(struct sgen_state *ssp, int band, double phase)
+static void
+sgen_addphase(struct sgen_state *ssp, int band, double phase)
 {
     struct sgen_band *sbp;
 
     assert(signbit(phase) == 0);
     assert(phase < 1.0);
     sbp = &ssp->bands[band];
-    sbp->phase = phase;
-    sbp->wrk.phi_off = phase / sbp->freq;
+    sbp->phase = fmod(sbp->phase + phase, 1.0);
+    sbp->wrk.phi_off = sbp->phase / sbp->freq;
+}
+
+void
+sgen_setphase(struct sgen_state *ssp, int band, double phase)
+{
+    double r1;
+    double perr;
+
+    r1 = sgen_getphase(ssp, band);
+    if (r1 == phase)
+        return;
+    if (r1 < phase) {
+        sgen_addphase(ssp, band, phase - r1);
+    } else {
+        sgen_addphase(ssp, band, 1.0 - r1 + phase);
+    }
+    perr = sgen_getphase(ssp, band) - phase;
+    assert(fabs(perr) < 1e-15);
 }
 
 double
@@ -307,7 +325,7 @@ sgen_test(void)
         memset(&wstats, '\0', sizeof(wstats));
         memset(&wstats_prev, '\0', sizeof(wstats_prev));
         sgen_setband(ssp, 0, 1607.0, 1.0);
-        sgen_setphase(ssp, 0, 0.25);
+        sgen_addphase(ssp, 0, 0.25);
         for (i = 0; i < TEST_SRATE * TEST_DUR; i++) {
 #if 0
             rphase = sgen_getphase(ssp, 0);
@@ -316,7 +334,7 @@ sgen_test(void)
             assert(rphase < 1.0);
 #endif
 #if 1
-            if (i == TEST_SRATE) {
+            if (i == TEST_SRATE - 123456) {
                 rphase = sgen_getphase(ssp, 0);
                 sgen_setband(ssp, 0, 2087.0, 1.0);
                 sgen_setphase(ssp, 0, rphase);
