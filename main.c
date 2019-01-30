@@ -997,7 +997,7 @@ static void inir(void)
   }
   soundflag=GetINIBool(INI_SOUND_SETTINGS,"SoundOn",true,ININAME);
   musicflag=GetINIBool(INI_SOUND_SETTINGS,"MusicOn",true,ININAME);
-  sound_rate=(int)GetINIInt(INI_SOUND_SETTINGS,"Rate",22050,ININAME);
+  sound_rate=(int)GetINIInt(INI_SOUND_SETTINGS,"Rate",44100,ININAME);
   sound_length=(int)GetINIInt(INI_SOUND_SETTINGS,"BufferSize",DEFAULT_BUFFER,ININAME);
 
 #if !defined(UNIX) && !defined(_SDL)
