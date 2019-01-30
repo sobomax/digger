@@ -23,14 +23,12 @@
    If DMA is used, doubling the buffer so the data is always continguous, and
    giving half of the buffer at once to the DMA driver may be a good idea. */
 
-static int rate;
-static uint16_t t0rate,t2rate,t2new,t0v,t2v;
-static bool t2sw;
+static uint16_t t0rate;
 
 #if !defined(newsnd_test)
 extern int16_t spkrmode,pulsewidth;
 #else
-static int16_t spkrmode=0,timerrate=0x7d0,pulsewidth=1;
+static int16_t spkrmode=0,pulsewidth=1;
 #endif
 
 /* Initialise circular buffer and PC speaker emulator
@@ -75,8 +73,6 @@ void soundinitglob(uint16_t bufsize,uint16_t samprate)
 #if !defined(newsnd_test)
   setsounddevice(samprate,bufsize);
 #endif
-  rate=(int)(PIT_FREQ/(uint32_t)samprate);
-  t2sw=false;     /* As it should be left */
 }
 
 void s1setupsound(void)
@@ -105,7 +101,7 @@ void s1killsound(void)
    try to mess with, or even understand, the following. I don't understand most
    of it myself, and I wrote it. */
 
-void s1settimer2(uint16_t t2, bool mode)
+void s1timer2(uint16_t t2, bool mode)
 {
 
   if (t2 > 40 && t2 < 0x4000) {
@@ -119,23 +115,18 @@ void s1settimer2(uint16_t t2, bool mode)
   } else {
     sgen_setband(ssp, 1, 0.0, 0.0);
   }
-
-  if (t2==40)
-    t2=rate;   /* Otherwise aliasing would cause noise artifacts */
-  t2>>=1;
-  t2v=t2new=t2;
 }
 
 void s1soundoff(void)
 {
-  t2sw=false;
+
   sgen_setmuteband(ssp, 0, 1);
   sgen_setmuteband(ssp, 1, 1);
 }
 
 void s1setspkrt2(void)
 {
-  t2sw=true;
+
   if (spkrmode == 0) {
       sgen_setmuteband(ssp, 0, 1);
       sgen_setmuteband(ssp, 1, 0);
@@ -148,12 +139,6 @@ void s1setspkrt2(void)
   }
 }
 
-void s1settimer0(uint16_t t0)
-{
-  s1timer0(t0);
-  t0v=t0;
-}
-
 void s1timer0(uint16_t t0)
 {
 
@@ -164,11 +149,4 @@ void s1timer0(uint16_t t0)
   }
 
   t0rate=t0;
-}
-
-void s1timer2(uint16_t t2, bool mode)
-{
-
-  s1settimer2(t2, mode);
-  t2rate=t2;
 }

@@ -19,7 +19,7 @@
 
 static int16_t wavetype=0,musvol=0;
 static uint16_t t2val=0,t0val=0;
-int16_t spkrmode=0,timerrate=0x7d0,pulsewidth=1,volume=0;
+int16_t spkrmode=0,pulsewidth=1,volume=0;
 
 static int8_t timerclock=0;
 
@@ -59,9 +59,7 @@ void (*initint8)(void)=s0initint8;
 void (*restoreint8)(void)=s0restoreint8;
 void (*soundoff)(void)=s0soundoff;
 void (*setspkrt2)(void)=s0setspkrt2;
-void (*settimer0)(uint16_t t0v)=s0settimer0;
 void (*timer0)(uint16_t t0v)=s0timer0;
-void (*settimer2)(uint16_t t2v, bool mode)=s0settimer2;
 void (*timer2)(uint16_t t2v, bool mod)=s0timer2;
 void (*soundkillglob)(void)=s0soundkillglob;
 
@@ -804,7 +802,6 @@ static void sett0(void)
     timer2(t2val, false);
     if (t0val<1000 && (wavetype==1 || wavetype==2))
       t0val=1000;
-    timerrate=t0val;
     if (musvol<1)
       musvol=1;
     if (musvol>50)
@@ -841,15 +838,14 @@ void startint8(void)
 {
   if (!int8flag) {
     initint8();
-    timerrate=0x4000;
-    settimer0(0x4000);
+    timer0(0x4000);
     int8flag=true;
   }
 }
 
 void stopint8(void)
 {
-  settimer0(0);
+  timer0(0);
   if (int8flag) {
     restoreint8();
     int8flag=false;
@@ -860,9 +856,9 @@ void stopint8(void)
 
 void initsound(void)
 {
-  settimer2(40, false);
+  timer2(40, false);
   setspkrt2();
-  settimer0(0);
+  timer0(0);
   wavetype=2;
   t0val=12000;
   musvol=8;
@@ -874,8 +870,7 @@ void initsound(void)
   setsoundt2();
   soundstop();
   setupsound();
-  timerrate=0x4000;
-  settimer0(0x4000);
+  timer0(0x4000);
   randvs=getlrt();
 }
 

@@ -1012,9 +1012,7 @@ static void inir(void)
     restoreint8=s1restoreint8;
     soundoff=s1soundoff;
     setspkrt2=s1setspkrt2;
-    settimer0=s1settimer0;
     timer0=s1timer0;
-    settimer2=s1settimer2;
     timer2=s1timer2;
     soundinitglob(sound_length,sound_rate);
   }
