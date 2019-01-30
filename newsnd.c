@@ -62,7 +62,7 @@ static uint8_t getsampleX(void);
 #include "soundgen.h"
 
 static struct sgen_state *ssp;
-unsigned int intmod;
+static unsigned int intmod;
 
 int16_t getsample(void)
 {
