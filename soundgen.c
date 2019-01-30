@@ -91,6 +91,13 @@ sgen_dtor(struct sgen_state *ssp)
     free(ssp);
 }
 
+uint64_t
+sgen_getstep(struct sgen_state *ssp)
+{
+
+    return (ssp->step);
+}
+
 #include <assert.h>
 
 void
