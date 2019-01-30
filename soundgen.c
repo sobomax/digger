@@ -28,6 +28,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#if defined(sgen_test)
+#include <stdio.h>
+#endif
 
 #include "soundgen.h"
 
@@ -44,10 +47,12 @@ struct sgen_band {
     enum band_types b_type;
     double freq;
     double amp;
+    double phase;
     struct {
         double prd;
         uint64_t lastspos;
         int16_t lut[2];
+        double phi_off;
 	int disabled;
     } wrk;
     int muted;
@@ -63,6 +68,9 @@ struct sgen_state {
     } wrk;
     struct sgen_band bands[];
 };
+
+static void precisediv(uint64_t x, uint64_t y, struct pdres *pdrp);
+static void precisedivf(const struct pdres *xp, double y, struct pdres *pdrp);
 
 struct sgen_state *
 sgen_ctor(uint32_t srate, int nbands)
@@ -106,6 +114,7 @@ sgen_setband(struct sgen_state *ssp, int band, double freq, double amp)
     struct sgen_band *sbp;
 
     sbp = &ssp->bands[band];
+
     sbp->b_type = BND_GEN;
     sbp->freq = freq;
     sbp->amp = amp;
@@ -115,9 +124,40 @@ sgen_setband(struct sgen_state *ssp, int band, double freq, double amp)
         sbp->wrk.lut[0] = amp * INT16_MAX;
         sbp->wrk.lut[1] = -amp * INT16_MAX;
 	sbp->wrk.disabled = 0;
+        sbp->wrk.phi_off = 0.0;
     } else {
         sbp->wrk.disabled = 1;
     }
+}
+
+void
+sgen_setphase(struct sgen_state *ssp, int band, double phase)
+{
+    struct sgen_band *sbp;
+
+    assert(signbit(phase) == 0);
+    assert(phase < 1.0);
+    sbp = &ssp->bands[band];
+    sbp->phase = phase;
+    sbp->wrk.phi_off = phase / sbp->freq;
+}
+
+double
+sgen_getphase(struct sgen_state *ssp, int band)
+{
+    struct pdres pos;
+    struct pdres cpos;
+    struct sgen_band *sbp;
+
+    sbp = &ssp->bands[band];
+    if (sbp->wrk.disabled)
+        return (0.0);
+    precisediv(ssp->step - ssp->wrk.lastnpos, ssp->srate, &pos);
+    pos.ires += ssp->wrk.lastipos;
+    pos.ires -= sbp->wrk.lastspos;
+
+    precisedivf(&pos, sbp->wrk.prd, &cpos);
+    return (fmod(sbp->phase + (cpos.frem * sbp->freq), 1.0));
 }
 
 void
@@ -135,6 +175,7 @@ sgen_setband_mod(struct sgen_state *ssp, int band, double freq, double a0, doubl
         sbp->wrk.lut[0] = a0 * INT16_MAX;
         sbp->wrk.lut[1] = a1 * INT16_MAX;
         sbp->wrk.disabled = 0;
+        sbp->wrk.phi_off = 0.0;
     } else {
         sbp->wrk.disabled = 1;
     }
@@ -196,9 +237,20 @@ sgen_getsample(struct sgen_state *ssp)
             continue;
         tpos = pos;
         tpos.ires -= sbp->wrk.lastspos;
+
+        if (sbp->wrk.phi_off != 0.0) {
+            tpos.frem += sbp->wrk.phi_off;
+        }
+
         precisedivf(&tpos, sbp->wrk.prd, &cpos);
         if (cpos.nres > 0)
             sbp->wrk.lastspos += cpos.nres;
+
+#if 0
+        if (sbp->wrk.phi_off != 0.0) {
+            cpos.frem -= sbp->wrk.phi_off;
+        }
+#endif
 
         if ((cpos.frem * 2) < sbp->wrk.prd) {
 	    j = 0;
@@ -222,7 +274,6 @@ sgen_getsample(struct sgen_state *ssp)
 }
 
 #if defined(sgen_test)
-#include <stdio.h>
 
 //#define TEST_SRATE 44100
 #define TEST_SRATE 384000
@@ -240,7 +291,7 @@ sgen_test(void)
     struct sgen_state *ssp;
     unsigned int i, j;
     struct wavestats wstats, wstats_prev;
-    double rfreq;
+    double rfreq, rphase;
     FILE *of;
     int16_t *obuf;
 
@@ -248,15 +299,29 @@ sgen_test(void)
     assert(obuf != NULL);
     ssp = sgen_ctor(TEST_SRATE, 2);
     assert(ssp != NULL);
-    sgen_setband(ssp, 0, 1607.0, 1.0);
     //sgen_setband(ssp, 0, 1.0 / 3.0, 1.0);
     //sgen_setband(ssp, 1, 2087, 0.0);
-    sgen_setband_mod(ssp, 1, 3.0, 0.1, 1.0);
-    for (j = 0; j < 64; j += 1) {
+    //sgen_setband_mod(ssp, 1, 3.0, 0.1, 1.0);
+    for (j = 0; j < 1; j += 1) {
         ssp->step = ((uint64_t)1 << j) - 1;
         memset(&wstats, '\0', sizeof(wstats));
         memset(&wstats_prev, '\0', sizeof(wstats_prev));
+        sgen_setband(ssp, 0, 1607.0, 1.0);
+        sgen_setphase(ssp, 0, 0.25);
         for (i = 0; i < TEST_SRATE * TEST_DUR; i++) {
+#if 0
+            rphase = sgen_getphase(ssp, 0);
+            printf("rphase=%.16f\n", rphase);
+            assert(rphase >= 0.0);
+            assert(rphase < 1.0);
+#endif
+#if 1
+            if (i == TEST_SRATE) {
+                rphase = sgen_getphase(ssp, 0);
+                sgen_setband(ssp, 0, 2087.0, 1.0);
+                sgen_setphase(ssp, 0, rphase);
+            }
+#endif
             obuf[i] = sgen_getsample(ssp);
             if (obuf[i] == 0) {
                 wstats.nzero++;
@@ -291,10 +356,12 @@ sgen_test(void)
                 wstats.ntrans++;
             }
         }
-        of = fopen("sgen_test.out", "w");
-        assert(of != NULL);
-        assert(fwrite(obuf, TEST_SRATE * TEST_DUR, 1, of) == 1);
-        assert(fclose(of) == 0);
+        if (j == 0) {
+            of = fopen("sgen_test.out", "w");
+            assert(of != NULL);
+            assert(fwrite(obuf, TEST_SRATE * TEST_DUR, 1, of) == 1);
+            assert(fclose(of) == 0);
+        }
         printf("nzero=%u npos=%u nneg=%u ntrans=%u\n", wstats.nzero, wstats.npos, wstats.nneg, wstats.ntrans);
         rfreq = wstats.ntrans / (double)(TEST_DUR << 1);
         printf("rfreq=%f\n", rfreq);

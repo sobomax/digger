@@ -33,3 +33,5 @@ void sgen_setband(struct sgen_state *ssp, int band, double freq, double amp);
 void sgen_setband_mod(struct sgen_state *ssp, int band, double freq, double a0, double a1);
 int sgen_setmuteband(struct sgen_state *ssp, int band, int muted);
 int16_t sgen_getsample(struct sgen_state *ssp);
+void sgen_setphase(struct sgen_state *ssp, int band, double phase);
+double sgen_getphase(struct sgen_state *ssp, int band);
