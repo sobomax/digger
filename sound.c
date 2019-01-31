@@ -631,6 +631,9 @@ void music(int16_t tune)
   tuneno=tune;
   musicp=0;
   noteduration=0;
+
+  if (!sndflag)
+    return;
   switch (tune) {
     case 0:
       musicmaxvol=50;
