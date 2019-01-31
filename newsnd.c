@@ -101,19 +101,26 @@ void s1killsound(void)
    try to mess with, or even understand, the following. I don't understand most
    of it myself, and I wrote it. */
 
+#define T0_BND 0
+#define T2_BND 1
+
 void s1timer2(uint16_t t2, bool mode)
 {
   double rphase;
 
   if (t2 > 40 && t2 < 0x4000) {
     if (!mode) {
-      rphase = sgen_getphase(ssp, 0);
-      sgen_setband(ssp, 1, PIT_FREQ / t2, 1.0);
-      sgen_setphase(ssp, 0, rphase);
+      rphase = sgen_getphase(ssp, T2_BND);
+      sgen_setband(ssp, T2_BND, PIT_FREQ / t2, 1.0);
+      sgen_setphase(ssp, T2_BND, rphase);
     } else {
-      sgen_setband(ssp, 1, PIT_FREQ / t2, 0.5);
-      sgen_setband(ssp, 0, PIT_FREQ / t0rate, 0.5);
-      sgen_setmuteband(ssp, 1, 0);
+      rphase = sgen_getphase(ssp, T2_BND);
+      sgen_setband(ssp, T2_BND, PIT_FREQ / t2, 0.5);
+      sgen_setphase(ssp, T2_BND, rphase);
+      rphase = sgen_getphase(ssp, T0_BND);
+      sgen_setband(ssp, T0_BND, PIT_FREQ / t0rate, 0.5);
+      sgen_setphase(ssp, T0_BND, rphase);
+      sgen_setmuteband(ssp, T2_BND, 0);
     }
   } else {
     sgen_setband(ssp, 1, 0.0, 0.0);
