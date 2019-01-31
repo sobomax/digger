@@ -115,6 +115,12 @@ sgen_setband(struct sgen_state *ssp, int band, double freq, double amp)
 
     sbp = &ssp->bands[band];
 
+#if 0
+    if (band == 0 && (freq != sbp->freq || amp != sbp->amp)) {
+	printf("if (sgen_getstep(ssp) == %d) {sgen_setband(ssp, 0, %f, %f)}\n", (int)ssp->step, freq, amp);
+    }
+#endif
+
     sbp->b_type = BND_GEN;
     sbp->freq = freq;
     sbp->amp = amp;
@@ -124,7 +130,7 @@ sgen_setband(struct sgen_state *ssp, int band, double freq, double amp)
         sbp->wrk.lut[0] = amp * INT16_MAX;
         sbp->wrk.lut[1] = -amp * INT16_MAX;
 	sbp->wrk.disabled = 0;
-        sbp->wrk.phi_off = 0.0;
+        //sbp->wrk.phi_off = 0.0;
     } else {
         sbp->wrk.disabled = 1;
     }
@@ -157,7 +163,7 @@ sgen_setphase(struct sgen_state *ssp, int band, double phase)
         sgen_addphase(ssp, band, 1.0 - r1 + phase);
     }
     perr = sgen_getphase(ssp, band) - phase;
-    assert(fabs(perr) < 1e-15);
+    assert(fabs(perr) < 1e-15 || fabs(1.0 - perr) < 1e-15);
 }
 
 double
