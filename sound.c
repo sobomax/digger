@@ -48,7 +48,7 @@ static void soundddieupdate(void);
 static void sound1upoff(void);
 static void sound1upupdate(void);
 static void musicupdate(void);
-static void sett0(void);
+static void sett0(bool);
 static void setsoundmode(void);
 static void s0setupsound(void);
 static void s0killsound(void);
@@ -119,7 +119,7 @@ void soundint(void)
       setsoundt2();
     else {
       setsoundmode();
-      sett0();
+      sett0(false);
     }
     sett2val(t2val, false);
   }
@@ -191,7 +191,7 @@ static void soundlevdoneupdate(void)
     t0val=t2val+35;
     musvol=50;
     setsoundmode();
-    sett0();
+    sett0(true);
     sett2val(t2val, true);
     if (nljnoteduration>0)
       nljnoteduration--;
@@ -807,10 +807,11 @@ void soundpauseoff(void)
 #endif
 }
 
-static void sett0(void)
+static void sett0(bool mode)
 {
   if (sndflag) {
-    timer2(t2val, false);
+    if (!mode)
+      timer2(t2val, mode);
     if (t0val<1000 && (wavetype==1 || wavetype==2))
       t0val=1000;
     if (musvol<1)

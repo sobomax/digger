@@ -109,21 +109,20 @@ void s1timer2(uint16_t t2, bool mode)
   double rphase;
 
   if (t2 > 40 && t2 < 0x4000) {
+    rphase = sgen_getphase(ssp, T2_BND);
     if (!mode) {
-      rphase = sgen_getphase(ssp, T2_BND);
       sgen_setband(ssp, T2_BND, PIT_FREQ / t2, 1.0);
-      sgen_setphase(ssp, T2_BND, rphase);
     } else {
-      rphase = sgen_getphase(ssp, T2_BND);
-      sgen_setband(ssp, T2_BND, PIT_FREQ / t2, 0.5);
-      sgen_setphase(ssp, T2_BND, rphase);
-      rphase = sgen_getphase(ssp, T0_BND);
-      sgen_setband(ssp, T0_BND, PIT_FREQ / t0rate, 0.5);
-      sgen_setphase(ssp, T0_BND, rphase);
-      sgen_setmuteband(ssp, T2_BND, 0);
+      double frq;
+
+      frq = (double)(PIT_FREQ / t2) - (double)(PIT_FREQ / t0rate);
+      sgen_setband_mod(ssp, T2_BND, frq, 1.0, 0.0);
+      if (sgen_setmuteband(ssp, T2_BND, 0))
+        rphase = 0.0;
     }
+    sgen_setphase(ssp, T2_BND, rphase);
   } else {
-    sgen_setband(ssp, 1, 0.0, 0.0);
+    sgen_setband(ssp, T2_BND, 0.0, 0.0);
   }
 }
 
