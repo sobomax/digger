@@ -153,6 +153,8 @@ void soundlevdone(void)
 {
   int16_t timer=0;
   soundstop();
+  if (!sndflag)
+    return;
   nljpointer=0;
   nljnoteduration=20;
   soundlevdoneflag=soundpausedflag=true;
