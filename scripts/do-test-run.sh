@@ -23,7 +23,7 @@ do
 	DIG_OPTS="${DIG_OPT_FSPD} ${DIG_OPTS}"
       fi
     else
-      DIG_OPTS="${DIG_OPT_FSPD} ${DIG_OPTS}"
+      DIG_OPTS="/Q ${DIG_OPT_FSPD} ${DIG_OPTS}"
     fi
     TFNAME="`basename ${x}`"
     TRFNAME="${TFNAME}.out"
