@@ -219,7 +219,7 @@ void game(void)
       erasetext(ddap, 8, 108,0,3);
       initscores(ddap);
       drawlives(ddap);
-      music(1);
+      music(1, 1.0);
 
       flushkeybuf();
       for (i=0;i<diggers;i++)

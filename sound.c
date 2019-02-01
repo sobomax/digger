@@ -624,11 +624,11 @@ static void sound1upupdate(void)
 static bool musicplaying=false;
 static int16_t musicp=0,tuneno=0,noteduration=0,notevalue=0,musicmaxvol=0,
       musicattackrate=0,musicsustainlevel=0,musicdecayrate=0,musicnotewidth=0,
-      musicreleaserate=0,musicstage=0,musicn=0;
+      musicreleaserate=0,musicstage=0,musicn=0,musicdfac=0;
 
 bool sounddiedone = true;
 
-void music(int16_t tune)
+void music(int16_t tune, double dfac)
 {
   tuneno=tune;
   musicp=0;
@@ -643,6 +643,7 @@ void music(int16_t tune)
       musicsustainlevel=20;
       musicdecayrate=10;
       musicreleaserate=4;
+      musicdfac = 3.0 * dfac;
       break;
     case 1:
       musicmaxvol=50;
@@ -650,6 +651,7 @@ void music(int16_t tune)
       musicsustainlevel=8;
       musicdecayrate=15;
       musicreleaserate=1;
+      musicdfac = 6.0 * dfac;
       break;
     case 2:
       musicmaxvol=50;
@@ -657,6 +659,7 @@ void music(int16_t tune)
       musicsustainlevel=25;
       musicdecayrate=5;
       musicreleaserate=1;
+      musicdfac = 10.0 * dfac;
   }
   musicplaying=true;
   if (tune==2) {
@@ -731,24 +734,24 @@ static void musicupdate(void)
     musicstage=musicn=0;
     switch (tuneno) {
       case 0:
-        noteduration=bonusjingle[musicp+1]*3;
-        musicnotewidth=noteduration-3;
+        noteduration=bonusjingle[musicp+1]*musicdfac;
+        musicnotewidth=noteduration-musicdfac;
         notevalue=bonusjingle[musicp];
         musicp+=2;
         if (bonusjingle[musicp]==0x7d64)
           musicp=0;
         break;
       case 1:
-        noteduration=backgjingle[musicp+1]*6;
-        musicnotewidth=12;
+        noteduration=backgjingle[musicp+1]*musicdfac;
+        musicnotewidth=musicdfac * 2;
         notevalue=backgjingle[musicp];
         musicp+=2;
         if (backgjingle[musicp]==0x7d64)
           musicp=0;
         break;
       case 2:
-        noteduration=dirge[musicp+1]*10;
-        musicnotewidth=noteduration-10;
+        noteduration=dirge[musicp+1]*musicdfac;
+        musicnotewidth=noteduration-musicdfac;
         notevalue=dirge[musicp];
 	if (musicp > 0 && notevalue==0x7d00)
 	  sounddiedone = true;
