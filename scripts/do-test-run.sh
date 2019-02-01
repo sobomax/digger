@@ -5,20 +5,25 @@ set -e
 DIFF="diff -u"
 
 mv ./production/* ./
-for TTYPE in short long
+for TTYPE in short long xlong
 do
   for x in tests/data/*.drf
   do
-    DIG_OPTS="/S:0 /E:${x}"
-    if [ "${TTYPE}" = "long" ]
+    DIG_OPTS="/E:${x}"
+    DIG_OPT_FSPD="/S:0"
+    if [ "${TTYPE}" = "long" -o "${TTYPE}" = "xlong" ]
     then
       TSIZE=`du -k ${x} | awk '{print $1}'`
       if [ ${TSIZE} -gt 5 ]
       then
 	continue
       fi
+      if [ "${TTYPE}" = "long" ]
+      then
+	DIG_OPTS="${DIG_OPT_FSPD} ${DIG_OPTS}"
+      fi
     else
-      DIG_OPTS="/Q ${DIG_OPTS}"
+      DIG_OPTS="${DIG_OPT_FSPD} ${DIG_OPTS}"
     fi
     TFNAME="`basename ${x}`"
     TRFNAME="${TFNAME}.out"
