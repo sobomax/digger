@@ -130,7 +130,6 @@ sgen_setband(struct sgen_state *ssp, int band, double freq, double amp)
         sbp->wrk.lut[0] = amp * INT16_MAX;
         sbp->wrk.lut[1] = -amp * INT16_MAX;
 	sbp->wrk.disabled = 0;
-        //sbp->wrk.phi_off = 0.0;
     } else {
         sbp->wrk.disabled = 1;
     }
@@ -199,7 +198,6 @@ sgen_setband_mod(struct sgen_state *ssp, int band, double freq, double a0, doubl
         sbp->wrk.lut[0] = a0 * INT16_MAX;
         sbp->wrk.lut[1] = a1 * INT16_MAX;
         sbp->wrk.disabled = 0;
-        sbp->wrk.phi_off = 0.0;
     } else {
         sbp->wrk.disabled = 1;
     }
