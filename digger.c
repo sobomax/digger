@@ -81,9 +81,16 @@ void initdigger(void)
 
 uint32_t curtime,ftime;
 
-#ifdef INTDRF
-uint32_t frame;
+#if defined(INTDRF) || 1
+static uint32_t frame;
 #endif
+
+uint32_t
+getframe(void)
+{
+
+  return (frame);
+}
 
 void newframe(void)
 {
@@ -117,7 +124,7 @@ void newframe(void)
 
 #endif
 
-#ifdef INTDRF
+#if defined(INTDRF) || 1
   frame++;
 #endif
 
@@ -582,7 +589,11 @@ diggerdie(struct digger_draw_api *ddap, int n)
     case 4:
       if (digdat[n].deathtime!=0)
         digdat[n].deathtime--;
-      else if (diggers > 1 || sounddiedone) {
+      else {
+	if (diggers == 1 && !sounddiedone) {
+	    frame -= 1;
+	    break;
+	}
         digdat[n].dead=true;
         alldead=true;
         for (i=0;i<diggers;i++)

@@ -36,3 +36,4 @@ extern uint32_t ftime,curtime,cgtime;
 #ifdef INTDRF
 extern uint32_t frame;
 #endif
+uint32_t getframe(void);
