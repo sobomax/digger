@@ -774,7 +774,8 @@ static void parsecmd(int argc,char *argv[])
       if (argch == 'E') {
         finish();
 	if (getenv("DIGGER_CI_RUN") != NULL) {
-          printf("score=%d level=%d\n", gettscore(0), levno());
+          printf("score=%d level=%d frames=%u\n", gettscore(0), levno(),
+	    (unsigned int)getframe());
 	  exit(0);
 	}
         if (escape)
