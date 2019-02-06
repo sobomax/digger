@@ -90,16 +90,22 @@ endif
 clean:
 	rm -f $(OBJS) digger$(ESUFFIX) *.gcov *.gcda *.gcno
 
+ifdef TEST_TYPE
+TT_VAR=	TEST_TYPES=$(TEST_TYPE)
+else
+TT_VAR=
+endif
+
 do-test:
 	sh -x ./scripts/do-test-cmmn.sh
 	SDL_VER=${SDL_VER} ZLIB_VER=${ZLIB_VER} MGW_PREF="${MGW_PREF}" \
 	  MGW64_PREF="${MGW64_PREF}" sh -x ./scripts/do-test.sh
-	sh -x ./scripts/do-test-run.sh
+	env ${TT_VAR} sh -x ./scripts/do-test-run.sh
 
 do-test-cmake:
 	sh -x ./scripts/do-test-cmmn.sh
 	sh -x ./scripts/do-test-cmake.sh
-	sh -x ./scripts/do-test-run.sh
+	env ${TT_VAR} sh -x ./scripts/do-test-run.sh
 
 coverage-report:
 	for s in $(OBJS); \

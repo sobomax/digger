@@ -11,8 +11,12 @@ addons:
       - cmake
       - cmake-data
 env:
-  - MAKE_ENV="CI_COVERAGE=1" TARGET="do-test"
-  - TARGET="do-test-cmake"
+  - MAKE_ENV="CI_COVERAGE=1 TEST_TYPE=short" TARGET="do-test"
+  - MAKE_ENV="CI_COVERAGE=1 TEST_TYPE=long" TARGET="do-test"
+  - MAKE_ENV="CI_COVERAGE=1 TEST_TYPE=xlong" TARGET="do-test"
+  - MAKE_ENV="TEST_TYPE=short" TARGET="do-test-cmake"
+  - MAKE_ENV="TEST_TYPE=long" TARGET="do-test-cmake"
+  - MAKE_ENV="TEST_TYPE=xlong" TARGET="do-test-cmake"
 script:
   - make ${MAKE_ENV} "${TARGET}"
 after_success:
