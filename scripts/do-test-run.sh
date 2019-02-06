@@ -17,7 +17,7 @@ do
     if [ "${TTYPE}" = "long" -o "${TTYPE}" = "xlong" ]
     then
       TSIZE=`du -k ${x} | awk '{print $1}'`
-      if [ ${TSIZE} -gt 5 ]
+      if [ ${TSIZE} -gt 15 ]
       then
 	continue
       fi
