@@ -72,22 +72,6 @@ int32_t getkips(void)
 	return(1);
 }
 
-void s0initint8(void)
-{
-}
-
-void s0restoreint8(void)
-{
-}
-
-void s1initint8(void)
-{
-}
-
-void s1restoreint8(void)
-{
-}
-
 void s0soundoff(void)
 {
 }

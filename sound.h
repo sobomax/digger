@@ -11,8 +11,6 @@ void soundpause(void);
 void soundpauseoff(void);
 void setsoundt2(void);
 void sett2val(int16_t t2v, bool mode);
-void startint8(void);
-void stopint8(void);
 void soundbonus(void);
 void soundbonusoff(void);
 void soundfire(int n);
@@ -42,8 +40,6 @@ extern bool sounddiedone;
 
 extern void (*setupsound)(void);
 extern void (*killsound)(void);
-extern void (*initint8)(void);
-extern void (*restoreint8)(void);
 extern void (*soundoff)(void);
 extern void (*setspkrt2)(void);
 extern void (*settimer0)(uint16_t t0v);

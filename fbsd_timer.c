@@ -80,26 +80,6 @@ int32_t getkips(void)
 	return(0);
 }
 
-void s0initint8(void)
-{
-	FIXME("s0initint8 called");
-}
-
-void s0restoreint8(void)
-{
-	FIXME("s0restoreint8 called");
-}
-
-void s1initint8(void)
-{
-	FIXME("s1initint8 called");
-}
-
-void s1restoreint8(void)
-{
-	FIXME("s1restoreint8 called");
-}
-
 void s0soundoff(void)
 {
 	FIXME("s0soundoff called");

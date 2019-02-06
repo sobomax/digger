@@ -55,8 +55,6 @@ static void s0killsound(void);
 
 void (*setupsound)(void)=s0setupsound;
 void (*killsound)(void)=s0killsound;
-void (*initint8)(void)=s0initint8;
-void (*restoreint8)(void)=s0restoreint8;
 void (*soundoff)(void)=s0soundoff;
 void (*setspkrt2)(void)=s0setspkrt2;
 void (*timer0)(uint16_t t0v)=s0timer0;
@@ -847,28 +845,6 @@ void setsoundmode(void)
   }
 }
 
-bool int8flag=false;
-
-void startint8(void)
-{
-  if (!int8flag) {
-    initint8();
-    timer0(0x4000);
-    int8flag=true;
-  }
-}
-
-void stopint8(void)
-{
-  timer0(0);
-  if (int8flag) {
-    restoreint8();
-    int8flag=false;
-  }
-  sett2val(40, false);
-  setspkrt2();
-}
-
 void initsound(void)
 {
   timer2(40, false);
@@ -881,7 +857,6 @@ void initsound(void)
   soundt0flag=true;
   sndflag=true;
   spkrmode=0;
-  int8flag=false;
   setsoundt2();
   soundstop();
   setupsound();
@@ -893,12 +868,10 @@ static void s0killsound(void)
 {
   setsoundt2();
   timer2(40, false);
-  stopint8();
 }
 
 static void s0setupsound(void)
 {
   inittimer();
   curtime=0;
-  startint8();
 }

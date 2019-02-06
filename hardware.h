@@ -4,8 +4,6 @@ void inittimer(void);
 uint32_t gethrt(void);
 int32_t getlrt(void);
 
-void s0initint8(void);
-void s0restoreint8(void);
 void s0soundoff(void);
 void s0setspkrt2(void);
 void s0settimer0(uint16_t t0v);
@@ -14,8 +12,6 @@ void s0settimer2(uint16_t t2v, bool mode);
 void s0timer2(uint16_t t2v, bool mode);
 void s0soundinitglob(void);
 void s0soundkillglob(void);
-void s1initint8(void);
-void s1restoreint8(void);
 
 void initkeyb(void);
 void restorekeyb(void);

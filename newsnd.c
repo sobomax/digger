@@ -80,7 +80,6 @@ void s1setupsound(void)
 #if !defined(newsnd_test)
   inittimer();
   curtime=0;
-  startint8();
   soundint();
   initsounddevice();
 #endif
@@ -91,7 +90,6 @@ void s1killsound(void)
 #if !defined(newsnd_test)
   setsoundt2();
   timer2(40, false);
-  stopint8();
   killsounddevice();
 #endif
 }
