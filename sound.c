@@ -3,6 +3,7 @@
 
 #include "def.h"
 #include "sound.h"
+#include "device.h"
 #include "hardware.h"
 #include "main.h"
 #include "digger.h"
