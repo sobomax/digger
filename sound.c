@@ -662,6 +662,10 @@ void music(int16_t tune, double dfac)
   musicplaying=true;
   if (tune==2) {
     soundddieoff();
+#if defined _SDL || defined _VGL
+    if (!wave_device_available)
+      return;
+#endif
     sounddiedone = false;
   }
 }

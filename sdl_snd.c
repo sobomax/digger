@@ -71,7 +71,6 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
         }
         sud->lp_fltr = bqd_lp_init(sud->obtained.freq, 4000);
         sud->hp_fltr = bqd_hp_init(sud->obtained.freq, 1000);
-	wave_device_available = true;
 
 	return(result);
 }
@@ -84,7 +83,9 @@ static void fill_audio(void *udata, uint8_t *stream, int len)
         double sample;
 #endif
 
-        sud = (struct sudata *)udata;
+        if (!wave_device_available)
+		wave_device_available = true;
+	sud = (struct sudata *)udata;
         SDL_memset(stream, sud->obtained.silence, len);
 	if (len > sud->bsize) {
                 fprintf(digger_log, "fill_audio: OUCH, len > bsize!\n");
