@@ -55,8 +55,8 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
 	wanted.callback = fill_audio;
 
 	if ((SDL_Init(SDL_INIT_AUDIO)) >= 0) {
-		sud->dev = SDL_OpenAudio(&wanted, &sud->obtained);
-		if (sud->dev >= 0)
+		sud->dev = SDL_OpenAudioDevice(NULL, 0, &wanted, &sud->obtained, 0);
+		if (sud->dev > 0)
 			result = true;
 	}
 	if (result == false) {
