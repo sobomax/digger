@@ -9,6 +9,7 @@
 #include "digger_math.h"
 #include "digger_log.h"
 #include "newsnd.h"
+#include "sdl_snd.h"
 
 static void fill_audio(void *udata, uint8_t *stream, int len);
 
@@ -110,5 +111,16 @@ static void fill_audio(void *udata, uint8_t *stream, int len)
 void killsounddevice(void)
 {
 	SDL_PauseAudio(1);
+}
+
+static bool wave_device_paused = false;
+
+void pausesounddevice(bool p)
+{
+
+	if (wave_device_paused == p)
+		return;
+	SDL_PauseAudio(p ? 1 : 0);
+	wave_device_paused = p;
 }
 
