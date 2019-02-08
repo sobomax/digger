@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,18 +23,21 @@ bool initsounddevice(void)
 
 struct sudata {
     SDL_AudioSpec obtained;
+    SDL_AudioDeviceID dev;
     int16_t *buf;
     unsigned int bsize;
     struct bqd_filter *lp_fltr;
     struct bqd_filter *hp_fltr;
 };
 
+static struct sudata *sud;
+
 bool setsounddevice(uint16_t samprate, uint16_t bufsize)
 {
 	SDL_AudioSpec wanted;
-        struct sudata *sud;
 	bool result = false;
-	
+
+	assert(sud == NULL);
         sud = (struct sudata*)malloc(sizeof(*sud));
         if (sud == NULL) {
                 fprintf(digger_log, "setsounddevice: malloc(3) failed\n");
@@ -50,9 +54,11 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
 	wanted.userdata = sud;
 	wanted.callback = fill_audio;
 
-	if ((SDL_Init(SDL_INIT_AUDIO)) >= 0)
-		if ((SDL_OpenAudio(&wanted, &sud->obtained)) >= 0)
+	if ((SDL_Init(SDL_INIT_AUDIO)) >= 0) {
+		sud->dev = SDL_OpenAudio(&wanted, &sud->obtained);
+		if (sud->dev >= 0)
 			result = true;
+	}
 	if (result == false) {
 		fprintf(digger_log, "Couldn't open audio: %s\n", SDL_GetError());
                 free(sud);
@@ -72,7 +78,7 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
         }
         sud->lp_fltr = bqd_lp_init(sud->obtained.freq, 4000);
         sud->hp_fltr = bqd_hp_init(sud->obtained.freq, 1000);
-	SDL_PauseAudio(0);
+	SDL_PauseAudioDevice(sud->dev, 0);
 
 	return(result);
 }
@@ -108,11 +114,6 @@ static void fill_audio(void *udata, uint8_t *stream, int len)
 }
 
 
-void killsounddevice(void)
-{
-	SDL_PauseAudio(1);
-}
-
 static bool wave_device_paused = false;
 
 void pausesounddevice(bool p)
@@ -120,7 +121,7 @@ void pausesounddevice(bool p)
 
 	if (wave_device_paused == p)
 		return;
-	SDL_PauseAudio(p ? 1 : 0);
+	SDL_PauseAudioDevice(sud->dev, p ? 1 : 0);
 	wave_device_paused = p;
 }
 
