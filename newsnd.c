@@ -90,7 +90,7 @@ void s1killsound(void)
 #if !defined(newsnd_test)
   setsoundt2();
   timer2(40, false);
-  killsounddevice();
+  pausesounddevice(true);
 #endif
 }
 
