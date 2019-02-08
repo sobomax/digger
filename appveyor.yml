@@ -10,7 +10,7 @@ build_script:
 
     set WINDRES=windres
 
-    set SDL_VER=2.0.5
+    set SDL_VER=2.0.9
 
     echo === Environment ====================================================
 
