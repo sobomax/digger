@@ -798,6 +798,8 @@ static void musicupdate(void)
 
 void soundpause(void)
 {
+  if (soundpausedflag)
+    return;
   soundpausedflag=true;
 #if defined _SDL || defined _SDL_SOUND
   SDL_PauseAudio(1);
@@ -806,6 +808,8 @@ void soundpause(void)
 
 void soundpauseoff(void)
 {
+  if (!soundpausedflag)
+    return;
   soundpausedflag=false;
 #if defined _SDL || defined _SDL_SOUND
   SDL_PauseAudio(0);
