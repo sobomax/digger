@@ -1,12 +1,10 @@
+dist: xenial
 sudo: required
 language: c
 compiler:
   - clang
   - gcc
 before_install:
-#  - sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-#  - sudo apt-get update -qq
-#  - sudo apt-get adv --recv-keys keyserver.ubuntu.com 6B05F25D762E3157
   - pip install --user cpp-coveralls
 addons:
   apt:
