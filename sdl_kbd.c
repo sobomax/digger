@@ -56,16 +56,26 @@ static int Handler(void *uptr, SDL_Event *event)
                         klen--;
 			memcpy(kbuffer, kbuffer + 1, klen * sizeof(struct kbent));
                 }
-		kbuffer[klen].scancode = event->key.keysym.scancode;
-                kbuffer[klen].sym = event->key.keysym.sym;
-                klen++;
-
+		/*
+		 * Ignore Alt, so that Alt-Enter does not start the game or
+		 * unpause it.
+		 */
+		if (event->key.keysym.scancode == SDL_SCANCODE_RALT ||
+		    event->key.keysym.scancode == SDL_SCANCODE_LALT)
+			goto out;
 		/* ALT + Enter handling (fullscreen/windowed operation) */
 		if ((event->key.keysym.scancode == SDL_SCANCODE_RETURN ||
                     event->key.keysym.scancode == SDL_SCANCODE_KP_ENTER) &&
-		    ((event->key.keysym.mod & KMOD_ALT) != 0))
+		    ((event->key.keysym.mod & KMOD_ALT) != 0)) {
 			switchmode();
+			goto out;
+		}
+                kbuffer[klen].scancode = event->key.keysym.scancode;
+                kbuffer[klen].sym = event->key.keysym.sym;
+                klen++;
+
 	}
+out:
 	if(event->type == SDL_QUIT)
 		exit(0);
 
