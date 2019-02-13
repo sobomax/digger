@@ -53,6 +53,7 @@ static void sett0(bool);
 static void setsoundmode(void);
 static void s0setupsound(void);
 static void s0killsound(void);
+static void sett2val(int16_t t2v, bool mode);
 
 void (*setupsound)(void)=s0setupsound;
 void (*killsound)(void)=s0killsound;
@@ -72,7 +73,7 @@ int16_t randnos(int16_t n)
   return (int16_t)((randvs&0x7fffffffl)%n);
 }
 
-void sett2val(int16_t t2v, bool mode)
+static void sett2val(int16_t t2v, bool mode)
 {
   if (sndflag)
     timer2(t2v, mode);
