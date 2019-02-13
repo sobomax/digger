@@ -4,7 +4,7 @@ set -e
 
 if [ "${CC}" != "clang" ]
 then
-  sudo apt-get remove -qq -y mingw32
+  #sudo apt-get remove -qq -y mingw32
   sudo apt-get install -qq -y mingw-w64
   mkdir deps
   cd deps
