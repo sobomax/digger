@@ -18,8 +18,12 @@ env:
   - MAKE_ENV="TEST_TYPE=long" TARGET="do-test-cmake"
   - MAKE_ENV="TEST_TYPE=xlong" TARGET="do-test-cmake"
 script:
+  - if [ "${CC}" = "gcc" ]
+    then
+      CC="gcc-4.9"
+    fi
   - make ${MAKE_ENV} "${TARGET}"
 after_success:
-  - if [ "${CC}" = "gcc" -a "${TARGET}" = "do-test" ]; then COVERALLS_PARALLEL=true coveralls --exclude CMakeFiles --gcov-options '\-lp'; fi
+  - if [ "${CC}" = "gcc-4.9" -a "${TARGET}" = "do-test" ]; then COVERALLS_PARALLEL=true coveralls --exclude CMakeFiles --gcov-options '\-lp'; fi
 notifications:
   webhooks: https://coveralls.io/webhook
