@@ -14,6 +14,7 @@ addons:
       - cmake
       - cmake-data
       - gcc-5
+      - libsdl2-dev
 env:
   - MAKE_ENV="CI_COVERAGE=1 TEST_TYPE=short" TARGET="do-test"
   - MAKE_ENV="CI_COVERAGE=1 TEST_TYPE=long" TARGET="do-test"
