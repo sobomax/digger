@@ -97,10 +97,6 @@ void soundint(void)
     t2val=40;
     if (musicflag)
       musicupdate();
-#ifdef ARM
-    else
-      soundoff();
-#endif
 #if !defined(NO_SND_EFFECTS)
     soundemeraldupdate();
     soundwobbleupdate();

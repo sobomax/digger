@@ -64,11 +64,6 @@
  * lesser size anyways...
  */
 #define DEFAULT_BUFFER 512
-#ifdef ARM
-#define DEF_SND_DEV 1
-#else
-#define DEF_SND_DEV 0
-#endif
 
 #define near
 #define far
@@ -77,9 +72,7 @@
 #define farfree free
 #define farcoreleft coreleft
 
-#ifdef ARM
-#define ININAME "Digger:Settings"
-#elif defined(__FreeBSD__) && defined _VGL
+#if defined(__FreeBSD__) && defined _VGL
 /* Applications using FreeBSD's console graphics running as root */
 #define ININAME "/var/games/digger/digger.rc"
 #elif defined UNIX && !defined _VGL
@@ -105,15 +98,7 @@
 #define strnicmp(x, y, z) strncasecmp(x, y, z)
 #endif
 
-#if defined ARM
-#define DIGGER_VERSION "JB ARM 19990320"
-#elif defined _VGL
-#define DIGGER_VERSION "MS FBSD 20000407"
-#elif defined _SDL
-#define DIGGER_VERSION "POK SDL 20110912"
-#else
-#define DIGGER_VERSION "AJ DOS 19990506"
-#endif
+#define DIGGER_VERSION "MS MPL 20190212"
 
 /* Version string:
   First word: your initials if you have changed anything.

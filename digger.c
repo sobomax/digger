@@ -94,10 +94,8 @@ getframe(void)
 
 void newframe(void)
 {
-
-#ifndef ARM
-
   uint32_t t;
+
   if (synchvid) {
     for (;curtime<ftime;curtime+=17094) { /* 17094 = ticks in a refresh */
       gretrace();
@@ -112,17 +110,6 @@ void newframe(void)
     } while (curtime+ftime>t && t>curtime);
     curtime=t;
   }
-
-#else
-
-  for (;curtime<ftime;curtime+=15000) {
-    gretrace();
-    soundint();
-    checkkeyb();
-  }
-  curtime-=ftime;
-
-#endif
 
 #if defined(INTDRF) || 1
   frame++;

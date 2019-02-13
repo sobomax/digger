@@ -41,7 +41,7 @@ Some plans for the future releases include:
       - [x] 64-bit Windows build
       - [ ] remove obsolete DOS functions (i. e. function s0setupsound() and
             so on)
-      - [ ] remove ARM specific code (SDL 2.0 is not available on ARM, so the
+      - [x] remove ARM specific code (SDL 2.0 is not available on ARM, so the
             ARM specific code is useless)
       - [ ] remove DIGGER_VERSION and give Digger a regular version number
   - [ ] headless (VNC?) mode

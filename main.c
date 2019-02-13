@@ -806,9 +806,6 @@ static void parsecmd(int argc,char *argv[])
         finish();
         printf("DIGGER - %s\n"
                "Restored 1998 by AJ Software\n"
-#ifdef ARM
-               "Acorn port by Julian Brown\n"
-#endif
                "http://www.digger.org\n"
                "https://github.com/sobomax/digger\n"
                "Version: "DIGGER_VERSION"\n\n"
