@@ -33,6 +33,7 @@
 #endif
 
 #include "soundgen.h"
+#include "spinlock.h"
 
 struct pdres {
     uint64_t ires;
@@ -66,6 +67,7 @@ struct sgen_state {
         uint64_t lastipos;
         uint64_t lastnpos;
     } wrk;
+    struct spinlock *lock;
     struct sgen_band bands[];
 };
 
@@ -84,6 +86,11 @@ sgen_ctor(uint32_t srate, int nbands)
     if (ssp == NULL)
         return (NULL);
     memset(ssp, '\0', storsize);
+    ssp->lock = spinlock_ctor();
+    if (ssp->lock == NULL) {
+        free(ssp);
+        return (NULL);
+    }
     ssp->srate = srate;
     ssp->nbands = nbands;
     for (i = 0; i < nbands; i++) {
@@ -96,14 +103,19 @@ void
 sgen_dtor(struct sgen_state *ssp)
 {
 
+    spinlock_dtor(ssp->lock);
     free(ssp);
 }
 
 uint64_t
 sgen_getstep(struct sgen_state *ssp)
 {
+    uint64_t rval;
 
-    return (ssp->step);
+    spinlock_lock(ssp->lock);
+    rval  = ssp->step;
+    spinlock_unlock(ssp->lock);
+    return (rval);
 }
 
 #include <assert.h>
@@ -113,6 +125,7 @@ sgen_setband(struct sgen_state *ssp, int band, double freq, double amp)
 {
     struct sgen_band *sbp;
 
+    spinlock_lock(ssp->lock);
     sbp = &ssp->bands[band];
 
 #if 0
@@ -133,6 +146,7 @@ sgen_setband(struct sgen_state *ssp, int band, double freq, double amp)
     } else {
         sbp->wrk.disabled = 1;
     }
+    spinlock_unlock(ssp->lock);
 }
 
 static void
@@ -140,11 +154,13 @@ sgen_addphase(struct sgen_state *ssp, int band, double phase)
 {
     struct sgen_band *sbp;
 
+    spinlock_lock(ssp->lock);
     assert(signbit(phase) == 0);
     assert(phase < 1.0);
     sbp = &ssp->bands[band];
     sbp->phase = fmod(sbp->phase + phase, 1.0);
     sbp->wrk.phi_off = sbp->phase / sbp->freq;
+    spinlock_unlock(ssp->lock);
 }
 
 void
@@ -171,16 +187,23 @@ sgen_getphase(struct sgen_state *ssp, int band)
     struct pdres pos;
     struct pdres cpos;
     struct sgen_band *sbp;
+    double rval;
 
+    spinlock_lock(ssp->lock);
     sbp = &ssp->bands[band];
-    if (sbp->wrk.disabled)
-        return (0.0);
+    if (sbp->wrk.disabled) {
+        rval = 0.0;
+        goto done;
+    }
     precisediv(ssp->step - ssp->wrk.lastnpos, ssp->srate, &pos);
     pos.ires += ssp->wrk.lastipos;
     pos.ires -= sbp->wrk.lastspos;
 
     precisedivf(&pos, sbp->wrk.prd, &cpos);
-    return (fmod(sbp->phase + (cpos.frem * sbp->freq), 1.0));
+    rval = fmod(sbp->phase + (cpos.frem * sbp->freq), 1.0);
+done:
+    spinlock_unlock(ssp->lock);
+    return (rval);
 }
 
 void
@@ -188,6 +211,7 @@ sgen_setband_mod(struct sgen_state *ssp, int band, double freq, double a0, doubl
 {
     struct sgen_band *sbp;
 
+    spinlock_lock(ssp->lock);
     sbp = &ssp->bands[band];
     sbp->b_type = BND_MOD;
     sbp->freq = freq;
@@ -201,6 +225,7 @@ sgen_setband_mod(struct sgen_state *ssp, int band, double freq, double a0, doubl
     } else {
         sbp->wrk.disabled = 1;
     }
+    spinlock_unlock(ssp->lock);
 }
 
 int
@@ -209,9 +234,11 @@ sgen_setmuteband(struct sgen_state *ssp, int band, int muted)
     int rval;
     struct sgen_band *sbp;
 
+    spinlock_lock(ssp->lock);
     sbp = &ssp->bands[band];
     rval = sbp->muted;
     sbp->muted = muted;
+    spinlock_unlock(ssp->lock);
     return (rval);
 }
 
@@ -245,6 +272,7 @@ sgen_getsample(struct sgen_state *ssp)
     int i, j;
     struct pdres pos;
 
+    spinlock_lock(ssp->lock);
     osample = 0;
     omod = INT16_MAX;
     precisediv(ssp->step - ssp->wrk.lastnpos, ssp->srate, &pos);
@@ -292,6 +320,7 @@ sgen_getsample(struct sgen_state *ssp)
     }
     ssp->step += 1;
     ssp->wrk.lastipos = pos.ires;
+    spinlock_unlock(ssp->lock);
     return (osample);
 }
 
