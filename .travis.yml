@@ -10,6 +10,7 @@ addons:
     packages:
       - cmake
       - cmake-data
+      - gcc-5
 env:
   - MAKE_ENV="CI_COVERAGE=1 TEST_TYPE=short" TARGET="do-test"
   - MAKE_ENV="CI_COVERAGE=1 TEST_TYPE=long" TARGET="do-test"
@@ -18,9 +19,9 @@ env:
   - MAKE_ENV="TEST_TYPE=long" TARGET="do-test-cmake"
   - MAKE_ENV="TEST_TYPE=xlong" TARGET="do-test-cmake"
 script:
-  - if [ "${CC}" = "gcc" ]; then CC="gcc-4.9"; fi
+  - if [ "${CC}" = "gcc" ]; then CC="gcc-5"; fi
   - make ${MAKE_ENV} "${TARGET}"
 after_success:
-  - if [ "${CC}" = "gcc-4.9" -a "${TARGET}" = "do-test" ]; then COVERALLS_PARALLEL=true coveralls --exclude CMakeFiles --gcov-options '\-lp'; fi
+  - if [ "${CC}" = "gcc-5" -a "${TARGET}" = "do-test" ]; then COVERALLS_PARALLEL=true coveralls --exclude CMakeFiles --gcov-options '\-lp'; fi
 notifications:
   webhooks: https://coveralls.io/webhook
