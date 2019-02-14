@@ -5,13 +5,14 @@ set -e
 DIFF="diff -u"
 TEST_TYPES=${TEST_TYPES:-"short long xlong"}
 
-mv ./production/* ./
+#mv ./production/* ./
 for TTYPE in ${TEST_TYPES}
 do
   for x in tests/data/*.drf
   do
     DIG_OPTS="/E:${x}"
     DIG_OPT_FSPD="/S:0"
+    DIG_OPT_HSPD="/S:20"
     TFNAME="`basename ${x}`"
     TRFNAME="${TFNAME}.out"
     if [ "${TTYPE}" = "long" -o "${TTYPE}" = "xlong" ]
@@ -28,10 +29,14 @@ do
       if [ "${TTYPE}" = "xlong" ]
       then
         eval `cat tests/results/${TRFNAME}`
-	if [ ${frames} -gt 7000 ]
+	if [ ${frames} -gt 8000 ]
         then
           continue
 	fi
+        if [ ${frames} -gt 7000 ]
+        then
+          DIG_OPTS="${DIG_OPT_HSPD} ${DIG_OPTS}"
+        fi
       fi
     else
       DIG_OPTS="/Q ${DIG_OPT_FSPD} ${DIG_OPTS}"
