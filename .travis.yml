@@ -28,6 +28,7 @@ script:
 after_success:
   - if [ "${CC}" = "gcc-5" -a "${TARGET}" = "do-test" ];
     then
+      rm debug/*.gcno;
       COVERALLS_PARALLEL=true coveralls --exclude CMakeFiles --gcov gcov-5 --gcov-options '\-lp';
     fi
 notifications:
