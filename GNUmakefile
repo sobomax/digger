@@ -33,6 +33,9 @@ WINDRES	?=  ${MGW_PREF}-windres
 STRIP   ?= ${MGW_PREF}-strip
 RCFLAGS	+= -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW_PREF}/include/SDL2
 LIBS	+= -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -lz -lm
+ifeq (${BUILD_TYPE},debug)
+LIBS    += -mconsole
+endif
 ESUFFIX	=  .exe
 OBJS	+=  digger.res
 VPATH   += ./pkg/windows
@@ -45,6 +48,9 @@ STRIP   ?=  ${MGW64_PREF}-strip
 RCFLAGS += -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW64_PREF}/include/SDL2
 LIBS    += -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW64_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm \
             -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER}/${MGW64_PREF} -lz -lm
+ifeq (${BUILD_TYPE},debug)
+LIBS    += -mconsole
+endif
 ESUFFIX =  .exe
 OBJS    +=  digger.res
 VPATH   += ./pkg/windows
