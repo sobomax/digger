@@ -4,6 +4,7 @@
 static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.";
 
 #include <ctype.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -657,6 +658,9 @@ static void calibrate(void)
     volume=1;
 }
 
+#define read_levf_fail(s, p) fprintf(digger_log, "read_levf: %s: levels file %s error%s: %s\n", \
+  levfname, (s), (p), strerror(errno))
+
 static int
 read_levf(char *levfname)
 {
@@ -669,19 +673,19 @@ read_levf(char *levfname)
   }
   if (levf == NULL) {
 #if defined(DIGGER_DEBUG)
-      fprintf(digger_log, "read_levf: levels file open error\n");
+      read_levf_fail("open", "");
 #endif
       return (-1);
   }
   if (fread(&bonusscore, 2, 1, levf) < 1) {
 #if defined(DIGGER_DEBUG)
-    fprintf(digger_log, "read_levf: levels load error 1\n");
+    read_levf_fail("load", " #1");
 #endif
     goto eout_0;
   }
   if (fread(leveldat, 1200, 1, levf) <= 0) {
 #if defined(DIGGER_DEBUG)
-    fprintf(digger_log, "read_levf: levels load error 2\n");
+    read_levf_fail("load", " #2");
 #endif
     goto eout_0;
   }
@@ -929,6 +933,7 @@ static void parsecmd(int argc,char *argv[])
     if (read_levf(levfname) != 0) {
 #if defined(DIGGER_DEBUG)
       fprintf(digger_log, "levels load error\n");
+      exit(1);
 #endif
       levfflag = false;
     }
@@ -952,7 +957,7 @@ static void inir(void)
   int i,j,p;
   bool cgaflag;
 
-#if defined(UNIX)
+#if defined(UNIX) || defined(DIGGER_DEBUG)
   digger_log = stderr;
 #else
   digger_log = fopen("DIGGER.log", "w+");
