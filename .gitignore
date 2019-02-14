@@ -1,7 +1,8 @@
 *.o
 *.gcda
 *.gcno
-*.drf.out
+.depend
+/*.drf.out
 digger
 digger.exe
 digger.res
