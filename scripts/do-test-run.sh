@@ -5,7 +5,7 @@ set -e
 DIFF="diff -u"
 TEST_TYPES=${TEST_TYPES:-"short long xlong"}
 
-#mv ./production/* ./
+mv ./production/* ./
 for TTYPE in ${TEST_TYPES}
 do
   for x in tests/data/*.drf
