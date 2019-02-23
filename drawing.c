@@ -16,6 +16,7 @@
 #include "sprite.h"
 #include "digger.h"
 #include "sound.h"
+#include "game.h"
 
 static int16_t field1[MSIZE],field2[MSIZE];
 int16_t field[MSIZE];
@@ -72,7 +73,7 @@ void makefield(void)
         field[y*MWIDTH+x]&=0xd03f;
       if (c=='S' || c=='H')
         field[y*MWIDTH+x]&=0xdfe0;
-      if (curplayer==0)
+      if (dgstate.curplayer==0)
         field1[y*MWIDTH+x]=field[y*MWIDTH+x];
       else
         field2[y*MWIDTH+x]=field[y*MWIDTH+x];
@@ -84,7 +85,7 @@ void drawstatics(struct digger_draw_api *ddap)
   int16_t x,y;
   for (x=0;x<MWIDTH;x++)
     for (y=0;y<MHEIGHT;y++)
-      if (curplayer==0)
+      if (dgstate.curplayer==0)
         field[y*MWIDTH+x]=field1[y*MWIDTH+x];
       else
         field[y*MWIDTH+x]=field2[y*MWIDTH+x];
@@ -100,7 +101,7 @@ void savefield(void)
   int16_t x,y;
   for (x=0;x<MWIDTH;x++)
     for (y=0;y<MHEIGHT;y++)
-      if (curplayer==0)
+      if (dgstate.curplayer==0)
         field1[y*MWIDTH+x]=field[y*MWIDTH+x];
       else
         field2[y*MWIDTH+x]=field[y*MWIDTH+x];
@@ -361,7 +362,7 @@ void drawlives(struct digger_draw_api *ddap)
 {
   int16_t l,n,g;
   char buf[10];
-  if (gauntlet) {
+  if (dgstate.gauntlet) {
     g=(int16_t)(cgtime/1193181l);
     sprintf(buf,"%3i:%02i",g/60,g%60);
     outtext(ddap, buf,124,0,3);
@@ -379,7 +380,7 @@ void drawlives(struct digger_draw_api *ddap)
       drawlife(n>0 ? 0 : 2,l*20+60,0);
       n--;
     }
-  if (nplayers==2) {
+  if (dgstate.nplayers==2) {
     erasetext(ddap, 5, 164,0,2);
     n=getlives(1)-1;
     if (n>4) {
@@ -393,7 +394,7 @@ void drawlives(struct digger_draw_api *ddap)
         n--;
       }
   }
-  if (diggers==2) {
+  if (dgstate.diggers==2) {
     erasetext(ddap, 5, 164,0,1);
     n=getlives(1)-1;
     if (n>4) {

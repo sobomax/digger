@@ -14,6 +14,7 @@
 #include "ini.h"
 #include "keyboard.h"
 #include "main.h"
+#include "game.h"
 
 const char *keynames[NKEYS]={"Right","Up","Left","Down","Fire",
                     "Right","Up","Left","Down","Fire",
@@ -44,7 +45,7 @@ void redefkeyb(struct digger_draw_api *ddap, bool allf)
   outtext(ddap, "PRESS NEW KEY FOR",0,y,3);
   y+=CHR_H;
 
-  if (diggers==2) {
+  if (dgstate.diggers==2) {
     outtext(ddap, "PLAYER 1:",0,y,3);
     y+=CHR_H;
   }
@@ -76,7 +77,7 @@ void redefkeyb(struct digger_draw_api *ddap, bool allf)
     }
   }
 
-  if (diggers==2) {
+  if (dgstate.diggers==2) {
     outtext(ddap, "PLAYER 2:",0,y,3);
     y+=CHR_H;
     for (i=5;i<10;i++) {

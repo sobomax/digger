@@ -15,6 +15,7 @@
 #include "sound.h"
 #include "scores.h"
 #include "record.h"
+#include "game.h"
 
 static struct monster
 {
@@ -126,12 +127,12 @@ createmonster(void)
       mondat[i].xr=0;
       mondat[i].yr=0;
       mondat[i].dir=DIR_LEFT;
-      mondat[i].chase=chase+curplayer;
+      mondat[i].chase=chase+dgstate.curplayer;
       if (mondat[i].mop != NULL) {
         CALL_METHOD(mondat[i].mop, dtor);
       }
       mondat[i].mop = monster_obj_ctor(i, MON_NOBBIN, DIR_LEFT, 292, 18);
-      chase=(chase+1)%diggers;
+      chase=(chase+1)%dgstate.diggers;
       nextmonster++;
       nextmontime=mongaptime;
       mondat[i].stime=5;
@@ -174,7 +175,7 @@ monai(struct digger_draw_api *ddap, int16_t mon)
 
     dig=mondat[mon].chase;
     if (!digalive(dig))
-      dig=(diggers-1)-dig;
+      dig=(dgstate.diggers-1)-dig;
 
     if (abs(diggery(dig)-mopos.y)>abs(diggerx(dig)-mopos.x)) {
       if (diggery(dig)<mopos.y) { mdirp1=DIR_UP;    mdirp4=DIR_DOWN; }
@@ -425,8 +426,8 @@ monai(struct digger_draw_api *ddap, int16_t mon)
       killmon(mon);
       i=clfirst[4];
       while (i!=-1) {
-        if (digalive(i-FIRSTDIGGER+curplayer))
-          sceatm(ddap, i-FIRSTDIGGER+curplayer);
+        if (digalive(i-FIRSTDIGGER+dgstate.curplayer))
+          sceatm(ddap, i-FIRSTDIGGER+dgstate.curplayer);
         i=clcoll[i];
       }
       soundeatm(); /* Collision in bonus mode */
@@ -434,8 +435,8 @@ monai(struct digger_draw_api *ddap, int16_t mon)
     else {
       i=clfirst[4];
       while (i!=-1) {
-        if (digalive(i-FIRSTDIGGER+curplayer))
-          killdigger(i-FIRSTDIGGER+curplayer,3,0); /* Kill Digger */
+        if (digalive(i-FIRSTDIGGER+dgstate.curplayer))
+          killdigger(i-FIRSTDIGGER+dgstate.curplayer,3,0); /* Kill Digger */
         i=clcoll[i];
       }
     }
@@ -473,10 +474,10 @@ mondie(struct digger_draw_api *ddap, int16_t mon)
         mondat[mon].dtime--;
       else {
         killmon(mon);
-        if (diggers==2)
+        if (dgstate.diggers==2)
           scorekill2(ddap);
         else
-          scorekill(ddap, curplayer);
+          scorekill(ddap, dgstate.curplayer);
       }
   }
 }

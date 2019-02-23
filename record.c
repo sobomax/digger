@@ -13,6 +13,7 @@
 #include "main.h"
 #include "scores.h"
 #include "sprite.h"
+#include "game.h"
 
 static char huge *recb,huge *plb,huge *plp;
 
@@ -61,9 +62,9 @@ void openplay(char *name)
   FILE *playf=fopen(name,"rb");
   int32_t l,i;
   char c,buf[80];
-  int x,y,n,origgtime=gtime;
-  bool origg=gauntlet;
-  int16_t origstartlev=startlev,orignplayers=nplayers,origdiggers=diggers;
+  int x,y,n,origgtime=dgstate.gtime;
+  bool origg=dgstate.gauntlet;
+  int16_t origstartlev=dgstate.startlev,orignplayers=dgstate.nplayers,origdiggers=dgstate.diggers;
 #ifdef INTDRF
   info=fopen("DRFINFO.TXT","wt");
 #endif
@@ -71,10 +72,10 @@ void openplay(char *name)
     escape=true;
     return;
   }
-  gauntlet=false;
-  startlev=1;
-  nplayers=1;
-  diggers=1;
+  dgstate.gauntlet=false;
+  dgstate.startlev=1;
+  dgstate.nplayers=1;
+  dgstate.diggers=1;
   /* The file is in two distint parts. In the first, line breaks are used as
      separators. In the second, they are ignored. This is the first. */
 
@@ -96,25 +97,25 @@ void openplay(char *name)
     goto out_0;
   }
   if (*buf=='1') {
-    nplayers=1;
+    dgstate.nplayers=1;
     x=1;
   }
   else
     if (*buf=='2') {
-      nplayers=2;
+      dgstate.nplayers=2;
       x=1;
     }
     else {
       if (*buf=='M') {
-        diggers=buf[1]-'0';
+        dgstate.diggers=buf[1]-'0';
         x=2;
       }
       else
         x=0;
       if (buf[x]=='G') {
-        gauntlet=true;
+        dgstate.gauntlet=true;
         x++;
-        gtime=atoi(buf+x);
+        dgstate.gtime=atoi(buf+x);
         while (buf[x]>='0' && buf[x]<='9')
           x++;
       }
@@ -122,7 +123,7 @@ void openplay(char *name)
   if (buf[x]=='U') /* Unlimited lives are ignored on playback. */
     x++;
   if (buf[x]=='I')
-    startlev=atoi(buf+x+1);
+    dgstate.startlev=atoi(buf+x+1);
   /* Get bonus score */
   if (smart_fgets(buf, 80, playf) == NULL) {
     goto out_0;
@@ -137,7 +138,7 @@ void openplay(char *name)
         goto out_0;
       }
       for (x=0;x<15;x++)
-        leveldat[n][y][x]=buf[x];
+        dgstate.leveldat[n][y][x]=buf[x];
     }
 
   /* This is the second. The line breaks here really are only so that the file
@@ -166,12 +167,12 @@ void openplay(char *name)
   gotgame=true;
   playing=false;
   farfree(plb);
-  gauntlet=origg;
-  gtime=origgtime;
+  dgstate.gauntlet=origg;
+  dgstate.gtime=origgtime;
   kludge=false;
-  startlev=origstartlev;
-  diggers=origdiggers;
-  nplayers=orignplayers;
+  dgstate.startlev=origstartlev;
+  dgstate.diggers=origdiggers;
+  dgstate.nplayers=orignplayers;
   return;
 out_0:
   if (playf != NULL) {
@@ -311,25 +312,25 @@ void recinit(void)
     mprintf("AJ DOS 19981125\n");
   else
     mprintf(DIGGER_VERSION"\n");
-  if (diggers>1) {
-    mprintf("M%i",diggers);
-    if (gauntlet)
-      mprintf("G%i",gtime);
+  if (dgstate.diggers>1) {
+    mprintf("M%i",dgstate.diggers);
+    if (dgstate.gauntlet)
+      mprintf("G%i",dgstate.gtime);
   }
   else
-    if (gauntlet)
-      mprintf("G%i",gtime);
+    if (dgstate.gauntlet)
+      mprintf("G%i",dgstate.gtime);
     else
-      mprintf("%i",nplayers);
+      mprintf("%i",dgstate.nplayers);
 /*  if (unlimlives)
     mprintf("U"); */
-  if (startlev>1)
-    mprintf("I%i",startlev);
+  if (dgstate.startlev>1)
+    mprintf("I%i",dgstate.startlev);
   mprintf("\n%i\n",bonusscore);
   for (l=0;l<8;l++) {
     for (y=0;y<MHEIGHT;y++) {
       for (x=0;x<MWIDTH;x++)
-        mprintf("%c",leveldat[l][y][x]);
+        mprintf("%c",dgstate.leveldat[l][y][x]);
       mprintf("\n");
     }
   }
@@ -358,7 +359,7 @@ void recsavedrf(void)
       gotfile=true;
   }
   if (!gotname) {
-    if (nplayers==2)
+    if (dgstate.nplayers==2)
       recf=fopen(DEFAULTSN,"wt"); /* Should get a name, really */
     else {
       for (j=0;j<3;j++) {

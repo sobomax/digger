@@ -11,6 +11,7 @@
 #include "monster.h"
 #include "digger.h"
 #include "scores.h"
+#include "game.h"
 
 static struct bag {
   int16_t x,y,h,v,xr,yr,dir,wt,gt,fallh;
@@ -51,7 +52,7 @@ void initbags(void)
           bagdat[bag].xr=0;
           bagdat[bag++].yr=0;
         }
-  if (curplayer==0)
+  if (dgstate.curplayer==0)
     memcpy(bagdat1,bagdat,BAGS*sizeof(struct bag));
   else
     memcpy(bagdat2,bagdat,BAGS*sizeof(struct bag));
@@ -61,7 +62,7 @@ void drawbags(void)
 {
   int16_t bag;
   for (bag=0;bag<BAGS;bag++) {
-    if (curplayer==0)
+    if (dgstate.curplayer==0)
       memcpy(&bagdat[bag],&bagdat1[bag],sizeof(struct bag));
     else
       memcpy(&bagdat[bag],&bagdat2[bag],sizeof(struct bag));
@@ -81,7 +82,7 @@ void cleanupbags(void)
       bagdat[bag].exist=false;
       erasespr(bag+FIRSTBAG);
     }
-    if (curplayer==0)
+    if (dgstate.curplayer==0)
       memcpy(&bagdat1[bag],&bagdat[bag],sizeof(struct bag));
     else
       memcpy(&bagdat2[bag],&bagdat[bag],sizeof(struct bag));
@@ -248,8 +249,8 @@ pushbag(struct digger_draw_api *ddap, int16_t bag,int16_t dir)
     incpenalty();
     i=clfirst[4];
     while (i!=-1) {
-      if (diggery(i-FIRSTDIGGER+curplayer)>=y)
-        killdigger(i-FIRSTDIGGER+curplayer,1,bag);
+      if (diggery(i-FIRSTDIGGER+dgstate.curplayer)>=y)
+        killdigger(i-FIRSTDIGGER+dgstate.curplayer,1,bag);
       i=clcoll[i];
     }
     if (clfirst[2]!=-1)
@@ -289,8 +290,8 @@ pushbag(struct digger_draw_api *ddap, int16_t bag,int16_t dir)
         incpenalty();
         i=clfirst[4];
         while (i!=-1) {
-          if (diggery(i-FIRSTDIGGER+curplayer)>=y)
-            killdigger(i-FIRSTDIGGER+curplayer,1,bag);
+          if (diggery(i-FIRSTDIGGER+dgstate.curplayer)>=y)
+            killdigger(i-FIRSTDIGGER+dgstate.curplayer,1,bag);
           i=clcoll[i];
         }
         if (clfirst[2]!=-1)
@@ -318,7 +319,7 @@ pushbag(struct digger_draw_api *ddap, int16_t bag,int16_t dir)
         i=clfirst[4];
         digf=false;
         while (i!=-1) {
-          if (digalive(i-FIRSTDIGGER+curplayer))
+          if (digalive(i-FIRSTDIGGER+dgstate.curplayer))
             digf=true;
           i=clcoll[i];
         }
@@ -424,10 +425,10 @@ getgold(struct digger_draw_api *ddap, int16_t bag)
   incpenalty();
   i=first[4];
   while (i!=-1) {
-    if (digalive(i-FIRSTDIGGER+curplayer)) {
-      scoregold(ddap, i-FIRSTDIGGER+curplayer);
+    if (digalive(i-FIRSTDIGGER+dgstate.curplayer)) {
+      scoregold(ddap, i-FIRSTDIGGER+dgstate.curplayer);
       soundgold();
-      digresettime(i-FIRSTDIGGER+curplayer);
+      digresettime(i-FIRSTDIGGER+dgstate.curplayer);
       f=false;
     }
     i=coll[i];

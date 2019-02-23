@@ -10,7 +10,7 @@ OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o sound.o \
 		newsnd.o ini.o input.o monster.o bags.o alpha.o vgagrafx.o \
 		title_gz.o icon.o sdl_kbd.o sdl_vid.o sdl_timer.o sdl_snd.o \
 		digger_math.o monster_obj.o digger_obj.o bullet_obj.o \
-		cgagrafx.o keyboard.o soundgen.o spinlock.o
+		cgagrafx.o keyboard.o soundgen.o spinlock.o game.o
 
 ARCH	?= LINUX
 #ARCH	?= MINGW

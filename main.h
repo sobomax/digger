@@ -14,6 +14,7 @@ void maininit(void);
 int mainprog(void);
 void testpause(void);
 
+#if 0
 extern int16_t nplayers,diggers,curplayer,startlev;
 extern bool levfflag;
 extern char levfname[];
@@ -22,3 +23,4 @@ extern int32_t randv;
 extern int8_t leveldat[8][10][15];
 extern int gtime;
 extern bool gauntlet,timeout,synchvid,unlimlives;
+#endif

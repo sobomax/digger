@@ -16,6 +16,7 @@
 #include "input.h"
 #include "digger.h"
 #include "record.h"
+#include "game.h"
 
 static struct scdat
 {
@@ -77,7 +78,7 @@ readscores(void)
 {
   FILE *in;
   scorebuf[0]=0;
-  if (!levfflag) {
+  if (!dgstate.levfflag) {
     if ((in=fopen(SFNAME,"rb"))!=NULL) {
       if (fread(scorebuf, 512, 1, in) <= 0) {
         scorebuf[0]=0;
@@ -86,7 +87,7 @@ readscores(void)
     }
   }
   else
-    if ((in=fopen(levfname,"rb"))!=NULL) {
+    if ((in=fopen(dgstate.levfname,"rb"))!=NULL) {
       fseek(in,1202,0);
       if (fread(scorebuf, 512, 1, in) <= 0) {
         scorebuf[0]=0;
@@ -99,14 +100,14 @@ static void
 writescores(void)
 {
   FILE *out;
-  if (!levfflag) {
+  if (!dgstate.levfflag) {
     if ((out=fopen(SFNAME,"wb"))!=NULL) {
       fwrite(scorebuf,512,1,out);
       fclose(out);
     }
   }
   else
-    if ((out=fopen(levfname,"r+b"))!=NULL) {
+    if ((out=fopen(dgstate.levfname,"r+b"))!=NULL) {
       fseek(out,1202,0);
       fwrite(scorebuf,512,1,out);
       fclose(out);
@@ -116,7 +117,7 @@ writescores(void)
 void initscores(struct digger_draw_api *ddap)
 {
   int i;
-  for (i=0;i<diggers;i++)
+  for (i=0;i<dgstate.diggers;i++)
     addscore(ddap, i,0);
 }
 
@@ -124,9 +125,9 @@ void loadscores(void)
 {
   int16_t p=0,i,x;
   readscores();
-  if (gauntlet)
+  if (dgstate.gauntlet)
     p=111;
-  if (diggers==2)
+  if (dgstate.diggers==2)
     p+=222;
   if (scorebuf[p++]!='s')
     for (i=0;i<11;i++) {
@@ -154,7 +155,7 @@ void zeroscores(void)
 
 void writecurscore(struct digger_draw_api *ddap, int col)
 {
-  if (curplayer==0)
+  if (dgstate.curplayer==0)
     writenum(ddap, scdat[0].score,0,0,6,col);
   else
     if (scdat[1].score<100000l)
@@ -166,7 +167,7 @@ void writecurscore(struct digger_draw_api *ddap, int col)
 void drawscores(struct digger_draw_api *ddap)
 {
   writenum(ddap, scdat[0].score,0,0,6,3);
-  if (nplayers==2 || diggers==2) {
+  if (dgstate.nplayers==2 || dgstate.diggers==2) {
     if (scdat[1].score<100000l)
       writenum(ddap, scdat[1].score,236,0,6,3);
     else
@@ -189,8 +190,8 @@ void addscore(struct digger_draw_api *ddap, int n,int16_t score)
     else
       writenum(ddap, scdat[n].score,248,0,6,1);
   if (scdat[n].score>=scdat[n].nextbs+n) { /* +n to reproduce original bug */
-    if (getlives(n)<5 || unlimlives) {
-      if (gauntlet)
+    if (getlives(n)<5 || dgstate.unlimlives) {
+      if (dgstate.gauntlet)
         cgtime+=17897715l; /* 15 second time bonus instead of the life */
       else
         addlife(n);
@@ -207,28 +208,28 @@ void endofgame(struct digger_draw_api *ddap)
 {
   int16_t i;
   bool initflag=false;
-  for (i=0;i<diggers;i++)
+  for (i=0;i<dgstate.diggers;i++)
     addscore(ddap, i,0);
   if (playing || !drfvalid)
     return;
-  if (gauntlet) {
+  if (dgstate.gauntlet) {
     cleartopline();
     outtext(ddap, "TIME UP",120,0,3);
     for (i=0;i<50 && !escape;i++)
       newframe();
     erasetext(ddap, 7, 120,0,3);
   }
-  for (i=curplayer;i<curplayer+diggers;i++) {
+  for (i=dgstate.curplayer;i<dgstate.curplayer+dgstate.diggers;i++) {
     scoret=scdat[i].score;
     if (scoret>scorehigh[11]) {
       ddap->gclear();
       drawscores(ddap);
-      strcpy(pldispbuf,"PLAYER ");
+      strcpy(dgstate.pldispbuf,"PLAYER ");
       if (i==0)
-        strcat(pldispbuf,"1");
+        strcat(dgstate.pldispbuf,"1");
       else
-        strcat(pldispbuf,"2");
-      outtext(ddap, pldispbuf,108,0,2);
+        strcat(dgstate.pldispbuf,"2");
+      outtext(ddap, dgstate.pldispbuf,108,0,2);
       outtext(ddap, " NEW HIGH SCORE ",64,40,2);
       getinitials(ddap);
       shufflehigh();
@@ -236,7 +237,7 @@ void endofgame(struct digger_draw_api *ddap)
       initflag=true;
     }
   }
-  if (!initflag && !gauntlet) {
+  if (!initflag && !dgstate.gauntlet) {
     cleartopline();
     outtext(ddap, "GAME OVER",104,0,3);
     for (i=0;i<50 && !escape;i++)
@@ -266,9 +267,9 @@ static void
 savescores(void)
 {
   int16_t i,p=0,j;
-  if (gauntlet)
+  if (dgstate.gauntlet)
     p=111;
-  if (diggers==2)
+  if (dgstate.diggers==2)
     p+=222;
   strcpy(scorebuf+p,"s");
   for (i=1;i<11;i++) {

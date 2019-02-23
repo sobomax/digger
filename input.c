@@ -8,6 +8,7 @@
 #include "hardware.h"
 #include "record.h"
 #include "digger.h"
+#include "game.h"
 #ifdef _SDL
 #include "sdl_kbd.h" 
 #elif defined(_VGL)
@@ -84,7 +85,7 @@ void checkkeyb(void)
           k=i;
     switch (k) {
       case DKEY_CHT: /* Cheat! */
-        if (!gauntlet) {
+        if (!dgstate.gauntlet) {
           playing=false;
           drfvalid=false;
         }
