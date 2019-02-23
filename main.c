@@ -155,6 +155,14 @@ extern FILE *info;
 
 extern struct digger_draw_api *ddap;
 
+static void
+game_dbg_info_emit(void)
+{
+
+  printf("score=%d level=%d frames=%u\n", gettscore(0), levno(),
+   (unsigned int)getframe());
+}
+
 void game(void)
 {
   int16_t t,c,i;
@@ -260,8 +268,12 @@ void game(void)
         playskipeol();
       if (escape)
         recputeog();
-      if (gamedat[curplayer].levdone)
+      if (gamedat[curplayer].levdone) {
         soundlevdone();
+        if (getenv("DIGGER_CI_RUN_DTL") != NULL) {
+          game_dbg_info_emit();
+        }
+      }
       if (countem()==0 || gamedat[curplayer].levdone) {
 #ifdef INTDRF
         fprintf(info,"%i\n",frame);
@@ -776,8 +788,7 @@ static void parsecmd(int argc,char *argv[])
       if (argch == 'E') {
         finish();
 	if (getenv("DIGGER_CI_RUN") != NULL) {
-          printf("score=%d level=%d frames=%u\n", gettscore(0), levno(),
-	    (unsigned int)getframe());
+          game_dbg_info_emit();
 	  exit(0);
 	}
         if (escape)
@@ -981,7 +992,8 @@ static void inir(void)
   }
   gtime=(int)GetINIInt(INI_GAME_SETTINGS,"GauntletTime",120,ININAME);
   if (ftime == 0) {
-      ftime=GetINIInt(INI_GAME_SETTINGS,"Speed",80000l,ININAME);
+      ftime=GetINIIntDoc(INI_GAME_SETTINGS,"Speed",80000l,ININAME,
+        "number of microseconds in one frame, eq of 12.5Hz");
   }
   gauntlet=GetINIBool(INI_GAME_SETTINGS,"GauntletMode",false,ININAME);
   GetINIString(INI_GAME_SETTINGS,"Players","1",vbuf,80,ININAME);
