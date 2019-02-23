@@ -24,6 +24,10 @@
  * SUCH DAMAGE.
  */
 
+#if defined(DIGGER_DEBUG)
+#include <assert.h>
+#include <stdbool.h>
+#endif
 #include <stdatomic.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -62,22 +66,24 @@ spinlock_lock(struct spinlock *sp)
 {
   uintmax_t nspins;
 
-#if 1
   nspins = 0;
   while (atomic_flag_test_and_set_explicit(&sp->flag, memory_order_acquire)) {
     nspins++;
   }
   if (nspins > 0)
     atomic_fetch_add(&sp->nspins, nspins);
-#endif
 }
 
 void
 spinlock_unlock(struct spinlock *sp)
 {
-#if 1
-  atomic_flag_clear_explicit(&sp->flag, memory_order_release);
+#if defined(DIGGER_DEBUG)
+  bool locked;
+
+  locked = atomic_flag_test_and_set_explicit(&sp->flag, memory_order_acquire);
+  assert(locked == true);
 #endif
+  atomic_flag_clear_explicit(&sp->flag, memory_order_release);
 }
 
 #if defined(spinlock_test)
