@@ -7,6 +7,7 @@
 
 #include "def.h"
 #include "digger_math.h"
+#include "hardware.h"
 #ifdef _SDL
 #include "sdl_vid.h"
 #endif
@@ -36,7 +37,7 @@ int32_t getlrt(void)
 	return(0);
 }
 
-uint32_t gethrt(void)
+uint32_t gethrt(bool minsleep)
 {
     uint32_t add_delay;
     double eval, clk_rl, tfreq, add_delay_d, filterval;
@@ -44,6 +45,8 @@ uint32_t gethrt(void)
 
     if (ftime <= 1) {
         doscreenupdate();
+        if (minsleep)
+            SDL_Delay(10);
         return (0);
     }
     tfreq = 1000000.0 / ftime;

@@ -112,7 +112,7 @@ int16_t getkey(bool scancode)
 	int16_t result;
 	
 	while(kbhit() != true)
-		gethrt();
+		gethrt(true);
         if (scancode) {
 	        result = kbuffer[0].scancode;
         } else {

@@ -106,7 +106,7 @@ void newframe(void)
   }
   else {
     do {
-      t=gethrt();
+      t=gethrt(sounddiedone ? false : true);
       checkkeyb();
     } while (curtime+ftime>t && t>curtime);
     curtime=t;

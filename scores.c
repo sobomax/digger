@@ -323,7 +323,7 @@ void flashywait(struct digger_draw_api *ddap, int16_t n)
   int16_t i,gt,cx,p=0;
   int8_t gap=19;
 
-  gethrt();
+  gethrt(true);
   setretr(false);
   for (i=0;i<(n<<1);i++)
     for (cx=0;cx<volume;cx++) {

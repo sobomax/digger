@@ -568,7 +568,7 @@ void testpause(void)
       addscore(ddap, i,0);
     drawlives(ddap);
     if (!dgstate.synchvid)
-      curtime=gethrt();
+      curtime=gethrt(true);
     pausef=false;
   }
   else
