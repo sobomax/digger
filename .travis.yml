@@ -2,10 +2,8 @@ dist: xenial
 sudo: required
 language: c
 compiler:
-  - clang
   - gcc
 before_install:
-  - pip install --user cpp-coveralls
   - echo -n | openssl s_client -connect https://scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
 
 addons:
@@ -13,8 +11,6 @@ addons:
     sources:
       - ubuntu-toolchain-r-test
     packages:
-      - cmake
-      - cmake-data
       - gcc-5
       - libsdl2-dev
   coverity_scan:
@@ -24,27 +20,9 @@ addons:
     notification_email: sobomax@gmail.com
     build_command_prepend: "make clean"
     build_command: "make all"
-    branch_pattern: master
+    branch_pattern: coverity_scan
 env:
   global:
     # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
     #   via the "travis encrypt" command using the project repo's public key
     - secure: "gF2NmAF8u3ajNVmX6a+BSOtdQmZfAPog7wCdNeDHXJrCwecVA8f1tx5ZuJVpHCCdtQDueAy32IU2k8POkwP+8Vl6obLzo1m9EITRLYkCdfzPTCGz/kPRLSvabsaSZR9eFvycUkTC805H39S5Wjogys6cfJwAVhWYmzH8Gvfb03k="
-  matrix:
-    - MAKE_ENV="CI_COVERAGE=1 TEST_TYPE=short" TARGET="do-test"
-    - MAKE_ENV="CI_COVERAGE=1 TEST_TYPE=long" TARGET="do-test"
-    - MAKE_ENV="CI_COVERAGE=1 TEST_TYPE=xlong" TARGET="do-test"
-    - MAKE_ENV="TEST_TYPE=short" TARGET="do-test-cmake"
-    - MAKE_ENV="TEST_TYPE=long" TARGET="do-test-cmake"
-    - MAKE_ENV="TEST_TYPE=xlong" TARGET="do-test-cmake"
-script:
-  - if [ "${CC}" = "gcc" ]; then CC="gcc-5"; fi
-  - make ${MAKE_ENV} "${TARGET}"
-after_success:
-  - if [ "${CC}" = "gcc-5" -a "${TARGET}" = "do-test" ];
-    then
-      rm debug/*.gcno;
-      COVERALLS_PARALLEL=true coveralls --exclude CMakeFiles --gcov gcov-5 --gcov-options '\-lp';
-    fi
-notifications:
-  webhooks: https://coveralls.io/webhook
