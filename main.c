@@ -80,7 +80,7 @@ void game(void)
   int16_t t,c,i;
   bool flashplayer=false;
   if (dgstate.gauntlet) {
-    cgtime=dgstate.gtime*1193181l;
+    dgstate.cgtime=dgstate.gtime*1193181l;
     dgstate.timeout=false;
   }
   initlives();
@@ -105,7 +105,7 @@ void game(void)
       if (playing)
         dgstate.randv=playgetrand();
       else
-        dgstate.randv=getlrt();
+        dgstate.randv=0;
 #ifdef INTDRF
       fprintf(info,"%lu\n",dgstate.randv);
       frame=0;
@@ -567,8 +567,7 @@ void testpause(void)
     for (i=0;i<dgstate.diggers;i++)
       addscore(ddap, i,0);
     drawlives(ddap);
-    if (!dgstate.synchvid)
-      curtime=gethrt(true);
+    gethrt(true);
     pausef=false;
   }
   else
@@ -716,9 +715,9 @@ static void parsecmd(int argc,char *argv[])
         while (word[i]!=0)
           speedmul=10*speedmul+word[i++]-'0';
         if (speedmul > 0) {
-          ftime=speedmul*2000l;
+          dgstate.ftime=speedmul*2000l;
         } else {
-          ftime = 1;
+          dgstate.ftime = 1;
         }
         gs=true;
       }
@@ -742,7 +741,7 @@ static void parsecmd(int argc,char *argv[])
                                                          "[/P:playback file]\n"
                "         [/E:playback file] [/R:record file] [/O] [/K[A]] "
                                                            "[/G[:time]] [/2]\n"
-               "         [/V] [/U] [/I:level] "
+               "         [/U] [/I:level] "
 
 #if defined(UNIX) && defined(_SDL)
                          "[/X:xid] "
@@ -763,9 +762,6 @@ static void parsecmd(int argc,char *argv[])
                "/K = Redefine keyboard\n"
                "/G = Gauntlet mode\n"
                "/2 = Two player simultaneous mode\n"
-#ifndef UNIX
-               "/V = Synchronize timing to vertical retrace\n"
-#endif
 #if defined(UNIX) && defined(_SDL)
                "/X = Embed in window\n"
 #endif
@@ -804,8 +800,6 @@ static void parsecmd(int argc,char *argv[])
       }
       if (argch == 'Q')
         quiet=true;
-      if (argch == 'V')
-        dgstate.synchvid=true;
       if (argch == 'G') {
         dgstate.gtime=0;
         while (word[i]!=0)
@@ -835,9 +829,9 @@ static void parsecmd(int argc,char *argv[])
           speedmul=10*speedmul+word[j++]-'0';
         gs=true;
         if (speedmul > 0) {
-          ftime=speedmul*2000l;
+          dgstate.ftime=speedmul*2000l;
         } else {
-          ftime = 1;
+          dgstate.ftime = 1;
         }
       }
       else {
@@ -901,8 +895,8 @@ static void inir(void)
     }
   }
   dgstate.gtime=(int)GetINIInt(INI_GAME_SETTINGS,"GauntletTime",120,ININAME);
-  if (ftime == 0) {
-      ftime=GetINIIntDoc(INI_GAME_SETTINGS,"Speed",80000l,ININAME,
+  if (dgstate.ftime == 0) {
+      dgstate.ftime=GetINIIntDoc(INI_GAME_SETTINGS,"Speed",80000l,ININAME,
         "number of microseconds in one frame, eq of 12.5Hz");
   }
   dgstate.gauntlet=GetINIBool(INI_GAME_SETTINGS,"GauntletMode",false,ININAME);
@@ -943,7 +937,6 @@ static void inir(void)
                                     ININAME);
   use_async_screen_updates=GetINIBool(INI_GRAPHICS_SETTINGS,"Async",true,
                                       ININAME);
-  dgstate.synchvid=GetINIBool(INI_GRAPHICS_SETTINGS,"Synch",false,ININAME);
   cgaflag=GetINIBool(INI_GRAPHICS_SETTINGS,"CGA",false,ININAME);
   if (cgaflag) {
     ddap->ginit=cgainit;

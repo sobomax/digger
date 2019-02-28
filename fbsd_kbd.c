@@ -198,7 +198,7 @@ int16_t getkey(bool scancode)
 	int16_t result;
 	
 	while(kbhit() != true)
-		gethrt();
+		gethrt(true);
 	result = kbuffer[0];
 	memcpy(kbuffer, kbuffer + 1, --klen);
 

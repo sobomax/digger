@@ -80,8 +80,6 @@ void initdigger(void)
   bonusvisible=bonusmode=false;
 }
 
-uint32_t curtime,ftime;
-
 #if defined(INTDRF) || 1
 static uint32_t frame;
 #endif
@@ -95,30 +93,15 @@ getframe(void)
 
 void newframe(void)
 {
-  uint32_t t;
 
-  if (dgstate.synchvid) {
-    for (;curtime<ftime;curtime+=17094) { /* 17094 = ticks in a refresh */
-      gretrace();
-      checkkeyb();
-    }
-    curtime-=ftime;
-  }
-  else {
-    do {
-      t=gethrt(sounddiedone ? false : true);
-      checkkeyb();
-    } while (curtime+ftime>t && t>curtime);
-    curtime=t;
-  }
+  gethrt(sounddiedone ? false : true);
+  checkkeyb();
 
 #if defined(INTDRF) || 1
   frame++;
 #endif
 
 }
-
-uint32_t cgtime;
 
 void drawdig(int n)
 {
@@ -142,9 +125,9 @@ dodigger(struct digger_draw_api *ddap)
   newframe();
   if (dgstate.gauntlet) {
     drawlives(ddap);
-    if (cgtime<ftime)
+    if (dgstate.cgtime<dgstate.ftime)
       dgstate.timeout=true;
-    cgtime-=ftime;
+    dgstate.cgtime-=dgstate.ftime;
   }
   for (n=dgstate.curplayer;n<dgstate.diggers+dgstate.curplayer;n++) {
     if (digdat[n].bob.expsn!=0)

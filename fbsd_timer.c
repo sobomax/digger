@@ -9,8 +9,8 @@
 #include "def.h"
 #include "fbsd_vid.h"
 #include "digger_math.h"
+#include "game.h"
 
-extern uint32_t ftime;
 long int account = 0;
 long int slept = 0;
 int i = 0;
@@ -22,16 +22,10 @@ void inittimer(void)
 {
         double tfreq;
 
-	tfreq = 1000000.0 / ftime;
+	tfreq = 1000000.0 / dgstate.ftime;
 	FIXME("inittimer called");
 	loop_error = recfilter_init(tfreq, 0.1);
 	PFD_init(&phase_detector, 0.0);
-}
-
-int32_t getlrt(void)
-{
-	FIXME("getlrt called");
-	return(0);
 }
 
 static double
@@ -52,7 +46,8 @@ getdtime(void)
     return timespec2dtime(tp.tv_sec, tp.tv_nsec);
 }
 
-uint32_t gethrt(void)
+void
+gethrt(void)
 {
 	uint32_t add_delay;
 	double eval, clk_rl, tfreq, filterval;
@@ -60,7 +55,7 @@ uint32_t gethrt(void)
 	VGLCheckSwitch();
 
 	/* Speed controlling stuff */
-	tfreq = 1000000.0 / ftime;
+	tfreq = 1000000.0 / dgstate.ftime;
 	clk_rl = getdtime() * tfreq;
 	eval = PFD_get_error(&phase_detector, clk_rl);
 	if (eval != 0.0) {

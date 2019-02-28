@@ -79,7 +79,6 @@ void s1setupsound(void)
 {
 #if !defined(newsnd_test)
   inittimer();
-  curtime=0;
   soundint();
   initsounddevice();
 #endif

@@ -363,7 +363,7 @@ void drawlives(struct digger_draw_api *ddap)
   int16_t l,n,g;
   char buf[10];
   if (dgstate.gauntlet) {
-    g=(int16_t)(cgtime/1193181l);
+    g=(int16_t)(dgstate.cgtime/1193181l);
     sprintf(buf,"%3i:%02i",g/60,g%60);
     outtext(ddap, buf,124,0,3);
     return;
