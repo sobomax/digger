@@ -26,3 +26,5 @@ env:
     # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
     #   via the "travis encrypt" command using the project repo's public key
     - secure: "gF2NmAF8u3ajNVmX6a+BSOtdQmZfAPog7wCdNeDHXJrCwecVA8f1tx5ZuJVpHCCdtQDueAy32IU2k8POkwP+8Vl6obLzo1m9EITRLYkCdfzPTCGz/kPRLSvabsaSZR9eFvycUkTC805H39S5Wjogys6cfJwAVhWYmzH8Gvfb03k="
+script:
+  - make do-test
