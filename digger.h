@@ -31,7 +31,6 @@ void initlives(void);
 void declife(int pl);
 
 extern bool bonusvisible,digonscr,bonusmode;
-extern uint32_t ftime,curtime,cgtime;
 
 #ifdef INTDRF
 extern uint32_t frame;

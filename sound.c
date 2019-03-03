@@ -65,9 +65,9 @@ void (*soundkillglob)(void)=s0soundkillglob;
 
 static bool sndflag=false,soundpausedflag=false;
 
-int32_t randvs;
+static int32_t randvs;
 
-int16_t randnos(int16_t n)
+static int16_t randnos(int16_t n)
 {
   randvs=randvs*0x15a4e35l+1;
   return (int16_t)((randvs&0x7fffffffl)%n);
@@ -863,7 +863,7 @@ void initsound(void)
   soundstop();
   setupsound();
   timer0(0x4000);
-  randvs=getlrt();
+  randvs=0;
 }
 
 static void s0killsound(void)
@@ -875,5 +875,4 @@ static void s0killsound(void)
 static void s0setupsound(void)
 {
   inittimer();
-  curtime=0;
 }

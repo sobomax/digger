@@ -192,7 +192,7 @@ void addscore(struct digger_draw_api *ddap, int n,int16_t score)
   if (scdat[n].score>=scdat[n].nextbs+n) { /* +n to reproduce original bug */
     if (getlives(n)<5 || dgstate.unlimlives) {
       if (dgstate.gauntlet)
-        cgtime+=17897715l; /* 15 second time bonus instead of the life */
+        dgstate.cgtime+=17897715l; /* 15 second time bonus instead of the life */
       else
         addlife(n);
       drawlives(ddap);

@@ -1,8 +1,7 @@
 void olddelay(int16_t t);
 int32_t getkips(void);
 void inittimer(void);
-uint32_t gethrt(bool);
-int32_t getlrt(void);
+void gethrt(bool);
 
 void s0soundoff(void);
 void s0setspkrt2(void);

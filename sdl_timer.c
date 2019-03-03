@@ -8,6 +8,7 @@
 #include "def.h"
 #include "digger_math.h"
 #include "hardware.h"
+#include "game.h"
 #ifdef _SDL
 #include "sdl_vid.h"
 #endif
@@ -18,38 +19,32 @@
 static struct PFD phase_detector;
 static struct recfilter *loop_error;
 
-extern uint32_t ftime;
-
 void inittimer(void)
 {
     double tfreq;
 
-    tfreq = 1000000.0 / ftime;
+    tfreq = 1000000.0 / dgstate.ftime;
     loop_error = recfilter_init(tfreq, 0.1);
     PFD_init(&phase_detector, 0.0);
 #if defined(DIGGER_DEBUG)
-    fprintf(digger_log, "inittimer: ftime = %u\n", ftime);
+    fprintf(digger_log, "inittimer: ftime = %u\n", dgstate.ftime);
 #endif
 }
 
-int32_t getlrt(void)
-{
-	return(0);
-}
-
-uint32_t gethrt(bool minsleep)
+void
+gethrt(bool minsleep)
 {
     uint32_t add_delay;
     double eval, clk_rl, tfreq, add_delay_d, filterval;
     static double cum_error = 0.0;
 
-    if (ftime <= 1) {
+    if (dgstate.ftime <= 1) {
         doscreenupdate();
         if (minsleep)
             SDL_Delay(10);
-        return (0);
+        return;
     }
-    tfreq = 1000000.0 / ftime;
+    tfreq = 1000000.0 / dgstate.ftime;
     clk_rl = (double)SDL_GetTicks() * tfreq / 1000.0;
     eval = PFD_get_error(&phase_detector, clk_rl);
     if (eval != 0) {
@@ -67,7 +62,7 @@ uint32_t gethrt(bool minsleep)
 
     doscreenupdate();
     SDL_Delay(add_delay);
-    return (0);
+    return;
 }
 
 int32_t getkips(void)

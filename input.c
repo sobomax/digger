@@ -91,11 +91,11 @@ void checkkeyb(void)
         }
         break;
       case DKEY_SUP: /* Increase speed */
-        if (ftime>10000l)
-          ftime-=10000l;
+        if (dgstate.ftime>10000l)
+          dgstate.ftime-=10000l;
         break;
       case DKEY_SDN: /* Decrease speed */
-        ftime+=10000l;
+        dgstate.ftime+=10000l;
         break;
       case DKEY_MTG: /* Toggle music */
         musicflag=!musicflag;
