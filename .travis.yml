@@ -2,20 +2,25 @@ dist: xenial
 sudo: required
 language: c
 compiler:
-  - clang
   - gcc
 before_install:
-  - pip install --user cpp-coveralls
+  - echo -n | openssl s_client -connect https://scan.coverity.com:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' | sudo tee -a /etc/ssl/certs/ca-
 
 addons:
   apt:
     sources:
       - ubuntu-toolchain-r-test
     packages:
-      - cmake
-      - cmake-data
       - gcc-5
       - libsdl2-dev
+  coverity_scan:
+    project:
+      name: "sobomax/digger"
+      description: "Classic Game of Digger"
+    notification_email: sobomax@gmail.com
+    build_command_prepend: "make clean"
+    build_command: "make all"
+    branch_pattern: coverity_scan
 env:
   global:
     # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
