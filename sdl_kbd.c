@@ -54,7 +54,7 @@ static int Handler(void *uptr, SDL_Event *event)
 		if (klen == KBLEN) {
                         /* Buffer is full, drop some pieces */
                         klen--;
-			memcpy(kbuffer, kbuffer + 1, klen * sizeof(struct kbent));
+			memmove(kbuffer, kbuffer + 1, klen * sizeof(struct kbent));
                 }
 		/*
 		 * Ignore Alt, so that Alt-Enter does not start the game or
@@ -119,7 +119,7 @@ int16_t getkey(bool scancode)
                 result = kbuffer[0].sym;
         }
         klen--;
-	memcpy(kbuffer, kbuffer + 1, klen * sizeof(struct kbent));
+	memmove(kbuffer, kbuffer + 1, klen * sizeof(struct kbent));
 
 	return(result);
 }

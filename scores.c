@@ -77,23 +77,24 @@ static void
 readscores(void)
 {
   FILE *in;
+
   scorebuf[0]=0;
   if (!dgstate.levfflag) {
-    if ((in=fopen(SFNAME,"rb"))!=NULL) {
-      if (fread(scorebuf, 512, 1, in) <= 0) {
-        scorebuf[0]=0;
-      }
-      fclose(in);
-    }
+    in = fopen(SFNAME, "rb");
+    if (in == NULL)
+        return;
+  } else {
+    in = fopen(dgstate.levfname, "rb");
+    if (in == NULL)
+        return;
+    if (fseek(in, 1202, 0) < 0)
+        goto out;
   }
-  else
-    if ((in=fopen(dgstate.levfname,"rb"))!=NULL) {
-      fseek(in,1202,0);
-      if (fread(scorebuf, 512, 1, in) <= 0) {
-        scorebuf[0]=0;
-      }
-      fclose(in);
-    }
+  if (fread(scorebuf, 512, 1, in) <= 0) {
+    scorebuf[0]=0;
+  }
+out:
+  fclose(in);
 }
 
 static void
@@ -108,8 +109,8 @@ writescores(void)
   }
   else
     if ((out=fopen(dgstate.levfname,"r+b"))!=NULL) {
-      fseek(out,1202,0);
-      fwrite(scorebuf,512,1,out);
+      if (fseek(out,1202,0) == 0)
+          fwrite(scorebuf,512,1,out);
       fclose(out);
     }
 }

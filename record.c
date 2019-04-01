@@ -61,8 +61,8 @@ void openplay(char *name)
 {
   FILE *playf=fopen(name,"rb");
   int32_t l,i;
-  char c,buf[80];
-  int x,y,n,origgtime=dgstate.gtime;
+  char buf[80];
+  int c,x,y,n,origgtime=dgstate.gtime;
   bool origg=dgstate.gauntlet;
   int16_t origstartlev=dgstate.startlev,orignplayers=dgstate.nplayers,origdiggers=dgstate.diggers;
 #ifdef INTDRF
@@ -145,7 +145,8 @@ void openplay(char *name)
      can be emailed. */
 
   i=ftell(playf);
-  fseek(playf,0,SEEK_END);
+  if (fseek(playf,0,SEEK_END) < 0)
+    goto out_0;
   l=ftell(playf)-i;
   fseek(playf,i,SEEK_SET);
   plb=plp=(char huge *)farmalloc(l);
@@ -155,8 +156,10 @@ void openplay(char *name)
 
   for (i=0;i<l;i++) {
     c=fgetc(playf); /* Get everything that isn't line break into 1 string */
+    if (c == EOF)
+      goto out_0;
     if (c>=' ')
-      *(plp++)=c;
+      *(plp++)= (char)c;
   }
   fclose(playf);
   plp=plb;
@@ -204,6 +207,7 @@ static void mprintf(const char *f,...)
   int i,l;
   va_start(ap,f);
   vsprintf(buf,f,ap);
+  va_end(ap);
   l=strlen(buf);
   for (i=0;i<l;i++)
     recb[recp+i]=buf[i];

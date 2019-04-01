@@ -37,6 +37,9 @@ void WriteINIString(const char *section,const char *key,const char *value,const 
   }
   fseek(fp,0,2);
   tl=(int)ftell(fp);
+  if (tl < 0) {
+    goto out_0;
+  }
   fseek(fp,0,0);
   buffer=(char *)malloc(tl+1);
   if (buffer==NULL) {
@@ -103,6 +106,7 @@ do_write:
     return;
   fprintf(fp, "[%s]" NEWL, section);
   fprintf(fp, "%s=%s" NEWL NEWL, key, value);
+  fclose(fp);
   return;
 }
 
