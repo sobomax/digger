@@ -206,6 +206,7 @@ static void mprintf(const char *f,...)
   int i,l;
   va_start(ap,f);
   vsprintf(buf,f,ap);
+  va_end(ap);
   l=strlen(buf);
   for (i=0;i<l;i++)
     recb[recp+i]=buf[i];
