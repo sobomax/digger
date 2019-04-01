@@ -145,7 +145,8 @@ void openplay(char *name)
      can be emailed. */
 
   i=ftell(playf);
-  fseek(playf,0,SEEK_END);
+  if (fseek(playf,0,SEEK_END) < 0)
+    goto out_0;
   l=ftell(playf)-i;
   fseek(playf,i,SEEK_SET);
   plb=plp=(char huge *)farmalloc(l);
