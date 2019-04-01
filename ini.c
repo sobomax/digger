@@ -103,6 +103,7 @@ do_write:
     return;
   fprintf(fp, "[%s]" NEWL, section);
   fprintf(fp, "%s=%s" NEWL NEWL, key, value);
+  fclose(fp);
   return;
 }
 
