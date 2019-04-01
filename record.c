@@ -61,8 +61,8 @@ void openplay(char *name)
 {
   FILE *playf=fopen(name,"rb");
   int32_t l,i;
-  char c,buf[80];
-  int x,y,n,origgtime=dgstate.gtime;
+  char buf[80];
+  int c,x,y,n,origgtime=dgstate.gtime;
   bool origg=dgstate.gauntlet;
   int16_t origstartlev=dgstate.startlev,orignplayers=dgstate.nplayers,origdiggers=dgstate.diggers;
 #ifdef INTDRF
@@ -155,8 +155,10 @@ void openplay(char *name)
 
   for (i=0;i<l;i++) {
     c=fgetc(playf); /* Get everything that isn't line break into 1 string */
+    if (c == EOF)
+      goto out_0;
     if (c>=' ')
-      *(plp++)=c;
+      *(plp++)= (char)c;
   }
   fclose(playf);
   plp=plb;
