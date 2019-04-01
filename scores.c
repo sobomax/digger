@@ -109,8 +109,8 @@ writescores(void)
   }
   else
     if ((out=fopen(dgstate.levfname,"r+b"))!=NULL) {
-      fseek(out,1202,0);
-      fwrite(scorebuf,512,1,out);
+      if (fseek(out,1202,0) == 0)
+          fwrite(scorebuf,512,1,out);
       fclose(out);
     }
 }
