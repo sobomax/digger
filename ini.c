@@ -48,6 +48,7 @@ void WriteINIString(const char *section,const char *key,const char *value,const 
   if (fread(buffer, tl, 1, fp) <= 0) {
     fprintf(stderr, "short read, recreating file: %s\n", filename);
     fclose(fp);
+    free(buffer);
     goto do_write;
   }
   buffer[tl]=0;

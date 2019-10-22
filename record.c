@@ -148,7 +148,8 @@ void openplay(char *name)
   if (fseek(playf,0,SEEK_END) < 0)
     goto out_0;
   l=ftell(playf)-i;
-  fseek(playf,i,SEEK_SET);
+  if (fseek(playf,i,SEEK_SET) < 0)
+    goto out_0;
   plb=plp=(char huge *)farmalloc(l);
   if (plb==(char huge *)NULL) {
     goto out_0;
