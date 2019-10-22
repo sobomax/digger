@@ -1,6 +1,7 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
+#include <assert.h>
 #include <zlib.h>
 
 #include "def.h"
@@ -158,6 +159,6 @@ void gettitle(unsigned char *buf)
 {
 	uLongf uncomplen=UTITLELEN;
 
-	uncompress(buf, &uncomplen, title_gz, CTITLELEN);
+	assert(uncompress(buf, &uncomplen, title_gz, CTITLELEN) == Z_OK);
 }
 
