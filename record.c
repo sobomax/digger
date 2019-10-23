@@ -1,6 +1,7 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -444,6 +445,7 @@ void recputeog(void)
 
 void recname(char *name)
 {
+  assert(strlen(name) < sizeof(rname));
   gotname=true;
   strcpy(rname,name);
 }
