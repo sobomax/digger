@@ -66,7 +66,7 @@ gethrt(void)
 	add_delay = freqoff_to_period(tfreq, 1.0, filterval) * 1000000;
 	doscreenupdate();
         usleep(add_delay);
-	return(0);
+	return;
 }
 
 int32_t getkips(void)

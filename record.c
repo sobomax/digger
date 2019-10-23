@@ -1,6 +1,7 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
+#include <assert.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -145,10 +146,10 @@ void openplay(char *name)
      can be emailed. */
 
   i=ftell(playf);
-  if (fseek(playf,0,SEEK_END) < 0)
+  if (i < 0 || fseek(playf,0,SEEK_END) < 0)
     goto out_0;
   l=ftell(playf)-i;
-  if (fseek(playf,i,SEEK_SET) < 0)
+  if (l < 0 || fseek(playf,i,SEEK_SET) < 0)
     goto out_0;
   plb=plp=(char huge *)farmalloc(l);
   if (plb==(char huge *)NULL) {
@@ -444,6 +445,7 @@ void recputeog(void)
 
 void recname(char *name)
 {
+  assert(strlen(name) < sizeof(rname));
   gotname=true;
   strcpy(rname,name);
 }
