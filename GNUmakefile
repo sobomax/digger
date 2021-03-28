@@ -58,15 +58,15 @@ endif
 
 ifeq ($(ARCH),FREEBSD)
 OBJS	+= fbsd_sup.o	# strup()
-RCFLAGS	+= -DFREEBSD $(shell sdl2-config --cflags)
-LIBS	+= $(shell sdl2-config --libs) -lz -lm -lX11
+RCFLAGS	+= -DFREEBSD $(shell pkg-config sdl2 --cflags)
+LIBS	+= $(shell pkg-config sdl2 --libs) -lz -lm -lX11
 ESUFFIX	=
 endif
 
 ifeq ($(ARCH),LINUX)
 OBJS	+= fbsd_sup.o	# strup()
-RCFLAGS	+= -DLINUX $(shell sdl2-config --cflags)
-LIBS	+= $(shell sdl2-config --libs) -lz -lm -lX11
+RCFLAGS	+= -DLINUX $(shell pkg-config sdl2 --cflags)
+LIBS	+= $(shell pkg-config sdl2 --libs) -lz -lm -lX11
 ESUFFIX	=
 endif
 
