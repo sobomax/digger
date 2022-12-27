@@ -5,6 +5,13 @@ set -e
 DIFF="diff -u"
 TEST_TYPES=${TEST_TYPES:-"short long xlong"}
 
+run_test() {
+  SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy DIGGER_CI_RUN=1 ./digger ${3} > "${4}" 2>/dev/null
+  echo -n "${1} (${2}): "
+  ${DIFF} "tests/results/${4}" "${4}"
+  echo "PASS"
+}
+
 mv ./production/* ./
 for TTYPE in ${TEST_TYPES}
 do
@@ -41,9 +48,7 @@ do
     else
       DIG_OPTS="/Q ${DIG_OPT_FSPD} ${DIG_OPTS}"
     fi
-    echo -n "${TFNAME} (${TTYPE}): "
-    SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy DIGGER_CI_RUN=1 ./digger ${DIG_OPTS} > "${TRFNAME}" 2>/dev/null
-    ${DIFF} "tests/results/${TRFNAME}" "${TRFNAME}"
-    echo "PASS"
+    run_test "${TFNAME}" "${TTYPE}" "${DIG_OPTS}" "${TRFNAME}" &
   done
 done
+wait
