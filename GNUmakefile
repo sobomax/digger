@@ -90,7 +90,7 @@ ESUFFIX	=		# insert here suffix of the executable on your platform if any (like 
 endif
 
 STRIP   ?= strip
-SSUFIX  ?= ${ESUFFIX}
+SSUFFIX ?= ${ESUFFIX}
 
 all: digger$(ESUFFIX)
 
