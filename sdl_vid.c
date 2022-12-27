@@ -62,7 +62,7 @@ static const SDL_Color *npalettes[] = {vga16_pal1, vga16_pal2};
 static const SDL_Color *ipalettes[] = {vga16_pal1i, vga16_pal2i};
 static int16_t	currpal=0;
 
-#ifdef UNIX
+#if defined(UNIX) && !defined(__EMSCRIPTEN__)
 static Window x11_parent = 0;
 #endif
 
@@ -110,7 +110,7 @@ static bool
 setmode(void)
 {
 #if defined(SDL_OLD)
-#ifdef UNIX
+#if defined(UNIX) && !defined(__EMSCRIPTEN__)
         static int x11_parent_inited = 0;
 
         if (x11_parent && x11_parent_inited == 0) {
@@ -121,7 +121,7 @@ setmode(void)
           SDL_DOUBLEBUF | addflag);
         if (screen == NULL)
 		return(false);
-#ifdef UNIX
+#if defined(UNIX) && !defined(__EMSCRIPTEN__)
         if (x11_parent && x11_parent_inited == 0) {
                 x11_set_parent(x11_parent);
         }
@@ -422,7 +422,7 @@ sdl_enable_fullscreen(void)
   addflag |= SDL_FULLSCREEN;
 }
 
-#ifdef UNIX
+#if defined(UNIX) && !defined(__EMSCRIPTEN__)
 void
 sdl_set_x11_parent(unsigned int xp)
 {

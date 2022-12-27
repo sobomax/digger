@@ -15,6 +15,7 @@ OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o sound.o \
 ARCH	?= LINUX
 #ARCH	?= MINGW
 #ARCH	?= FREEBSD
+#ARCH	?= WASM
 #ARCH	?= FooOS
 SDL_VER ?= 2.0.9
 ZLIB_VER ?= 1.2.11
@@ -70,6 +71,17 @@ LIBS	+= $(shell sdl2-config --libs) -lz -lm -lX11
 ESUFFIX	=
 endif
 
+ifeq ($(ARCH),WASM)
+CC      = emcc
+CFLAGS  += -DUNIX -s USE_SDL=2 -s USE_ZLIB=1 -s ASYNCIFY
+OBJS    += fbsd_sup.o
+RCFLAGS += -DLINUX
+LIBS    += --emrun -lm
+ESUFFIX = .html
+SSUFFIX = .wasm
+STRIP   = emstrip
+endif
+
 ifeq ($(ARCH),FooOS)
 OBJS	+=		# insert here the names of the files which contains various missing functions like strup() on Linux and FreeBSD
 RCFLAGS	+= -DFooOS	# insert here additional compiler flags which required to find include files, trigger os-specific compiler behaviour etc.
@@ -78,13 +90,14 @@ ESUFFIX	=		# insert here suffix of the executable on your platform if any (like 
 endif
 
 STRIP   ?= strip
+SSUFIX  ?= ${ESUFFIX}
 
 all: digger$(ESUFFIX)
 
 digger$(ESUFFIX): $(OBJS)
-	$(CC) -o digger$(ESUFFIX) $(OBJS) $(LIBS)
+	$(CC) $(CFLAGS) -o digger$(ESUFFIX) $(OBJS) $(LIBS)
 ifeq (${BUILD_TYPE},production)
-	$(STRIP) --strip-unneeded digger$(ESUFFIX)
+	$(STRIP) --strip-unneeded digger$(SSUFFIX)
 endif
 
 %.o : %.c

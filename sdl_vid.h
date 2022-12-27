@@ -5,7 +5,7 @@ void doscreenupdate(void);
 void switchmode(void);
 void sdl_enable_fullscreen(void);
 
-#ifdef UNIX
+#if defined(UNIX) && !defined(__EMSCRIPTEN__)
 void sdl_set_x11_parent(unsigned int);
 #endif
 

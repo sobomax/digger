@@ -5,6 +5,12 @@
 
 #include <SDL.h>
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+
+#define SDL_Delay(x) emscripten_sleep(x)
+#endif
+
 #include "def.h"
 #include "digger_math.h"
 #include "hardware.h"

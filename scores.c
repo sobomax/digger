@@ -51,7 +51,7 @@ static void numtostring(char *p,int32_t n);
 
 #define SFNAME "/var/games/digger/digger.sco"
 
-#elif defined UNIX && !defined _VGL
+#elif defined UNIX && !defined _VGL && !defined(__EMSCRIPTEN__)
 
 #define SFNAME strncat(strncpy((char*)alloca(PATH_MAX),getenv("HOME"),PATH_MAX),"/.digger.sco",PATH_MAX)
 
