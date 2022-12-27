@@ -1,0 +1,58 @@
+name: WebAssembly Build
+
+# Controls when the action will run. 
+on:
+  # Triggers the workflow on all push or pull request events
+  push:
+  pull_request:
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+  schedule:
+    - cron: "0 0 * * *"
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    # The type of runner that the job will run on
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+        with:
+          submodules: 'recursive'
+
+      - name: before_install
+        run: sudo -H DEBIAN_FRONTEND=noninteractive apt-get update
+
+      - name: Setup cache
+        uses: actions/cache@v3
+        with:
+          path: emsdk-cache
+          key: ${{ matrix.os }}-emsdk-v11
+
+      # Install Emscripten
+      - uses: mymindstorm/setup-emsdk@v11
+        id: install-emscripten
+        with:
+          actions-cache-folder: 'emsdk-cache'
+
+      - name: build
+        run: make ARCH=WASM all
+
+      - name: Create artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: digger-wasm
+          path: |
+            digger.wasm
+            digger.html
+            digger.js
