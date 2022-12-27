@@ -12,6 +12,8 @@ build_script:
 
     set SDL_VER=2.0.9
 
+    set ZLIB_VER=1.2.13
+
     echo === Environment ====================================================
 
     echo APPVEYOR_PROJECT_NAME=%APPVEYOR_PROJECT_NAME%
@@ -24,12 +26,12 @@ build_script:
 
     cd ..
 
-    curl -s https://zlib.net/zlib-1.2.11.tar.gz | tar xz
+    curl -s https://zlib.net/zlib-%ZLIB_VER%.tar.gz | tar xz
 
 
     echo === Build zlib =====================================================
 
-    cd zlib-1.2.11
+    cd zlib-%ZLIB_VER%
 
     call "%VS90COMNTOOLS%\vsvars32.bat"
 
@@ -54,7 +56,7 @@ build_script:
 
     echo === Create Artifact ================================================
 
-    copy ..\zlib-1.2.11\zlib1.dll
+    copy ..\zlib-%ZLIB_VER%\zlib1.dll
 
     copy "..\SDL2-%SDL_VER%\i686-w64-mingw32\bin\SDL2.dll"
 
