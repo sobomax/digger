@@ -26,6 +26,14 @@ enhancements, cleaned up the code a little bit, fixed some minor bugs, gave
 the "redefine keyboard" dialog a new look and feel and provided an Installer
 for Microsoft Windows along with the Appveyor CI scripts.
 
+Very recently, the WebAssembly version has been added as well, allowing
+Digger to run directly in your browser.
+
+# Try It Out
+
+[![WebAssembly](https://digger-build-artefacts.s3.amazonaws.com/digger_wasm.png)](https://digger-build-artefacts.s3.amazonaws.com/digger.html)
+
+# Future Plans
 
 Some plans for the future releases include:
 
