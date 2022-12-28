@@ -73,7 +73,7 @@ endif
 
 ifeq ($(ARCH),WASM)
 CC      = emcc
-CFLAGS  += -DUNIX -s USE_SDL=2 -s USE_ZLIB=1 -s ASYNCIFY
+CFLAGS  += -flto=full -DUNIX -s USE_SDL=2 -s USE_ZLIB=1 -s ASYNCIFY
 OBJS    += fbsd_sup.o
 RCFLAGS += -DLINUX
 LIBS    += --emrun -lm
