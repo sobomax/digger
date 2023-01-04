@@ -1,1 +1,1 @@
-cmake cmake-data libsdl2-dev
+cmake cmake-data libsdl2-dev lcov
