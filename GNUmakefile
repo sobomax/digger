@@ -122,7 +122,7 @@ do-test:
 	env ${TT_VAR} sh -x ./scripts/do-test-run.sh
 ifdef CI_COVERAGE
 	mkdir digger_lcov
-	if [ $(CC) = "gcc" ]; then GCOV_CMD="gcov"; else GCOV_CMD="llvm-cov gcov"; fi; \
+	if [ $(CC) = "gcc" ]; then GCOV_CMD="gcov"; else GCOV_CMD="llvm-cov gcov"; llvm-cov --version; fi; \
 	  lcov --directory . --capture --output-file digger_lcov/digger.info \
 	   --gcov-tool "$${GCOV_CMD}"
 endif
@@ -133,7 +133,7 @@ do-test-cmake:
 	env ${TT_VAR} sh -x ./scripts/do-test-run.sh
 ifdef CI_COVERAGE
 	mkdir digger_lcov
-	if [ $(CC) = "gcc" ]; then GCOV_CMD="gcov"; else GCOV_CMD="llvm-cov gcov"; fi; \
+	if [ $(CC) = "gcc" ]; then GCOV_CMD="gcov"; else GCOV_CMD="llvm-cov gcov"; llvm-cov --version; fi; \
 	  lcov --directory . --capture --output-file digger_lcov/digger.info \
 	   --gcov-tool "$${GCOV_CMD}"
 endif
