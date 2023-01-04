@@ -61,12 +61,13 @@ jobs:
           make do-test-cmake
 
       - name: Coveralls Parallel
+        if: matrix.os != 'ubuntu-20.04' || matrix.compiler != 'clang'
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           flag-name: run-${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.test_type }}
           parallel: true
-          path-to-lcov: digger_lcov/digger.info
+          path-to-lcov: ./digger_lcov/digger.info
 
   finish:
     needs: build
@@ -77,3 +78,4 @@ jobs:
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         parallel-finished: true
+        path-to-lcov: ./digger_lcov/digger.info

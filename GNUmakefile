@@ -121,10 +121,12 @@ do-test:
 	  MGW64_PREF="${MGW64_PREF}" sh -x ./scripts/do-test.sh
 	env ${TT_VAR} sh -x ./scripts/do-test-run.sh
 ifdef CI_COVERAGE
-	mkdir digger_lcov
-	if [ $(CC) = "gcc" ]; then GCOV_CMD="gcov"; else GCOV_CMD="llvm-cov gcov"; llvm-cov --version; fi; \
-	  lcov --directory . --capture --output-file digger_lcov/digger.info \
-	   --gcov-tool "$${GCOV_CMD}"
+	if [ "${OS}" != "ubuntu-20.04" -o "${COMPILER}" != "clang" ]; \
+        then \
+		mkdir digger_lcov; \
+		lcov --directory . --capture --output-file digger_lcov/digger.info \
+		  --gcov-tool ${GITHUB_WORKSPACE}/scripts/gen-test-coverage.sh; \
+	fi
 endif
 
 do-test-cmake:
@@ -132,10 +134,12 @@ do-test-cmake:
 	sh -x ./scripts/do-test-cmake.sh
 	env ${TT_VAR} sh -x ./scripts/do-test-run.sh
 ifdef CI_COVERAGE
-	mkdir digger_lcov
-	if [ $(CC) = "gcc" ]; then GCOV_CMD="gcov"; else GCOV_CMD="llvm-cov gcov"; llvm-cov --version; fi; \
-	  lcov --directory . --capture --output-file digger_lcov/digger.info \
-	   --gcov-tool "$${GCOV_CMD}"
+	if [ "${OS}" != "ubuntu-20.04" -o "${COMPILER}" != "clang" ]; \
+	then \
+		mkdir digger_lcov; \
+		lcov --directory . --capture --output-file digger_lcov/digger.info \
+		  --gcov-tool ${GITHUB_WORKSPACE}/scripts/gen-test-coverage.sh; \
+	fi
 endif
 
 coverage-report:
