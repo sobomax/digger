@@ -52,3 +52,10 @@ do
   done
 done
 wait
+
+if [ ! -z "${CI_COVERAGE}" ]
+then
+  mkdir digger_lcov
+  lcov --directory . --capture --output-file digger_lcov/digger.info \
+   --gcov-tool ${GITHUB_WORKSPACE}/scripts/gen-test-coverage.sh
+fi
