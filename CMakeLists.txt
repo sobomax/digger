@@ -1,8 +1,8 @@
+cmake_minimum_required( VERSION 3.5 )
 PROJECT(DIGGER)
 SET( VERSION "20110912" )
 SET( PACKAGE "digger" )
 SET( CMAKE_MODULE_PATH ${DIGGER_SOURCE_DIR}/cmake/modules )
-cmake_minimum_required( VERSION 2.6 )
 
 IF( NOT MSVC )
   SET( WARN_FLAGS "-Wall -Wformat=2" )
@@ -32,7 +32,7 @@ IF( NOT DEFINED CMAKE_INSTALL_PREFIX )
   SET( CMAKE_INSTALL_PREFIX /usr/local )
 ENDIF( NOT DEFINED CMAKE_INSTALL_PREFIX )
 
-FIND_PACKAGE( ZLIB REQUIRED )
+find_package( ZLIB REQUIRED )
 IF ( NOT ZLIB_FOUND )
   MESSAGE( FATAL_ERROR " zlib-devel not found" )
 ELSE ( NOT ZLIB_FOUND )
@@ -43,7 +43,7 @@ OPTION( DIGGER_VGL
   "Build FreeBSD VGL."
   OFF )
 IF ( NOT DIGGER_VGL )
-  FIND_PACKAGE( SDL2 REQUIRED )
+  find_package( SDL2 REQUIRED )
   IF ( NOT SDL2_FOUND )
     MESSAGE( FATAL_ERROR " SDL2-devel not found" )
   ELSE ( NOT SDL2_FOUND )
@@ -82,6 +82,9 @@ SET( DIGGER_SOURCE
      bullet_obj.c
      cgagrafx.c
      keyboard.c
+     soundgen.c
+     spinlock.c
+     game.c
 )
 
 IF ( NOT MSVC )
@@ -103,7 +106,7 @@ ENDIF ( DIGGER_VGL )
 ADD_EXECUTABLE( digger ${DIGGER_SOURCE})
 
 IF ( SDL2_FOUND )
-  TARGET_LINK_LIBRARIES( digger ${SDL2_LIBRARY} )
+  TARGET_LINK_LIBRARIES( digger PUBLIC SDL2::SDL2 )
 ENDIF( SDL2_FOUND )
-TARGET_LINK_LIBRARIES( digger ${ZLIB_LIBRARY} )
-TARGET_LINK_LIBRARIES( digger -lm)
+TARGET_LINK_LIBRARIES( digger PUBLIC ${ZLIB_LIBRARY} )
+TARGET_LINK_LIBRARIES( digger PUBLIC -lm)
