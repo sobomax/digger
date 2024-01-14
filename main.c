@@ -30,36 +30,14 @@ static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.
 #include "draw_api.h"
 #include "game.h"
 
-static struct game
-{
-  int16_t level;
-  bool levdone;
-} gamedat[2];
-
-static bool levnotdrawn=false,alldead=false;
 static bool started;
-static int16_t penalty=0;
-
 FILE *digger_log = NULL;
 
 static void shownplayers(void);
 static void switchnplayers(void);
-static void drawscreen(struct digger_draw_api *);
-static void initchars(void);
-static void checklevdone(void);
-static int16_t levno(void);
 static void calibrate(void);
 static void parsecmd(int argc,char *argv[]);
-static void initlevel(void);
 static void inir(void);
-static int getalllives(void);
-
-int16_t getlevch(int16_t x,int16_t y,int16_t l)
-{
-  if ((l==3 || l==4) && !dgstate.levfflag && dgstate.diggers==2 && y==9 && (x==6 || x==8))
-    return 'H';
-  return dgstate.leveldat[l-1][y][x];
-}
 
 #ifdef INTDRF
 extern FILE *info;
@@ -67,168 +45,20 @@ extern FILE *info;
 
 extern struct digger_draw_api *ddap;
 
-static void
-game_dbg_info_emit(void)
-{
-
-  printf("score=%d level=%d frames=%u\n", gettscore(0), levno(),
-   (unsigned int)getframe());
-}
-
-void game(void)
-{
-  int16_t t,c,i;
-  bool flashplayer=false;
-  if (dgstate.gauntlet) {
-    dgstate.cgtime=dgstate.gtime*1193181l;
-    dgstate.timeout=false;
-  }
-  initlives();
-  gamedat[0].level=dgstate.startlev;
-  if (dgstate.nplayers==2)
-    gamedat[1].level=dgstate.startlev;
-  alldead=false;
-  ddap->gclear();
-  dgstate.curplayer=0;
-  initlevel();
-  dgstate.curplayer=1;
-  initlevel();
-  zeroscores();
-  bonusvisible=true;
-  if (dgstate.nplayers==2)
-    flashplayer=true;
-  dgstate.curplayer=0;
-  while (getalllives()!=0 && !escape && !dgstate.timeout) {
-    while (!alldead && !escape && !dgstate.timeout) {
-      initmbspr();
-
-      if (playing)
-        dgstate.randv=playgetrand();
-      else
-        dgstate.randv=0;
-#ifdef INTDRF
-      fprintf(info,"%lu\n",dgstate.randv);
-      frame=0;
-#endif
-      recputrand(dgstate.randv);
-      if (levnotdrawn) {
-        levnotdrawn=false;
-        drawscreen(ddap);
-        if (flashplayer) {
-          flashplayer=false;
-          strcpy(dgstate.pldispbuf,"PLAYER ");
-          if (dgstate.curplayer==0)
-            strcat(dgstate.pldispbuf,"1");
-          else
-            strcat(dgstate.pldispbuf,"2");
-          cleartopline();
-          for (t=0;t<15;t++)
-            for (c=1;c<=3;c++) {
-              outtext(ddap, dgstate.pldispbuf,108,0,c);
-              writecurscore(ddap, c);
-              newframe();
-              if (escape)
-                return;
-            }
-          drawscores(ddap);
-          for (i=0;i<dgstate.diggers;i++)
-            addscore(ddap, i,0);
-        }
-      }
-      else
-        initchars();
-      erasetext(ddap, 8, 108,0,3);
-      initscores(ddap);
-      drawlives(ddap);
-      music(1, 1.0);
-
-      flushkeybuf();
-      for (i=0;i<dgstate.diggers;i++)
-        readdirect(i);
-      while (!alldead && !gamedat[dgstate.curplayer].levdone && !escape && !dgstate.timeout) {
-        penalty=0;
-        dodigger(ddap);
-        domonsters(ddap);
-        dobags(ddap);
-        if (penalty>8)
-          incmont(penalty-8);
-        testpause();
-        checklevdone();
-      }
-      erasediggers();
-      musicoff();
-      t=20;
-      while ((getnmovingbags()!=0 || t!=0) && !escape && !dgstate.timeout) {
-        if (t!=0)
-          t--;
-        penalty=0;
-        dobags(ddap);
-        dodigger(ddap);
-        domonsters(ddap);
-        if (penalty<8)
-          t=0;
-      }
-      soundstop();
-      for (i=0;i<dgstate.diggers;i++)
-        killfire(i);
-      erasebonus(ddap);
-      cleanupbags();
-      savefield();
-      erasemonsters();
-      recputeol();
-      if (playing)
-        playskipeol();
-      if (escape)
-        recputeog();
-      if (gamedat[dgstate.curplayer].levdone) {
-        soundlevdone();
-        if (getenv("DIGGER_CI_RUN_DTL") != NULL) {
-          game_dbg_info_emit();
-        }
-      }
-      if (countem()==0 || gamedat[dgstate.curplayer].levdone) {
-#ifdef INTDRF
-        fprintf(info,"%i\n",frame);
-#endif
-        for (i=dgstate.curplayer;i<dgstate.diggers+dgstate.curplayer;i++)
-          if (getlives(i)>0 && !digalive(i))
-            declife(i);
-        drawlives(ddap);
-        gamedat[dgstate.curplayer].level++;
-        if (gamedat[dgstate.curplayer].level>1000)
-          gamedat[dgstate.curplayer].level=1000;
-        initlevel();
-      }
-      else
-        if (alldead) {
-#ifdef INTDRF
-          fprintf(info,"%i\n",frame);
-#endif
-          for (i=dgstate.curplayer;i<dgstate.curplayer+dgstate.diggers;i++)
-            if (getlives(i)>0)
-              declife(i);
-          drawlives(ddap);
-        }
-      if ((alldead && getalllives()==0 && !dgstate.gauntlet && !escape) || dgstate.timeout)
-        endofgame(ddap);
-    }
-    alldead=false;
-    if (dgstate.nplayers==2 && getlives(1-dgstate.curplayer)!=0) {
-      dgstate.curplayer=1-dgstate.curplayer;
-      flashplayer=levnotdrawn=true;
-    }
-  }
-#ifdef INTDRF
-  fprintf(info,"-1\n%lu\n%i",getscore0(),gamedat[0].level);
-#endif
-}
-
 static bool quiet=false;
 static uint16_t sound_rate,sound_length;
 
 #if defined(_SDL)
 #include "sdl_vid.h"
 #endif
+
+void
+game_dbg_info_emit(void)
+{
+
+  printf("score=%d level=%d frames=%u\n", gettscore(0), levno(),
+   (unsigned int)getframe());
+}
 
 void maininit(void)
 {
@@ -465,14 +295,6 @@ static void shownplayers(void)
   outtext(ddap, gmp->title[1].text, gmp->title[1].xpos, 39, 3);
 }
 
-static int getalllives(void)
-{
-  int t=0,i;
-  for (i=dgstate.curplayer;i<dgstate.diggers+dgstate.curplayer;i++)
-    t+=getlives(i);
-  return t;
-}
-
 static void switchnplayers(void)
 {
   int i, j;
@@ -484,74 +306,11 @@ static void switchnplayers(void)
   dgstate.diggers = possible_modes[j].diggers;
 }
 
-static void initlevel(void)
-{
-  gamedat[dgstate.curplayer].levdone=false;
-  makefield();
-  makeemfield();
-  initbags();
-  levnotdrawn=true;
-}
-
-static void drawscreen(struct digger_draw_api *ddap)
-{
-  creatembspr();
-  drawstatics(ddap);
-  drawbags();
-  drawemeralds();
-  initdigger();
-  initmonsters();
-}
-
-static void initchars(void)
-{
-  initmbspr();
-  initdigger();
-  initmonsters();
-}
-
-static void checklevdone(void)
-{
-  if ((countem()==0 || monleft()==0) && isalive())
-    gamedat[dgstate.curplayer].levdone=true;
-  else
-    gamedat[dgstate.curplayer].levdone=false;
-}
-
-void incpenalty(void)
-{
-  penalty++;
-}
 
 void cleartopline(void)
 {
   erasetext(ddap, 26, 0,0,3);
   erasetext(ddap, 1, 308,0,3);
-}
-
-int16_t levplan(void)
-{
-  int16_t l=levno();
-  if (l>8)
-    l=(l&3)+5; /* Level plan: 12345678, 678, (5678) 247 times, 5 forever */
-  return l;
-}
-
-int16_t levof10(void)
-{
-  if (gamedat[dgstate.curplayer].level>10)
-    return 10;
-  return gamedat[dgstate.curplayer].level;
-}
-
-static int16_t levno(void)
-{
-  return gamedat[dgstate.curplayer].level;
-}
-
-void setdead(bool df)
-{
-  alldead=df;
 }
 
 void testpause(void)
