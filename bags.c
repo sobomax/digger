@@ -11,6 +11,7 @@
 #include "monster.h"
 #include "digger.h"
 #include "scores.h"
+#include "hardware.h"
 #include "game.h"
 
 static struct bag {
@@ -66,8 +67,10 @@ void drawbags(void)
       memcpy(&bagdat[bag],&bagdat1[bag],sizeof(struct bag));
     else
       memcpy(&bagdat[bag],&bagdat2[bag],sizeof(struct bag));
-    if (bagdat[bag].exist)
+    if (bagdat[bag].exist) {
       movedrawspr(bag+FIRSTBAG,bagdat[bag].x,bagdat[bag].y);
+      gethrt(false);
+    }
   }
 }
 

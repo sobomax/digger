@@ -698,12 +698,16 @@ void makeemfield(void)
 
 void drawemeralds(void)
 {
-  int16_t x,y;
+  int16_t x,y,n=0;
   emmask=1<<dgstate.curplayer;
   for (x=0;x<MWIDTH;x++)
     for (y=0;y<MHEIGHT;y++)
-      if (emfield[y*MWIDTH+x]&emmask)
+      if (emfield[y*MWIDTH+x]&emmask) {
+        n += 1;
         drawemerald(x*20+12,y*18+21);
+        if ((n % 4) == 0)
+          gethrt(false);
+      }
 }
 
 static const int16_t embox[8]={8,12,12,9,16,12,6,9};

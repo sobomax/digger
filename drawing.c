@@ -109,9 +109,9 @@ void savefield(void)
 
 static void drawfield(void)
 {
-  int16_t x,y,xp,yp;
+  int16_t x,y,xp,yp,n = 0;
   for (x=0;x<MWIDTH;x++)
-    for (y=0;y<MHEIGHT;y++)
+    for (y=0;y<MHEIGHT;y++) {
       if ((field[y*MWIDTH+x]&0x2000)==0) {
         xp=x*20+12;
         yp=y*18+18;
@@ -139,6 +139,10 @@ static void drawfield(void)
           if ((field[(y+1)*MWIDTH+x]&0xfdf)!=0xfdf)
             drawbottomblob(xp,yp);
       }
+      n += 1;
+      if (n % 8 == 0)
+        gethrt(false);
+    }
 }
 
 void eatfield(int16_t x,int16_t y,int16_t dir)
@@ -307,10 +311,14 @@ void drawsquareblob(int16_t x,int16_t y)
 
 static void drawbackg(int16_t l)
 {
-  int16_t x,y;
+  int16_t x,y, n=0;
   for (y=14;y<200;y+=4) {
-    for (x=0;x<320;x+=20)
+    for (x=0;x<320;x+=20) {
+      n += 1;
       drawmiscspr(x,y,93+l,5,4);
+      if (n % 128 == 0)
+        gethrt(false);
+    }
   }
 }
 
