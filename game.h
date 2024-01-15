@@ -13,15 +13,22 @@ struct gamestate {
   int gtime;
   bool gauntlet, timeout, unlimlives;
   uint32_t ftime, cgtime;
+  bool flashplayer;
+  bool levnotdrawn;
+  bool alldead;
 };
 
 extern struct gamestate dgstate;
 
 int16_t getlevch(int16_t,int16_t,int16_t);
-void gamestep(void);
 int16_t levplan(void);
 int16_t levno(void);
 int16_t levof10(void);
 void incpenalty(void);
 void setdead(bool);
+
 void game(void);
+
+void initgame(void);
+void startlevel(void);
+bool gamestep(void);

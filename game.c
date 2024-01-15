@@ -23,7 +23,8 @@
 struct gamestate dgstate = {
   .nplayers = 1, .diggers = 1, .curplayer = 0, .startlev = 1,
   .levfflag = false, .randv = 0, .gtime = 0, .gauntlet = false,
-  .timeout = false, .unlimlives = false,
+  .timeout = false, .unlimlives = false, .flashplayer = false,
+  .levnotdrawn = false, .alldead = false,
   .leveldat = {{"S   B     HHHHS",
                 "V  CC  C  V B  ",
                 "VB CC  C  V    ",
@@ -114,7 +115,6 @@ static struct game
   bool levdone;
 } gamedat[2];
 
-static bool levnotdrawn=false,alldead=false;
 static int16_t penalty=0;
 
 int16_t getlevch(int16_t x,int16_t y,int16_t l)
@@ -146,7 +146,7 @@ int16_t levno(void)
 
 void setdead(bool df)
 {
-  alldead=df;
+  dgstate.alldead=df;
 }
 
 static void initlevel(void)
@@ -155,7 +155,7 @@ static void initlevel(void)
   makefield();
   makeemfield();
   initbags();
-  levnotdrawn=true;
+  dgstate.levnotdrawn=true;
 }
 
 static void checklevdone(void)
@@ -171,7 +171,7 @@ void incpenalty(void)
   penalty++;
 }
 
-void gamestep(void)
+bool gamestep(void)
 {
   penalty=0;
   dodigger(ddap);
@@ -181,6 +181,7 @@ void gamestep(void)
     incmont(penalty-8);
   testpause();
   checklevdone();
+  return (!dgstate.alldead && !gamedat[dgstate.curplayer].levdone && !escape && !dgstate.timeout);
 }
 
 static void drawscreen(struct digger_draw_api *ddap)
@@ -193,29 +194,33 @@ static void drawscreen(struct digger_draw_api *ddap)
   initmonsters();
 }
 
-void drawlevel(bool flashplayer)
+void drawlevel()
 {
   int16_t t,c,i;
-  drawscreen(ddap);
-  if (!flashplayer)
+  if (!dgstate.levnotdrawn)
     return;
-  strcpy(dgstate.pldispbuf,"PLAYER ");
-  if (dgstate.curplayer==0)
-    strcat(dgstate.pldispbuf,"1");
-  else
-    strcat(dgstate.pldispbuf,"2");
-  cleartopline();
-  for (t=0;t<15;t++)
-    for (c=1;c<=3;c++) {
-      outtext(ddap, dgstate.pldispbuf,108,0,c);
-      writecurscore(ddap, c);
-      newframe();
-      if (escape)
-        return;
-    }
-  drawscores(ddap);
-  for (i=0;i<dgstate.diggers;i++)
-    addscore(ddap, i,0);
+  dgstate.levnotdrawn=false;
+  drawscreen(ddap);
+  if (dgstate.flashplayer) {
+    dgstate.flashplayer=false;
+    strcpy(dgstate.pldispbuf,"PLAYER ");
+    if (dgstate.curplayer==0)
+      strcat(dgstate.pldispbuf,"1");
+    else
+      strcat(dgstate.pldispbuf,"2");
+    cleartopline();
+    for (t=0;t<15;t++)
+      for (c=1;c<=3;c++) {
+        outtext(ddap, dgstate.pldispbuf,108,0,c);
+        writecurscore(ddap, c);
+        newframe();
+        if (escape)
+          return;
+      }
+    drawscores(ddap);
+    for (i=0;i<dgstate.diggers;i++)
+      addscore(ddap, i,0);
+  }
 }
 
 static void initchars(void)
@@ -233,10 +238,8 @@ static int getalllives(void)
   return t;
 }
 
-void game(void)
+void initgame(void)
 {
-  int16_t t,i;
-  bool flashplayer=false;
   if (dgstate.gauntlet) {
     dgstate.cgtime=dgstate.gtime*1193181l;
     dgstate.timeout=false;
@@ -245,7 +248,7 @@ void game(void)
   gamedat[0].level=dgstate.startlev;
   if (dgstate.nplayers==2)
     gamedat[1].level=dgstate.startlev;
-  alldead=false;
+  dgstate.alldead=false;
   ddap->gclear();
   dgstate.curplayer=0;
   initlevel();
@@ -253,41 +256,45 @@ void game(void)
   initlevel();
   zeroscores();
   bonusvisible=true;
-  if (dgstate.nplayers==2)
-    flashplayer=true;
+  dgstate.flashplayer = (dgstate.nplayers==2) ? true : false;
   dgstate.curplayer=0;
-  while (getalllives()!=0 && !escape && !dgstate.timeout) {
-    while (!alldead && !escape && !dgstate.timeout) {
-      initmbspr();
+}
 
-      if (playing)
-        dgstate.randv=playgetrand();
-      else
-        dgstate.randv=0;
+void startlevel(void)
+{
+  initmbspr();
+
+  if (playing)
+    dgstate.randv=playgetrand();
+  else
+    dgstate.randv=0;
 #ifdef INTDRF
-      fprintf(info,"%lu\n",dgstate.randv);
-      frame=0;
+  fprintf(info,"%lu\n",dgstate.randv);
+  frame=0;
 #endif
-      recputrand(dgstate.randv);
-      if (levnotdrawn) {
-        levnotdrawn=false;
-        drawlevel(flashplayer);
-        if (flashplayer)
-          flashplayer=false;
-      }
-      else
-        initchars();
-      erasetext(ddap, 8, 108,0,3);
-      initscores(ddap);
-      drawlives(ddap);
-      music(1, 1.0);
+  recputrand(dgstate.randv);
+  if (!dgstate.levnotdrawn)
+    initchars();
+  drawlevel();
 
-      flushkeybuf();
-      for (i=0;i<dgstate.diggers;i++)
-        readdirect(i);
-      while (!alldead && !gamedat[dgstate.curplayer].levdone && !escape && !dgstate.timeout) {
-        gamestep();
-      }
+  erasetext(ddap, 8, 108,0,3);
+  initscores(ddap);
+  drawlives(ddap);
+  music(1, 1.0);
+
+  flushkeybuf();
+  for (int i=0;i<dgstate.diggers;i++)
+    readdirect(i);
+}
+
+void game(void)
+{
+  int16_t t,i;
+  initgame();
+  while (getalllives()!=0 && !escape && !dgstate.timeout) {
+    while (!dgstate.alldead && !escape && !dgstate.timeout) {
+      startlevel();
+      while (gamestep()) continue;
       erasediggers();
       musicoff();
       t=20;
@@ -333,7 +340,7 @@ void game(void)
         initlevel();
       }
       else
-        if (alldead) {
+        if (dgstate.alldead) {
 #ifdef INTDRF
           fprintf(info,"%i\n",frame);
 #endif
@@ -342,13 +349,13 @@ void game(void)
               declife(i);
           drawlives(ddap);
         }
-      if ((alldead && getalllives()==0 && !dgstate.gauntlet && !escape) || dgstate.timeout)
+      if ((dgstate.alldead && getalllives()==0 && !dgstate.gauntlet && !escape) || dgstate.timeout)
         endofgame(ddap);
     }
-    alldead=false;
+    dgstate.alldead=false;
     if (dgstate.nplayers==2 && getlives(1-dgstate.curplayer)!=0) {
       dgstate.curplayer=1-dgstate.curplayer;
-      flashplayer=levnotdrawn=true;
+      dgstate.flashplayer=dgstate.levnotdrawn=true;
     }
   }
 #ifdef INTDRF
