@@ -10,6 +10,7 @@
  * --------------------------------------------------------------------------- 
  */
 
+#include <assert.h>
 #include <stdio.h>
 /* malloc() and friends */
 #include <stdlib.h>
@@ -401,6 +402,15 @@ void vgatitle(void)
 
 void gretrace(void)
 {
+}
+
+void getscreen(uint8_t *p, int len)
+{
+	assert(len >= (screen16->w * screen16->h));
+	SDL_Surface* copySurface = SDL_ConvertSurface(screen16, screen16->format, 0);
+	assert(copySurface != NULL);
+	memcpy(p, copySurface->pixels, copySurface->w * copySurface->h);
+	SDL_FreeSurface(copySurface);
 }
 
 void savescreen(void)
