@@ -9,7 +9,9 @@
 #include "record.h"
 #include "digger.h"
 #include "game.h"
-#ifdef _SDL
+#ifdef _PYTHON
+#include "python/python_kbd.h"
+#elif defined(_SDL)
 #include "sdl_kbd.h" 
 #elif defined(_VGL)
 #include "fbsd_kbd.h"
