@@ -92,4 +92,42 @@ class Digger:
         buffer = (c_ubyte * buffer_size)()
         self.getscreen(buffer, buffer_size)
         return buffer
+    
+    def showscreen(self):
+        from PIL import Image
+        import numpy as np
+        def generate_vga_palette():
+            palette = []
+            for i in range(256):
+                r = (i & 0b0011) * 85
+                g = ((i & 0b1100) >> 2) * 85
+                b = ((i & 0b110000) >> 4) * 85
+                palette.extend([r, g, b])
+            return palette
+        s = self.screenshot()
+        image_data = np.frombuffer(s, dtype=np.uint8).reshape((400, 640))
+        image = Image.fromarray(image_data, 'P')
+        image.putpalette(generate_vga_palette())
+        image.show()
 
+    def getscreenrgb(self):
+        import numpy as np
+        from functools import lru_cache
+        @lru_cache(maxsize=1)
+        def generate_vga_palette():
+            palette = np.zeros((256, 3), dtype=np.uint8)
+            for i in range(256):
+                r = (i & 0b0011) * 85
+                g = ((i & 0b1100) >> 2) * 85
+                b = ((i & 0b110000) >> 4) * 85
+                palette[i] = [r, g, b]
+            return palette
+
+        s = self.screenshot()
+        image_data = np.frombuffer(s, dtype=np.uint8).reshape((400, 640))
+        palette = generate_vga_palette()
+
+        # Convert indexed image to RGB format using NumPy's advanced indexing
+        rgb_image = palette[image_data]
+
+        return rgb_image
