@@ -26,13 +26,13 @@ class DiggerGym(gym.Env):
         reward = (newscore:=self.digger.getscore(0)) - self.lastscore
         assert reward >= 0
         self.lastscore = newscore
-        return self.screenshot(), reward, done, False, {}
+        return self.digger.getscreenrgb(), reward, done, False, {}
 
     def reset(self):
         self.digger.initgame()
         self.digger.startlevel()
         self.lastscore = self.digger.getscore(0)
-        return self.screenshot(), {}
+        return self.digger.getscreenrgb(), {}
 
     def screenshot(self):
         s = self.digger.screenshot()
