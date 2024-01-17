@@ -21,7 +21,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from ctypes import cdll, c_bool, c_ubyte, c_int, POINTER, Structure, c_int32
+from ctypes import cdll
 import os, site, sysconfig
 
 from .env import DIGGER_MOD_NAME
@@ -46,88 +46,3 @@ for p in modloc:
    break
 #else:
 #   raise ImportError("Cannot find %s" % DIGGER_MOD_NAME + _esuf)
-
-class DiggerControls(Structure):
-    _fields_ = [
-        ("leftpressed", c_bool),
-        ("rightpressed", c_bool),
-        ("uppressed", c_bool),
-        ("downpressed", c_bool),
-        ("f1pressed", c_bool),
-        ("left2pressed", c_bool),
-        ("right2pressed", c_bool),
-        ("up2pressed", c_bool),
-        ("down2pressed", c_bool),
-        ("f12pressed", c_bool)
-    ]
-
-class Digger:
-    def __init__(self):
-        self.gamestep = _digger.gamestep
-        self.gamestep.restype = c_bool
-        self.maininit = _digger.maininit
-        self.maininit.restype = None
-        self.initgame = _digger.initgame
-        self.startlevel = _digger.startlevel
-        self.startlevel.restype = None
-        self.getscreen = _digger.getscreen
-        self.getscreen.argtypes = [POINTER(c_ubyte), c_int]
-        self.getscreen.restype = None
-        self.getscore = _digger.gettscore
-        self.getscore.argtypes = [c_int]
-        self.getscore.restype = c_int32
-        self.digger_controls = DiggerControls.in_dll(_digger, "digger_controls")
-        self.soundflag = c_bool.in_dll(_digger, 'soundflag')
-        self.musicflag = c_bool.in_dll(_digger, 'musicflag')
-
-    def game(self, steps=None):
-        self.maininit()
-        self.initgame()
-        self.startlevel()
-        while (steps is None or steps > 0) and self.gamestep(): steps -= 1
-        return steps
-    
-    def screenshot(self):
-        buffer_size = 640 * 400
-        buffer = (c_ubyte * buffer_size)()
-        self.getscreen(buffer, buffer_size)
-        return buffer
-    
-    def showscreen(self):
-        from PIL import Image
-        import numpy as np
-        def generate_vga_palette():
-            palette = []
-            for i in range(256):
-                r = (i & 0b0011) * 85
-                g = ((i & 0b1100) >> 2) * 85
-                b = ((i & 0b110000) >> 4) * 85
-                palette.extend([r, g, b])
-            return palette
-        s = self.screenshot()
-        image_data = np.frombuffer(s, dtype=np.uint8).reshape((400, 640))
-        image = Image.fromarray(image_data, 'P')
-        image.putpalette(generate_vga_palette())
-        image.show()
-
-    def getscreenrgb(self):
-        import numpy as np
-        from functools import lru_cache
-        @lru_cache(maxsize=1)
-        def generate_vga_palette():
-            palette = np.zeros((256, 3), dtype=np.uint8)
-            for i in range(256):
-                r = (i & 0b0011) * 85
-                g = ((i & 0b1100) >> 2) * 85
-                b = ((i & 0b110000) >> 4) * 85
-                palette[i] = [r, g, b]
-            return palette
-
-        s = self.screenshot()
-        image_data = np.frombuffer(s, dtype=np.uint8).reshape((400, 640))
-        palette = generate_vga_palette()
-
-        # Convert indexed image to RGB format using NumPy's advanced indexing
-        rgb_image = palette[image_data]
-
-        return rgb_image

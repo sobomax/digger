@@ -1,13 +1,15 @@
-from digger import Digger
+from digger.Digger import Digger
 from digger.DiggerGym import DiggerGym
 
 if __name__ == '__main__':
-    #d= Digger()
-    #r = d.game(1)
-    #assert r == 0
-    #while True:
-    #    if not d.gamestep(): break
+    d= Digger()
+    r = d.game(1)
+    assert r == 0
+    while True:
+        if not d.gamestep(): break
+        print(f'{d.getdigdat(0).deathstage=}')
     #d.showscreen()
+    exit(0)
     import numpy as np
     #rgb = np.frombuffer(d.screenshot(), dtype=np.uint8).reshape((400, 640))
     #print(f'{rgb.shape=} {np.unique(rgb)=}')

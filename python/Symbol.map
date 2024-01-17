@@ -1,5 +1,5 @@
 DIGGER_2ba68bed631b {
     global: maininit; initgame; startlevel; gamestep; digger_controls; dgstate; getscreen; gettscore;
-            soundint; soundflag; musicflag;
+            soundint; soundflag; musicflag; getdigdat;
     local: *;
 };
