@@ -1,6 +1,7 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "def.h"
@@ -8,8 +9,9 @@
 #include "sprite.h"
 #include "input.h"
 #include "hardware.h"
-#include "digger.h"
+#include "bullet_obj.h"
 #include "digger_obj.h"
+#include "digger.h"
 #include "draw_api.h"
 #include "drawing.h"
 #include "main.h"
@@ -17,14 +19,10 @@
 #include "monster.h"
 #include "scores.h"
 #include "bags.h"
-#include "bullet_obj.h"
 #include "game.h"
 
-static struct digger
-{
-  int16_t h,v,rx,ry,mdir,bagtime,rechargetime,
-        deathstage,deathbag,deathani,deathtime,emocttime,emn,msc,lives,ivt;
-  bool notfiring,firepressed,dead,levdone,invin;
+static struct {
+  struct digger pub;
   struct digger_obj dob;
   struct bullet_obj bob;
 } digdat[DIGGERS];
@@ -45,36 +43,42 @@ static void endbonusmode(struct digger_draw_api *);
 static bool getfirepflag(int n);
 static void drawdig(int n);
 
+const struct digger *getdigdat(int n)
+{
+  assert(n < DIGGERS);
+  return &digdat[n].pub;
+}
+
 void initdigger(void)
 {
   int dig;
   int16_t dir, x, y;
 
   for (dig=dgstate.curplayer;dig<dgstate.diggers+dgstate.curplayer;dig++) {
-    if (digdat[dig].lives==0)
+    if (digdat[dig].pub.lives==0)
       continue;
-    digdat[dig].v=9;
-    digdat[dig].mdir=4;
-    digdat[dig].h=(dgstate.diggers==1) ? 7 : (8-dig*2);
-    x = digdat[dig].h * 20 + 12;
+    digdat[dig].pub.v=9;
+    digdat[dig].pub.mdir=4;
+    digdat[dig].pub.h=(dgstate.diggers==1) ? 7 : (8-dig*2);
+    x = digdat[dig].pub.h * 20 + 12;
     dir = (dig == 0) ? DIR_RIGHT : DIR_LEFT;
-    digdat[dig].rx=0;
-    digdat[dig].ry=0;
-    digdat[dig].bagtime=0;
-    digdat[dig].dead=false; /* alive !=> !dead but dead => !alive */
-    digdat[dig].invin=false;
-    digdat[dig].ivt=0;
-    digdat[dig].deathstage=1;
-    y = digdat[dig].v * 18 + 18;
+    digdat[dig].pub.rx=0;
+    digdat[dig].pub.ry=0;
+    digdat[dig].pub.bagtime=0;
+    digdat[dig].pub.dead=false; /* alive !=> !dead but dead => !alive */
+    digdat[dig].pub.invin=false;
+    digdat[dig].pub.ivt=0;
+    digdat[dig].pub.deathstage=1;
+    y = digdat[dig].pub.v * 18 + 18;
     digger_obj_init(&digdat[dig].dob, dig - dgstate.curplayer, dir, x, y);
     CALL_METHOD(&digdat[dig].dob, put);
-    digdat[dig].notfiring=true;
-    digdat[dig].emocttime=0;
+    digdat[dig].pub.notfiring=true;
+    digdat[dig].pub.emocttime=0;
     digdat[dig].bob.expsn=0;
-    digdat[dig].firepressed=false;
-    digdat[dig].rechargetime=0;
-    digdat[dig].emn=0;
-    digdat[dig].msc=1;
+    digdat[dig].pub.firepressed=false;
+    digdat[dig].pub.rechargetime=0;
+    digdat[dig].pub.emn=0;
+    digdat[dig].pub.msc=1;
   }
   digvisible=true;
   bonusvisible=bonusmode=false;
@@ -106,12 +110,12 @@ void newframe(void)
 void drawdig(int n)
 {
   CALL_METHOD(&digdat[n].dob, animate);
-  if (digdat[n].invin) {
-    digdat[n].ivt--;
-    if (digdat[n].ivt==0)
-      digdat[n].invin=false;
+  if (digdat[n].pub.invin) {
+    digdat[n].pub.ivt--;
+    if (digdat[n].pub.ivt==0)
+      digdat[n].pub.invin=false;
     else
-      if (digdat[n].ivt%10<5)
+      if (digdat[n].pub.ivt%10<5)
         erasespr(FIRSTDIGGER+n-dgstate.curplayer);
   }
 }
@@ -136,21 +140,21 @@ dodigger(struct digger_draw_api *ddap)
       updatefire(ddap, n);
     if (digvisible) {
       if (digdat[n].dob.alive)
-        if (digdat[n].bagtime!=0) {
+        if (digdat[n].pub.bagtime!=0) {
           tdir = digdat[n].dob.dir;
-          digdat[n].dob.dir = digdat[n].mdir;
+          digdat[n].dob.dir = digdat[n].pub.mdir;
           drawdig(n);
           digdat[n].dob.dir = tdir;
           incpenalty();
-          digdat[n].bagtime--;
+          digdat[n].pub.bagtime--;
         }
         else
           updatedigger(ddap, n);
       else
         diggerdie(ddap, n);
     }
-    if (digdat[n].emocttime>0)
-      digdat[n].emocttime--;
+    if (digdat[n].pub.emocttime>0)
+      digdat[n].pub.emocttime--;
   }
   if (bonusmode && isalive()) {
     if (bonustimeleft!=0) {
@@ -191,18 +195,18 @@ updatefire(struct digger_draw_api *ddap, int n)
   int16_t pix=0, fx, fy;
   int clfirst[TYPES],clcoll[SPRITES],i;
   bool clflag;
-  if (digdat[n].notfiring) {
-    if (digdat[n].rechargetime!=0) {
-      digdat[n].rechargetime--;
-      if (digdat[n].rechargetime == 0) {
+  if (digdat[n].pub.notfiring) {
+    if (digdat[n].pub.rechargetime!=0) {
+      digdat[n].pub.rechargetime--;
+      if (digdat[n].pub.rechargetime == 0) {
         CALL_METHOD(&digdat[n].dob, recharge);
       }
     } else {
       if (getfirepflag(n-dgstate.curplayer)) {
         if (digdat[n].dob.alive) {
           CALL_METHOD(&digdat[n].dob, discharge);
-          digdat[n].rechargetime=levof10()*3+60;
-          digdat[n].notfiring=false;
+          digdat[n].pub.rechargetime=levof10()*3+60;
+          digdat[n].pub.notfiring=false;
           switch (digdat[n].dob.dir) {
             case DIR_RIGHT:
               fx = digdat[n].dob.x + 8;
@@ -271,7 +275,7 @@ updatefire(struct digger_draw_api *ddap, int n)
     }
     i=clfirst[4];
     while (i!=-1) {
-      if (i-FIRSTDIGGER+dgstate.curplayer!=n && !digdat[i-FIRSTDIGGER+dgstate.curplayer].invin
+      if (i-FIRSTDIGGER+dgstate.curplayer!=n && !digdat[i-FIRSTDIGGER+dgstate.curplayer].pub.invin
           && digdat[i-FIRSTDIGGER+dgstate.curplayer].dob.alive) {
         killdigger(i-FIRSTDIGGER+dgstate.curplayer,3,0);
         CALL_METHOD(&digdat[n].bob, explode);
@@ -362,8 +366,8 @@ void drawexplosion(int n)
 
 void killfire(int n)
 {
-  if (!digdat[n].notfiring) {
-    digdat[n].notfiring=true;
+  if (!digdat[n].pub.notfiring) {
+    digdat[n].pub.notfiring=true;
     CALL_METHOD(&digdat[n].bob, remove);
   }
 }
@@ -380,24 +384,24 @@ updatedigger(struct digger_draw_api *ddap, int n)
     ddir=dir;
   else
     ddir=DIR_NONE;
-  if (digdat[n].rx==0 && (ddir==DIR_UP || ddir==DIR_DOWN))
-    digdat[n].dob.dir=digdat[n].mdir=ddir;
-  if (digdat[n].ry==0 && (ddir==DIR_RIGHT || ddir==DIR_LEFT))
-    digdat[n].dob.dir=digdat[n].mdir=ddir;
+  if (digdat[n].pub.rx==0 && (ddir==DIR_UP || ddir==DIR_DOWN))
+    digdat[n].dob.dir=digdat[n].pub.mdir=ddir;
+  if (digdat[n].pub.ry==0 && (ddir==DIR_RIGHT || ddir==DIR_LEFT))
+    digdat[n].dob.dir=digdat[n].pub.mdir=ddir;
   if (dir==DIR_NONE)
-    digdat[n].mdir=DIR_NONE;
+    digdat[n].pub.mdir=DIR_NONE;
   else
-    digdat[n].mdir=digdat[n].dob.dir;
-  if ((digdat[n].dob.x==292 && digdat[n].mdir==DIR_RIGHT) ||
-      (digdat[n].dob.x==12 && digdat[n].mdir==DIR_LEFT) ||
-      (digdat[n].dob.y==180 && digdat[n].mdir==DIR_DOWN) ||
-      (digdat[n].dob.y==18 && digdat[n].mdir==DIR_UP))
-    digdat[n].mdir=DIR_NONE;
+    digdat[n].pub.mdir=digdat[n].dob.dir;
+  if ((digdat[n].dob.x==292 && digdat[n].pub.mdir==DIR_RIGHT) ||
+      (digdat[n].dob.x==12 && digdat[n].pub.mdir==DIR_LEFT) ||
+      (digdat[n].dob.y==180 && digdat[n].pub.mdir==DIR_DOWN) ||
+      (digdat[n].dob.y==18 && digdat[n].pub.mdir==DIR_UP))
+    digdat[n].pub.mdir=DIR_NONE;
   diggerox=digdat[n].dob.x;
   diggeroy=digdat[n].dob.y;
-  if (digdat[n].mdir!=DIR_NONE)
-    eatfield(diggerox,diggeroy,digdat[n].mdir);
-  switch (digdat[n].mdir) {
+  if (digdat[n].pub.mdir!=DIR_NONE)
+    eatfield(diggerox,diggeroy,digdat[n].pub.mdir);
+  switch (digdat[n].pub.mdir) {
     case DIR_RIGHT:
       drawrightblob(digdat[n].dob.x,digdat[n].dob.y);
       digdat[n].dob.x+=4;
@@ -417,19 +421,19 @@ updatedigger(struct digger_draw_api *ddap, int n)
   }
   if (hitemerald((digdat[n].dob.x-12)/20,(digdat[n].dob.y-18)/18,
                  (digdat[n].dob.x-12)%20,(digdat[n].dob.y-18)%18,
-                 digdat[n].mdir)) {
-    if (digdat[n].emocttime==0)
-      digdat[n].emn=0;
+                 digdat[n].pub.mdir)) {
+    if (digdat[n].pub.emocttime==0)
+      digdat[n].pub.emn=0;
     scoreemerald(ddap, n);
     soundem();
-    soundemerald(digdat[n].emn);
+    soundemerald(digdat[n].pub.emn);
 
-    digdat[n].emn++;
-    if (digdat[n].emn==8) {
-      digdat[n].emn=0;
+    digdat[n].pub.emn++;
+    if (digdat[n].pub.emn==8) {
+      digdat[n].pub.emn=0;
       scoreoctave(ddap, n);
     }
-    digdat[n].emocttime=9;
+    digdat[n].pub.emocttime=9;
   }
   drawdig(n);
   for (i=0;i<TYPES;i++)
@@ -449,9 +453,9 @@ updatedigger(struct digger_draw_api *ddap, int n)
   }
 
   if (bagf) {
-    if (digdat[n].mdir==DIR_RIGHT || digdat[n].mdir==DIR_LEFT) {
-      push=pushbags(ddap, digdat[n].mdir,clfirst,clcoll);
-      digdat[n].bagtime++;
+    if (digdat[n].pub.mdir==DIR_RIGHT || digdat[n].pub.mdir==DIR_LEFT) {
+      push=pushbags(ddap, digdat[n].pub.mdir,clfirst,clcoll);
+      digdat[n].pub.bagtime++;
     }
     else
       if (!pushudbags(ddap, clfirst,clcoll))
@@ -459,10 +463,10 @@ updatedigger(struct digger_draw_api *ddap, int n)
     if (!push) { /* Strange, push not completely defined */
       digdat[n].dob.x=diggerox;
       digdat[n].dob.y=diggeroy;
-      digdat[n].dob.dir = digdat[n].mdir;
+      digdat[n].dob.dir = digdat[n].pub.mdir;
       drawdig(n);
       incpenalty();
-      digdat[n].dob.dir=reversedir(digdat[n].mdir);
+      digdat[n].dob.dir=reversedir(digdat[n].pub.mdir);
     }
   }
   if (clfirst[2]!=-1 && bonusmode && digdat[n].dob.alive)
@@ -474,16 +478,16 @@ updatedigger(struct digger_draw_api *ddap, int n)
     scorebonus(ddap, n);
     initbonusmode(ddap);
   }
-  digdat[n].h=(digdat[n].dob.x-12)/20;
-  digdat[n].rx=(digdat[n].dob.x-12)%20;
-  digdat[n].v=(digdat[n].dob.y-18)/18;
-  digdat[n].ry=(digdat[n].dob.y-18)%18;
+  digdat[n].pub.h=(digdat[n].dob.x-12)/20;
+  digdat[n].pub.rx=(digdat[n].dob.x-12)%20;
+  digdat[n].pub.v=(digdat[n].dob.y-18)/18;
+  digdat[n].pub.ry=(digdat[n].dob.y-18)%18;
 }
 
 void sceatm(struct digger_draw_api *ddap, int n)
 {
-  scoreeatm(ddap, n,digdat[n].msc);
-  digdat[n].msc<<=1;
+  scoreeatm(ddap, n,digdat[n].pub.msc);
+  digdat[n].pub.msc<<=1;
 }
 
 static int16_t deatharc[7]={3,5,6,6,5,3,0};
@@ -493,116 +497,116 @@ diggerdie(struct digger_draw_api *ddap, int n)
 {
   int clfirst[TYPES],clcoll[SPRITES],i;
   bool alldead;
-  switch (digdat[n].deathstage) {
+  switch (digdat[n].pub.deathstage) {
     case 1:
-      if (bagy(digdat[n].deathbag)+6>digdat[n].dob.y)
-        digdat[n].dob.y=bagy(digdat[n].deathbag)+6;
+      if (bagy(digdat[n].pub.deathbag)+6>digdat[n].dob.y)
+        digdat[n].dob.y=bagy(digdat[n].pub.deathbag)+6;
       drawdigger(n-dgstate.curplayer,15,digdat[n].dob.x,digdat[n].dob.y,false);
       incpenalty();
-      if (getbagdir(digdat[n].deathbag)+1==0) {
+      if (getbagdir(digdat[n].pub.deathbag)+1==0) {
         soundddie();
-        digdat[n].deathtime=5;
-        digdat[n].deathstage=2;
-        digdat[n].deathani=0;
+        digdat[n].pub.deathtime=5;
+        digdat[n].pub.deathstage=2;
+        digdat[n].pub.deathani=0;
         digdat[n].dob.y-=6;
       }
       break;
     case 2:
-      if (digdat[n].deathtime!=0) {
-        digdat[n].deathtime--;
+      if (digdat[n].pub.deathtime!=0) {
+        digdat[n].pub.deathtime--;
         break;
       }
-      if (digdat[n].deathani==0)
+      if (digdat[n].pub.deathani==0)
         music(2, (dgstate.diggers > 1) ? 0.7 : 1.0);
-      drawdigger(n-dgstate.curplayer,14-digdat[n].deathani,digdat[n].dob.x,digdat[n].dob.y,
+      drawdigger(n-dgstate.curplayer,14-digdat[n].pub.deathani,digdat[n].dob.x,digdat[n].dob.y,
                  false);
       for (i=0;i<TYPES;i++)
         clfirst[i]=first[i];
       for (i=0;i<SPRITES;i++)
         clcoll[i]=coll[i];
       incpenalty();
-      if (digdat[n].deathani==0 && clfirst[2]!=-1)
+      if (digdat[n].pub.deathani==0 && clfirst[2]!=-1)
         killmonsters(clfirst,clcoll);
-      if (digdat[n].deathani<4) {
-        digdat[n].deathani++;
-        digdat[n].deathtime=2;
+      if (digdat[n].pub.deathani<4) {
+        digdat[n].pub.deathani++;
+        digdat[n].pub.deathtime=2;
       }
       else {
-        digdat[n].deathstage=4;
+        digdat[n].pub.deathstage=4;
         if (musicflag || dgstate.diggers>1)
-          digdat[n].deathtime=60;
+          digdat[n].pub.deathtime=60;
         else
-          digdat[n].deathtime=10;
+          digdat[n].pub.deathtime=10;
       }
       break;
     case 3:
-      digdat[n].deathstage=5;
-      digdat[n].deathani=0;
-      digdat[n].deathtime=0;
+      digdat[n].pub.deathstage=5;
+      digdat[n].pub.deathani=0;
+      digdat[n].pub.deathtime=0;
       break;
     case 5:
-      if (digdat[n].deathani>=0 && digdat[n].deathani<=6) {
+      if (digdat[n].pub.deathani>=0 && digdat[n].pub.deathani<=6) {
         drawdigger(n-dgstate.curplayer,15,digdat[n].dob.x,
-                   digdat[n].dob.y-deatharc[digdat[n].deathani],false);
-        if (digdat[n].deathani==6 && !isalive())
+                   digdat[n].dob.y-deatharc[digdat[n].pub.deathani],false);
+        if (digdat[n].pub.deathani==6 && !isalive())
           musicoff();
         incpenalty();
-        digdat[n].deathani++;
-        if (digdat[n].deathani==1)
+        digdat[n].pub.deathani++;
+        if (digdat[n].pub.deathani==1)
           soundddie();
-        if (digdat[n].deathani==7) {
-          digdat[n].deathtime=5;
-          digdat[n].deathani=0;
-          digdat[n].deathstage=2;
+        if (digdat[n].pub.deathani==7) {
+          digdat[n].pub.deathtime=5;
+          digdat[n].pub.deathani=0;
+          digdat[n].pub.deathstage=2;
         }
       }
       break;
     case 4:
-      if (digdat[n].deathtime!=0)
-        digdat[n].deathtime--;
+      if (digdat[n].pub.deathtime!=0)
+        digdat[n].pub.deathtime--;
       else {
 	if (dgstate.diggers == 1 && !sounddiedone) {
 	    frame -= 1;
 	    break;
 	}
-        digdat[n].dead=true;
+        digdat[n].pub.dead=true;
         alldead=true;
         for (i=0;i<dgstate.diggers;i++)
-          if (!digdat[i].dead) {
+          if (!digdat[i].pub.dead) {
             alldead=false;
             break;
           }
         if (alldead)
           setdead(true);
         else
-          if (isalive() && digdat[n].lives>0) {
+          if (isalive() && digdat[n].pub.lives>0) {
             if (!dgstate.gauntlet)
-              digdat[n].lives--;
+              digdat[n].pub.lives--;
             drawlives(ddap);
-            if (digdat[n].lives>0) {
-              digdat[n].v=9;
-              digdat[n].mdir=4;
-              digdat[n].h=(dgstate.diggers==1) ? 7 : (8-n*2);
-              digdat[n].dob.x=digdat[n].h*20+12;
+            if (digdat[n].pub.lives>0) {
+              digdat[n].pub.v=9;
+              digdat[n].pub.mdir=4;
+              digdat[n].pub.h=(dgstate.diggers==1) ? 7 : (8-n*2);
+              digdat[n].dob.x=digdat[n].pub.h*20+12;
               digdat[n].dob.dir=(n==0) ? DIR_RIGHT : DIR_LEFT;
-              digdat[n].rx=0;
-              digdat[n].ry=0;
-              digdat[n].bagtime=0;
+              digdat[n].pub.rx=0;
+              digdat[n].pub.ry=0;
+              digdat[n].pub.bagtime=0;
               digdat[n].dob.alive=true;
-              digdat[n].dead=false;
-              digdat[n].invin=true;
-              digdat[n].ivt=50;
-              digdat[n].deathstage=1;
-              digdat[n].dob.y=digdat[n].v*18+18;
+              digdat[n].pub.dead=false;
+              digdat[n].pub.invin=true;
+              digdat[n].pub.ivt=50;
+              digdat[n].pub.deathstage=1;
+              digdat[n].dob.y=digdat[n].pub.v*18+18;
               erasespr(n+FIRSTDIGGER-dgstate.curplayer);
               CALL_METHOD(&digdat[n].dob, put);
-              digdat[n].notfiring=true;
-              digdat[n].emocttime=0;
-              digdat[n].firepressed=false;
+              digdat[n].pub.notfiring=true;
+              digdat[n].pub.emocttime=0;
+              digdat[n].pub.firepressed=false;
               digdat[n].bob.expsn=0;
-              digdat[n].rechargetime=0;
-              digdat[n].emn=0;
-              digdat[n].msc=1;
+              digdat[n].pub.rechargetime=0;
+              digdat[n].pub.emn=0;
+              digdat[n].pub.msc=1;
             }
             clearfire(n);
             if (bonusmode)
@@ -630,7 +634,7 @@ initbonusmode(struct digger_draw_api *ddap)
   bonustimeleft=250-levof10()*20;
   startbonustimeleft=20;
   for (i=0;i<dgstate.diggers;i++)
-    digdat[i].msc=1;
+    digdat[i].pub.msc=1;
 }
 
 static void
@@ -666,7 +670,7 @@ bool checkdiggerunderbag(int16_t h,int16_t v)
   int n;
   for (n=dgstate.curplayer;n<dgstate.diggers+dgstate.curplayer;n++)
     if (digdat[n].dob.alive)
-      if (digdat[n].mdir==DIR_UP || digdat[n].mdir==DIR_DOWN)
+      if (digdat[n].pub.mdir==DIR_UP || digdat[n].pub.mdir==DIR_DOWN)
         if ((digdat[n].dob.x-12)/20==h)
           if ((digdat[n].dob.y-18)/18==v || (digdat[n].dob.y-18)/18+1==v)
             return true;
@@ -675,12 +679,12 @@ bool checkdiggerunderbag(int16_t h,int16_t v)
 
 void killdigger(int n,int16_t stage,int16_t bag)
 {
-  if (digdat[n].invin)
+  if (digdat[n].pub.invin)
     return;
-  if (digdat[n].deathstage<2 || digdat[n].deathstage>4) {
+  if (digdat[n].pub.deathstage<2 || digdat[n].pub.deathstage>4) {
     digdat[n].dob.alive=false;
-    digdat[n].deathstage=stage;
-    digdat[n].deathbag=bag;
+    digdat[n].pub.deathstage=stage;
+    digdat[n].pub.deathbag=bag;
   }
 }
 
@@ -782,7 +786,7 @@ bool digalive(int n)
 
 void digresettime(int n)
 {
-  digdat[n].bagtime=0;
+  digdat[n].pub.bagtime=0;
 }
 
 bool isalive(void)
@@ -796,12 +800,12 @@ bool isalive(void)
 
 int getlives(int pl)
 {
-  return digdat[pl].lives;
+  return digdat[pl].pub.lives;
 }
 
 void addlife(int pl)
 {
-  digdat[pl].lives++;
+  digdat[pl].pub.lives++;
   sound1up();
 }
 
@@ -809,11 +813,11 @@ void initlives(void)
 {
   int i;
   for (i=0;i<dgstate.diggers+dgstate.nplayers-1;i++)
-    digdat[i].lives=3;
+    digdat[i].pub.lives=3;
 }
 
 void declife(int pl)
 {
   if (!dgstate.gauntlet)
-    digdat[pl].lives--;
+    digdat[pl].pub.lives--;
 }

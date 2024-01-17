@@ -3,6 +3,13 @@
 
 struct digger_draw_api;
 
+struct digger
+{
+  int16_t h,v,rx,ry,mdir,bagtime,rechargetime,
+        deathstage,deathbag,deathani,deathtime,emocttime,emn,msc,lives,ivt;
+  bool notfiring,firepressed,dead,levdone,invin;
+};
+
 void dodigger(struct digger_draw_api *);
 void erasediggers(void);
 void killfire(int n);
@@ -29,6 +36,7 @@ int getlives(int pl);
 void addlife(int pl);
 void initlives(void);
 void declife(int pl);
+const struct digger *getdigdat(int n);
 
 extern bool bonusvisible,digonscr,bonusmode;
 
