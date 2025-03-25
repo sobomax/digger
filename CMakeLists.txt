@@ -27,6 +27,34 @@ SET( CPACK_SOURCE_GENERATOR "TGZ;TXZ")
 SET( CPACK_SOURCE_PACKAGE_FILE_NAME "${PACKAGE}-${VERSION}" )
 
 INCLUDE(CPack)
+INCLUDE(CheckCXXSourceCompiles)
+INCLUDE(CheckLibraryExists)
+
+function(check_working_cxx_atomics varname)
+  message(CHECK_START "Checking Atomics...")
+  set(OLD_CMAKE_REQUIRED_FLAGS ${CMAKE_REQUIRED_FLAGS})
+  set(CMAKE_REQUIRED_FLAGS "${CMAKE_REQUIRED_FLAGS} -std=c++11")
+  CHECK_CXX_SOURCE_COMPILES("
+#include <atomic>
+std::atomic<int> x;
+int main() {
+  return x;
+}
+" ${varname})
+  set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
+endfunction(check_working_cxx_atomics)
+
+IF( NOT MSVC )
+  check_working_cxx_atomics(HAVE_CXX_ATOMICS_WITHOUT_LIB)
+
+  IF (NOT HAVE_CXX_ATOMICS_WITHOUT_LIB)
+    check_library_exists(atomic __atomic_fetch_add_4 "" HAVE_LIBATOMIC)
+
+    IF (NOT HAVE_LIBATOMIC)
+      message(SEND_ERROR "Unable to configure, missing c11 atomics")
+    ENDIF()
+  ENDIF()
+ENDIF()
 
 IF( NOT DEFINED CMAKE_INSTALL_PREFIX )
   SET( CMAKE_INSTALL_PREFIX /usr/local )
@@ -108,5 +136,10 @@ ADD_EXECUTABLE( digger ${DIGGER_SOURCE})
 IF ( SDL2_FOUND )
   TARGET_LINK_LIBRARIES( digger PUBLIC SDL2::SDL2 )
 ENDIF( SDL2_FOUND )
+IF ( NOT MSVC )
+  IF (NOT HAVE_CXX_ATOMICS_WITHOUT_LIB )
+    TARGET_LINK_LIBRARIES( digger PUBLIC -latomic )
+  ENDIF ( NOT HAVE_CXX_ATOMICS_WITHOUT_LIB )
+ENDIF( NOT MSVC )
 TARGET_LINK_LIBRARIES( digger PUBLIC ${ZLIB_LIBRARY} )
 TARGET_LINK_LIBRARIES( digger PUBLIC -lm)
