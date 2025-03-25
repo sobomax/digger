@@ -1,0 +1,23 @@
+# syntax=docker/dockerfile:1.7-labs
+
+ARG BASE_IMAGE="debian:sid-slim"
+FROM ${BASE_IMAGE} AS build
+LABEL maintainer="Maksym Sobolyev <sobomax@sippysoft.com>"
+
+ARG BUILD_PKGS="cmake make clang libc6-dev openssl"
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends ${BUILD_PKGS}
+WORKDIR /src
+
+RUN --mount=type=bind,source=apt-get-requirement.txt,target=apt-get-requirement.txt \
+   xargs -a apt-get-requirement.txt apt-get -yq --no-install-recommends install
+
+ARG CC=clang
+ARG TEST_TYPES=quick
+RUN --mount=type=bind,target=.,rw sh -x ./scripts/do-test-cmmn.sh && \
+  sh -x ./scripts/do-test-cmake.sh && \
+  sh -x ./scripts/do-test-run.sh
+#FROM ${BASE_IMAGE} AS clean
+#COPY --from=build /usr/local/lib/libg722.* /usr/local/lib/
+#COPY --from=build --exclude=g722_common.h --exclude=g722_private.h \
+# /usr/local/include/g722* /usr/local/include/

@@ -1,1 +1,1 @@
-cmake cmake-data libsdl2-dev lcov llvm
+cmake cmake-data libsdl2-dev lcov llvm zlib1g-dev

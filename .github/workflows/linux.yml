@@ -31,7 +31,7 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: 'recursive'
 
@@ -69,7 +69,7 @@ jobs:
           parallel: true
           path-to-lcov: ./digger_lcov/digger.info
 
-  finish:
+  submit_coverage:
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -79,3 +79,69 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         parallel-finished: true
         path-to-lcov: ./digger_lcov/digger.info
+
+  build_in_docker:
+    needs: [build]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    strategy:
+      matrix:
+        base_image: ['debian:sid-slim', 'debian:12-slim', 'ubuntu:latest']
+    env:
+      BASE_IMAGE: ${{ matrix.base_image }}
+      DOCKER_RW: ${{ (github.repository == format('{0}/digger', github.repository_owner) && github.event_name != 'pull_request') && 'true' || 'false' }}
+      GHCR_REPO: ghcr.io/${{ github.repository_owner }}/digger
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        submodules: 'recursive'
+
+    - name: Set up QEMU
+      id: qemu
+      uses: docker/setup-qemu-action@v3
+
+    - name: Login to GitHub Container Registry
+      if: ${{ env.DOCKER_RW == 'true' }}
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Set environments
+      run: |
+        # mips64 seems to be broken at the moment...
+        if [ "${{ env.BASE_IMAGE }}" = "debian:sid-slim" ]
+        then
+          FILT="grep -v mips64le"
+        else
+          FILT="cat"
+        fi
+        PLATFORMS="`docker manifest inspect ${{ env.BASE_IMAGE }} | \
+         jq -r '.manifests[] | "\(.platform.os)/\(.platform.architecture)\(if .platform.variant != null then "/\(.platform.variant)" else "" end)"' | \
+         sort -u | grep -v unknown | ${FILT} | paste -sd ','`"
+        echo "PLATFORMS=${PLATFORMS}" >> $GITHUB_ENV
+        GIT_BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+        GIT_BRANCH="${GIT_BRANCH#refs/tags/}"
+        echo "GIT_BRANCH=${GIT_BRANCH}" >> $GITHUB_ENV
+        OS_TAG="`echo ${BASE_IMAGE} | sed 's|:|_|g'`"
+        echo "OS_TAG=${OS_TAG}" >> $GITHUB_ENV
+
+    - name: Build Docker image
+      uses: docker/build-push-action@v6
+      env:
+        CACHE_SPEC: "type=registry,ref=${{ env.GHCR_REPO }}:${{ env.GIT_BRANCH }}-${{ env.OS_TAG}}-buildcache"
+      with:
+        context: .
+        file: ./docker/Dockerfile.build
+        build-args: |
+          BASE_IMAGE=${{ env.BASE_IMAGE }}
+        platforms: ${{ env.PLATFORMS }}
+        push: false
+        cache-from: ${{ env.CACHE_SPEC }}
+        cache-to: ${{ env.CACHE_SPEC }},mode=max
