@@ -37,7 +37,9 @@
 
 struct spinlock {
   atomic_flag flag;
+#if defined(spinlock_test)
   atomic_uintmax_t nspins;
+#endif
 };
 
 struct spinlock *
@@ -50,7 +52,9 @@ spinlock_ctor(void)
     return (NULL);
   memset(sp, '\0', sizeof(*sp));
   atomic_flag_clear(&sp->flag);
+#if defined(spinlock_test)
   atomic_init(&sp->nspins, 0);
+#endif
   return (sp);
 }
 
@@ -64,14 +68,21 @@ spinlock_dtor(struct spinlock *sp)
 void
 spinlock_lock(struct spinlock *sp)
 {
+#if defined(spinlock_test)
   uintmax_t nspins;
 
   nspins = 0;
+#endif
   while (atomic_flag_test_and_set_explicit(&sp->flag, memory_order_acquire)) {
+#if defined(spinlock_test)
     nspins++;
+#endif
+    continue;
   }
+#if defined(spinlock_test)
   if (nspins > 0)
     atomic_fetch_add(&sp->nspins, nspins);
+#endif
 }
 
 void
