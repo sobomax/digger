@@ -675,7 +675,7 @@ static void parsecmd(int argc,char *argv[])
         dgstate.levfname[j]=word[i];
         dgstate.levfflag=true;
       }
-#if defined(UNIX) && defined(_SDL) && !defined(__EMSCRIPTEN__)
+#if defined(UNIX) && defined(_SDL) && !defined(__EMSCRIPTEN__) && !defined(__APPLE__)
       if (argch == 'X') {
         unsigned int x11_parent;
 
