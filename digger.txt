@@ -250,7 +250,7 @@ A: This version of Digger now uses your computer's internal timing chip for all
 
    You can speed up or slow down the game depending on your personal
    preference. To do this, simply specify the speed on the command line. The
-   default is 40, higher numbers give slower speeds, lower numbers (1 being the
+   default is 20, higher numbers give slower speeds, lower numbers (1 being the
    lowest) give faster speeds. You can also adjust the speed whilst the game is
    in progress using the + and - keys.
 

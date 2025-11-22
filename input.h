@@ -6,6 +6,7 @@ bool teststart(void);
 void readdirect(int n);
 int16_t getdirect(int n);
 void checkkeyb(void);
+void input_poll_async(void);
 void flushkeybuf(void);
 void findkey(int kn);
 void clearfire(int n);

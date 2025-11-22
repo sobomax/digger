@@ -15,6 +15,10 @@
 #include "fbsd_kbd.h"
 #endif
 
+#if defined(_VGL)
+void ProcessKbd(void);
+#endif
+
 /* global variables first */
 bool escape=false,firepflag=false,fire2pflag=false,pausef=false,mode_change=false;
 bool krdf[NKEYS]={false,false,false,false,false,false,false,false,false,false,
@@ -38,6 +42,16 @@ static bool joyflag=false;
 
 void readjoy(void);
 
+void input_poll_async(void) {
+#if defined(_SDL)
+  SDL_PumpEvents();
+#elif defined(_VGL)
+  ProcessKbd();
+#else
+  /* nothing */
+#endif
+}
+
 /* The standard ASCII keyboard is also checked so that very short keypresses
    are not overlooked. The functions kbhit() (returns bool denoting whether or
    not there is a key in the buffer) and getkey() (wait until a key is in the
@@ -52,6 +66,7 @@ void checkkeyb(void)
   bool *aflagp[10]={&arightpressed,&auppressed,&aleftpressed,&adownpressed,
                     &af1pressed,&aright2pressed,&aup2pressed,&aleft2pressed,
                     &adown2pressed,&af12pressed};
+  input_poll_async();
   if (leftpressed)
     aleftpressed=true;
   if (rightpressed)

@@ -52,6 +52,9 @@
 #define MHEIGHT 10
 #define MSIZE MWIDTH*MHEIGHT
 
+#define DEFAULT_SPEED_SETTING 20
+#define DEFAULT_FRAME_TIME_US (DEFAULT_SPEED_SETTING * 2000l)
+
 #define MAX_REC_BUFFER 262144l
            /* I reckon this is enough for about 36 hours of continuous play. */
 

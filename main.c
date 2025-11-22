@@ -1,44 +1,44 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
-static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.";
+static const char copyright[] =
+    "Portions Copyright(c) 1983 Windmill Software Inc.";
 
 #include <ctype.h>
 #include <errno.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
+#include "bags.h"
 #include "def.h"
-#include "digger_types.h"
-#include "hardware.h"
-#include "sound.h"
-#include "sprite.h"
-#include "input.h"
-#include "scores.h"
-#include "drawing.h"
 #include "digger.h"
+#include "digger_obj.h"
+#include "digger_types.h"
+#include "draw_api.h"
+#include "drawing.h"
+#include "game.h"
+#include "hardware.h"
+#include "ini.h"
+#include "input.h"
 #include "keyboard.h"
+#include "main.h"
 #include "monster.h"
 #include "monster_obj.h"
-#include "digger_obj.h"
-#include "bags.h"
-#include "record.h"
-#include "main.h"
 #include "newsnd.h"
-#include "ini.h"
-#include "draw_api.h"
-#include "game.h"
+#include "record.h"
+#include "scores.h"
+#include "sound.h"
+#include "sprite.h"
 
-static struct game
-{
+static struct game {
   int16_t level;
   bool levdone;
 } gamedat[2];
 
-static bool levnotdrawn=false,alldead=false;
+static bool levnotdrawn = false, alldead = false;
 static bool started;
-static int16_t penalty=0;
+static int16_t penalty = 0;
 
 FILE *digger_log = NULL;
 
@@ -49,16 +49,16 @@ static void initchars(void);
 static void checklevdone(void);
 static int16_t levno(void);
 static void calibrate(void);
-static void parsecmd(int argc,char *argv[]);
+static void parsecmd(int argc, char *argv[]);
 static void initlevel(void);
 static void inir(void);
 static int getalllives(void);
 
-int16_t getlevch(int16_t x,int16_t y,int16_t l)
-{
-  if ((l==3 || l==4) && !dgstate.levfflag && dgstate.diggers==2 && y==9 && (x==6 || x==8))
+int16_t getlevch(int16_t x, int16_t y, int16_t l) {
+  if ((l == 3 || l == 4) && !dgstate.levfflag && dgstate.diggers == 2 &&
+      y == 9 && (x == 6 || x == 8))
     return 'H';
-  return dgstate.leveldat[l-1][y][x];
+  return dgstate.leveldat[l - 1][y][x];
 }
 
 #ifdef INTDRF
@@ -67,109 +67,106 @@ extern FILE *info;
 
 extern struct digger_draw_api *ddap;
 
-static void
-game_dbg_info_emit(void)
-{
+static void game_dbg_info_emit(void) {
 
   printf("score=%d level=%d frames=%u\n", gettscore(0), levno(),
-   (unsigned int)getframe());
+         (unsigned int)getframe());
 }
 
-void game(void)
-{
-  int16_t t,c,i;
-  bool flashplayer=false;
+void game(void) {
+  int16_t t, c, i;
+  bool flashplayer = false;
   if (dgstate.gauntlet) {
-    dgstate.cgtime=dgstate.gtime*1193181l;
-    dgstate.timeout=false;
+    dgstate.cgtime = dgstate.gtime * 1193181l;
+    dgstate.timeout = false;
   }
   initlives();
-  gamedat[0].level=dgstate.startlev;
-  if (dgstate.nplayers==2)
-    gamedat[1].level=dgstate.startlev;
-  alldead=false;
+  gamedat[0].level = dgstate.startlev;
+  if (dgstate.nplayers == 2)
+    gamedat[1].level = dgstate.startlev;
+  alldead = false;
   ddap->gclear();
-  dgstate.curplayer=0;
+  dgstate.curplayer = 0;
   initlevel();
-  dgstate.curplayer=1;
+  dgstate.curplayer = 1;
   initlevel();
   zeroscores();
-  bonusvisible=true;
-  if (dgstate.nplayers==2)
-    flashplayer=true;
-  dgstate.curplayer=0;
-  while (getalllives()!=0 && !escape && !dgstate.timeout) {
+  bonusvisible = true;
+  if (dgstate.nplayers == 2)
+    flashplayer = true;
+  dgstate.curplayer = 0;
+  while (getalllives() != 0 && !escape && !dgstate.timeout) {
     while (!alldead && !escape && !dgstate.timeout) {
       initmbspr();
 
       if (playing)
-        dgstate.randv=playgetrand();
+        dgstate.randv = playgetrand();
       else
-        dgstate.randv=0;
+        dgstate.randv = 0;
 #ifdef INTDRF
-      fprintf(info,"%lu\n",dgstate.randv);
-      frame=0;
+      fprintf(info, "%lu\n", dgstate.randv);
+      frame = 0;
 #endif
       recputrand(dgstate.randv);
       if (levnotdrawn) {
-        levnotdrawn=false;
+        levnotdrawn = false;
         drawscreen(ddap);
         if (flashplayer) {
-          flashplayer=false;
-          strcpy(dgstate.pldispbuf,"PLAYER ");
-          if (dgstate.curplayer==0)
-            strcat(dgstate.pldispbuf,"1");
+          flashplayer = false;
+          strcpy(dgstate.pldispbuf, "PLAYER ");
+          if (dgstate.curplayer == 0)
+            strcat(dgstate.pldispbuf, "1");
           else
-            strcat(dgstate.pldispbuf,"2");
+            strcat(dgstate.pldispbuf, "2");
           cleartopline();
-          for (t=0;t<15;t++)
-            for (c=1;c<=3;c++) {
-              outtext(ddap, dgstate.pldispbuf,108,0,c);
+          for (t = 0; t < 15; t++)
+            for (c = 1; c <= 3; c++) {
+              outtext(ddap, dgstate.pldispbuf, 108, 0, c);
               writecurscore(ddap, c);
               newframe();
               if (escape)
                 return;
             }
           drawscores(ddap);
-          for (i=0;i<dgstate.diggers;i++)
-            addscore(ddap, i,0);
+          for (i = 0; i < dgstate.diggers; i++)
+            addscore(ddap, i, 0);
         }
-      }
-      else
+      } else
         initchars();
-      erasetext(ddap, 8, 108,0,3);
+      erasetext(ddap, 8, 108, 0, 3);
       initscores(ddap);
       drawlives(ddap);
       music(1, 1.0);
 
       flushkeybuf();
-      for (i=0;i<dgstate.diggers;i++)
+      for (i = 0; i < dgstate.diggers; i++)
         readdirect(i);
-      while (!alldead && !gamedat[dgstate.curplayer].levdone && !escape && !dgstate.timeout) {
-        penalty=0;
+      while (!alldead && !gamedat[dgstate.curplayer].levdone && !escape &&
+             !dgstate.timeout) {
+        penalty = 0;
         dodigger(ddap);
         domonsters(ddap);
         dobags(ddap);
-        if (penalty>8)
-          incmont(penalty-8);
+        if (penalty > 8)
+          incmont(penalty - 8);
         testpause();
         checklevdone();
       }
       erasediggers();
       musicoff();
-      t=20;
-      while ((getnmovingbags()!=0 || t!=0) && !escape && !dgstate.timeout) {
-        if (t!=0)
+      t = 20;
+      while ((getnmovingbags() != 0 || t != 0) && !escape && !dgstate.timeout) {
+        if (t != 0)
           t--;
-        penalty=0;
+        penalty = 0;
         dobags(ddap);
         dodigger(ddap);
         domonsters(ddap);
-        if (penalty<8)
-          t=0;
+        if (penalty < 8)
+          t = 0;
       }
       soundstop();
-      for (i=0;i<dgstate.diggers;i++)
+      for (i = 0; i < dgstate.diggers; i++)
         killfire(i);
       erasebonus(ddap);
       cleanupbags();
@@ -186,52 +183,52 @@ void game(void)
           game_dbg_info_emit();
         }
       }
-      if (countem()==0 || gamedat[dgstate.curplayer].levdone) {
+      if (countem() == 0 || gamedat[dgstate.curplayer].levdone) {
 #ifdef INTDRF
-        fprintf(info,"%i\n",frame);
+        fprintf(info, "%i\n", frame);
 #endif
-        for (i=dgstate.curplayer;i<dgstate.diggers+dgstate.curplayer;i++)
-          if (getlives(i)>0 && !digalive(i))
+        for (i = dgstate.curplayer; i < dgstate.diggers + dgstate.curplayer;
+             i++)
+          if (getlives(i) > 0 && !digalive(i))
             declife(i);
         drawlives(ddap);
         gamedat[dgstate.curplayer].level++;
-        if (gamedat[dgstate.curplayer].level>1000)
-          gamedat[dgstate.curplayer].level=1000;
+        if (gamedat[dgstate.curplayer].level > 1000)
+          gamedat[dgstate.curplayer].level = 1000;
         initlevel();
-      }
-      else
-        if (alldead) {
+      } else if (alldead) {
 #ifdef INTDRF
-          fprintf(info,"%i\n",frame);
+        fprintf(info, "%i\n", frame);
 #endif
-          for (i=dgstate.curplayer;i<dgstate.curplayer+dgstate.diggers;i++)
-            if (getlives(i)>0)
-              declife(i);
-          drawlives(ddap);
-        }
-      if ((alldead && getalllives()==0 && !dgstate.gauntlet && !escape) || dgstate.timeout)
+        for (i = dgstate.curplayer; i < dgstate.curplayer + dgstate.diggers;
+             i++)
+          if (getlives(i) > 0)
+            declife(i);
+        drawlives(ddap);
+      }
+      if ((alldead && getalllives() == 0 && !dgstate.gauntlet && !escape) ||
+          dgstate.timeout)
         endofgame(ddap);
     }
-    alldead=false;
-    if (dgstate.nplayers==2 && getlives(1-dgstate.curplayer)!=0) {
-      dgstate.curplayer=1-dgstate.curplayer;
-      flashplayer=levnotdrawn=true;
+    alldead = false;
+    if (dgstate.nplayers == 2 && getlives(1 - dgstate.curplayer) != 0) {
+      dgstate.curplayer = 1 - dgstate.curplayer;
+      flashplayer = levnotdrawn = true;
     }
   }
 #ifdef INTDRF
-  fprintf(info,"-1\n%lu\n%i",getscore0(),gamedat[0].level);
+  fprintf(info, "-1\n%lu\n%i", getscore0(), gamedat[0].level);
 #endif
 }
 
-static bool quiet=false;
-static uint16_t sound_rate,sound_length;
+static bool quiet = false;
+static uint16_t sound_rate, sound_length;
 
 #if defined(_SDL)
 #include "sdl_vid.h"
 #endif
 
-void maininit(void)
-{
+void maininit(void) {
   static int maininited = 0;
 
   if (maininited != 0) {
@@ -248,12 +245,11 @@ void maininit(void)
   maininited = 1;
 }
 
-int main(int argc,char *argv[])
-{
+int main(int argc, char *argv[]) {
   int rval;
 
   inir();
-  parsecmd(argc,argv);
+  parsecmd(argc, argv);
   maininit();
   rval = mainprog();
   if (digger_log != NULL) {
@@ -263,14 +259,13 @@ int main(int argc,char *argv[])
   return rval;
 }
 
-int mainprog(void)
-{
-  int16_t frame,t;
+int mainprog(void) {
+  int16_t frame, t;
   struct monster_obj *nobbin, *hobbin;
   struct digger_obj odigger;
   struct obj_position newpos;
   loadscores();
-  escape=false;
+  escape = false;
   nobbin = NULL;
   hobbin = NULL;
   do {
@@ -279,31 +274,31 @@ int mainprog(void)
     detectjoy();
     ddap->gclear();
     ddap->gtitle();
-    outtext(ddap, "D I G G E R",100,0,3);
+    outtext(ddap, "D I G G E R", 100, 0, 3);
     shownplayers();
     showtable(ddap);
-    started=false;
-    frame=0;
+    started = false;
+    frame = 0;
     newframe();
     teststart();
     while (!started) {
-      started=teststart();
+      started = teststart();
       if (mode_change) {
         switchnplayers();
         shownplayers();
-        mode_change=false;
+        mode_change = false;
       }
-      if (frame==0)
-        for (t=54;t<174;t+=12)
-          erasetext(ddap, 12, 164,t,0);
-      if (frame==50) {
+      if (frame == 0)
+        for (t = 54; t < 174; t += 12)
+          erasetext(ddap, 12, 164, t, 0);
+      if (frame == 50) {
         if (nobbin != NULL) {
           CALL_METHOD(nobbin, dtor);
         }
         nobbin = monster_obj_ctor(0, MON_NOBBIN, DIR_LEFT, 292, 63);
         CALL_METHOD(nobbin, put);
       }
-      if (frame>50 && frame<=77) {
+      if (frame > 50 && frame <= 77) {
         CALL_METHOD(nobbin, getpos, &newpos);
         newpos.x -= 4;
         if (frame == 77) {
@@ -315,19 +310,19 @@ int mainprog(void)
         CALL_METHOD(nobbin, animate);
       }
 
-      if (frame==83)
-        outtext(ddap, "NOBBIN",216,64,2);
-      if (frame==90) {
+      if (frame == 83)
+        outtext(ddap, "NOBBIN", 216, 64, 2);
+      if (frame == 90) {
         if (hobbin != NULL) {
           CALL_METHOD(hobbin, dtor);
         }
         hobbin = monster_obj_ctor(1, MON_NOBBIN, DIR_LEFT, 292, 82);
         CALL_METHOD(hobbin, put);
       }
-      if (frame>90 && frame<=117) {
+      if (frame > 90 && frame <= 117) {
         CALL_METHOD(hobbin, getpos, &newpos);
         newpos.x -= 4;
-        if (frame == 117) { 
+        if (frame == 117) {
           newpos.dir = DIR_RIGHT;
         }
         CALL_METHOD(hobbin, setpos, &newpos);
@@ -338,80 +333,79 @@ int mainprog(void)
       if (frame > 90) {
         CALL_METHOD(hobbin, animate);
       }
-      if (frame==123)
-        outtext(ddap, "HOBBIN",216,83,2);
-      if (frame==130) {
+      if (frame == 123)
+        outtext(ddap, "HOBBIN", 216, 83, 2);
+      if (frame == 130) {
         digger_obj_init(&odigger, 0, DIR_LEFT, 292, 101);
         CALL_METHOD(&odigger, put);
       }
-      if (frame>130 && frame<=157) {
+      if (frame > 130 && frame <= 157) {
         odigger.x -= 4;
       }
-      if (frame>157) {
+      if (frame > 157) {
         odigger.dir = DIR_RIGHT;
       }
       if (frame >= 130) {
         CALL_METHOD(&odigger, animate);
       }
-      if (frame==163)
-        outtext(ddap, "DIGGER",216,102,2);
-      if (frame==178) {
-        movedrawspr(FIRSTBAG,184,120);
-        drawgold(0,0,184,120);
+      if (frame == 163)
+        outtext(ddap, "DIGGER", 216, 102, 2);
+      if (frame == 178) {
+        movedrawspr(FIRSTBAG, 184, 120);
+        drawgold(0, 0, 184, 120);
       }
-      if (frame==183)
-        outtext(ddap, "GOLD",216,121,2);
-      if (frame==198)
-        drawemerald(184,141);
-      if (frame==203)
-        outtext(ddap, "EMERALD",216,140,2);
-      if (frame==218)
-        drawbonus(184,158);
-      if (frame==223)
-        outtext(ddap, "BONUS",216,159,2);
+      if (frame == 183)
+        outtext(ddap, "GOLD", 216, 121, 2);
+      if (frame == 198)
+        drawemerald(184, 141);
+      if (frame == 203)
+        outtext(ddap, "EMERALD", 216, 140, 2);
+      if (frame == 218)
+        drawbonus(184, 158);
+      if (frame == 223)
+        outtext(ddap, "BONUS", 216, 159, 2);
       if (frame == 235) {
-          CALL_METHOD(nobbin, damage);
+        CALL_METHOD(nobbin, damage);
       }
       if (frame == 239) {
-          CALL_METHOD(nobbin, kill);
+        CALL_METHOD(nobbin, kill);
       }
       if (frame == 242) {
-          CALL_METHOD(hobbin, damage);
+        CALL_METHOD(hobbin, damage);
       }
       if (frame == 246) {
-          CALL_METHOD(hobbin, kill);
+        CALL_METHOD(hobbin, kill);
       }
       newframe();
       frame++;
-      if (frame>250)
-        frame=0;
+      if (frame > 250)
+        frame = 0;
     }
     if (savedrf) {
       if (gotgame) {
         recsavedrf();
-        gotgame=false;
+        gotgame = false;
       }
-      savedrf=false;
+      savedrf = false;
       continue;
     }
     if (escape)
       break;
     recinit();
     game();
-    gotgame=true;
+    gotgame = true;
     if (gotname) {
       recsavedrf();
-      gotgame=false;
+      gotgame = false;
     }
-    savedrf=false;
-    escape=false;
+    savedrf = false;
+    escape = false;
   } while (!escape);
   finish();
   return 0;
 }
 
-void finish(void)
-{
+void finish(void) {
   killsound();
   soundoff();
   soundkillglob();
@@ -431,18 +425,16 @@ static const struct game_mode {
   bool last;
   const struct label title[2];
 } possible_modes[] = {
-  {false, 1, 1, false, {{"ONE", 220}, {" PLAYER ", 192}}},
-  {false, 2, 1, false, {{"TWO", 220}, {" PLAYERS", 184}}},
-  {false, 2, 2, false, {{"TWO PLAYER", 180}, {"SIMULTANEOUS", 170}}},
-  {true,  1, 1, false, {{"GAUNTLET", 192}, {"MODE", 216}}},
-  {true,  1, 2, true,  {{"TWO PLAYER", 180}, {"GAUNTLET", 192}}}
-};
+    {false, 1, 1, false, {{"ONE", 220}, {" PLAYER ", 192}}},
+    {false, 2, 1, false, {{"TWO", 220}, {" PLAYERS", 184}}},
+    {false, 2, 2, false, {{"TWO PLAYER", 180}, {"SIMULTANEOUS", 170}}},
+    {true, 1, 1, false, {{"GAUNTLET", 192}, {"MODE", 216}}},
+    {true, 1, 2, true, {{"TWO PLAYER", 180}, {"GAUNTLET", 192}}}};
 
-static int getnmode(void)
-{
+static int getnmode(void) {
   int i;
 
-  for (i = 0; !possible_modes[i].last;i++) {
+  for (i = 0; !possible_modes[i].last; i++) {
     if (possible_modes[i].gauntlet != dgstate.gauntlet)
       continue;
     if (possible_modes[i].nplayers != dgstate.nplayers)
@@ -454,8 +446,7 @@ static int getnmode(void)
   return i;
 }
 
-static void shownplayers(void)
-{
+static void shownplayers(void) {
   const struct game_mode *gmp;
 
   erasetext(ddap, 10, 180, 25, 3);
@@ -465,16 +456,14 @@ static void shownplayers(void)
   outtext(ddap, gmp->title[1].text, gmp->title[1].xpos, 39, 3);
 }
 
-static int getalllives(void)
-{
-  int t=0,i;
-  for (i=dgstate.curplayer;i<dgstate.diggers+dgstate.curplayer;i++)
-    t+=getlives(i);
+static int getalllives(void) {
+  int t = 0, i;
+  for (i = dgstate.curplayer; i < dgstate.diggers + dgstate.curplayer; i++)
+    t += getlives(i);
   return t;
 }
 
-static void switchnplayers(void)
-{
+static void switchnplayers(void) {
   int i, j;
 
   i = getnmode();
@@ -484,17 +473,15 @@ static void switchnplayers(void)
   dgstate.diggers = possible_modes[j].diggers;
 }
 
-static void initlevel(void)
-{
-  gamedat[dgstate.curplayer].levdone=false;
+static void initlevel(void) {
+  gamedat[dgstate.curplayer].levdone = false;
   makefield();
   makeemfield();
   initbags();
-  levnotdrawn=true;
+  levnotdrawn = true;
 }
 
-static void drawscreen(struct digger_draw_api *ddap)
-{
+static void drawscreen(struct digger_draw_api *ddap) {
   creatembspr();
   drawstatics(ddap);
   drawbags();
@@ -503,102 +490,85 @@ static void drawscreen(struct digger_draw_api *ddap)
   initmonsters();
 }
 
-static void initchars(void)
-{
+static void initchars(void) {
   initmbspr();
   initdigger();
   initmonsters();
 }
 
-static void checklevdone(void)
-{
-  if ((countem()==0 || monleft()==0) && isalive())
-    gamedat[dgstate.curplayer].levdone=true;
+static void checklevdone(void) {
+  if ((countem() == 0 || monleft() == 0) && isalive())
+    gamedat[dgstate.curplayer].levdone = true;
   else
-    gamedat[dgstate.curplayer].levdone=false;
+    gamedat[dgstate.curplayer].levdone = false;
 }
 
-void incpenalty(void)
-{
-  penalty++;
+void incpenalty(void) { penalty++; }
+
+void cleartopline(void) {
+  erasetext(ddap, 26, 0, 0, 3);
+  erasetext(ddap, 1, 308, 0, 3);
 }
 
-void cleartopline(void)
-{
-  erasetext(ddap, 26, 0,0,3);
-  erasetext(ddap, 1, 308,0,3);
-}
-
-int16_t levplan(void)
-{
-  int16_t l=levno();
-  if (l>8)
-    l=(l&3)+5; /* Level plan: 12345678, 678, (5678) 247 times, 5 forever */
+int16_t levplan(void) {
+  int16_t l = levno();
+  if (l > 8)
+    l = (l & 3) +
+        5; /* Level plan: 12345678, 678, (5678) 247 times, 5 forever */
   return l;
 }
 
-int16_t levof10(void)
-{
-  if (gamedat[dgstate.curplayer].level>10)
+int16_t levof10(void) {
+  if (gamedat[dgstate.curplayer].level > 10)
     return 10;
   return gamedat[dgstate.curplayer].level;
 }
 
-static int16_t levno(void)
-{
-  return gamedat[dgstate.curplayer].level;
-}
+static int16_t levno(void) { return gamedat[dgstate.curplayer].level; }
 
-void setdead(bool df)
-{
-  alldead=df;
-}
+void setdead(bool df) { alldead = df; }
 
-void testpause(void)
-{
+void testpause(void) {
   int i;
   if (pausef) {
     soundpause();
     cleartopline();
-    outtext(ddap, "PRESS ANY KEY",80,0,1);
+    outtext(ddap, "PRESS ANY KEY", 80, 0, 1);
     getkey(true);
     cleartopline();
     drawscores(ddap);
-    for (i=0;i<dgstate.diggers;i++)
-      addscore(ddap, i,0);
+    for (i = 0; i < dgstate.diggers; i++)
+      addscore(ddap, i, 0);
     drawlives(ddap);
     gethrt(true);
-    pausef=false;
-  }
-  else
+    pausef = false;
+  } else
     soundpauseoff();
 }
 
-static void calibrate(void)
-{
-  volume=(int16_t)(getkips()/291);
-  if (volume==0)
-    volume=1;
+static void calibrate(void) {
+  volume = (int16_t)(getkips() / 291);
+  if (volume == 0)
+    volume = 1;
 }
 
-#define read_levf_fail(s, p) fprintf(digger_log, "read_levf: %s: levels file %s error%s: %s\n", \
-  levfname, (s), (p), strerror(errno))
+#define read_levf_fail(s, p)                                                   \
+  fprintf(digger_log, "read_levf: %s: levels file %s error%s: %s\n", levfname, \
+          (s), (p), strerror(errno))
 
-static int
-read_levf(char *levfname)
-{
+static int read_levf(char *levfname) {
   FILE *levf;
 
   levf = fopen(levfname, "rb");
   if (levf == NULL) {
-    strcat(levfname,".DLF");
-    levf = fopen(levfname,"rb");
+    strcat(levfname, ".DLF");
+    levf = fopen(levfname, "rb");
   }
   if (levf == NULL) {
 #if defined(DIGGER_DEBUG)
-      read_levf_fail("open", "");
+    read_levf_fail("open", "");
 #endif
-      return (-1);
+    return (-1);
   }
   if (fread(&bonusscore, 2, 1, levf) < 1) {
 #if defined(DIGGER_DEBUG)
@@ -619,9 +589,7 @@ eout_0:
   return (-1);
 }
 
-static int
-getarg(char argch, const char *allargs, bool *hasopt)
-{
+static int getarg(char argch, const char *allargs, bool *hasopt) {
   char c;
   const char *cp;
 
@@ -631,55 +599,55 @@ getarg(char argch, const char *allargs, bool *hasopt)
     c = argch;
   }
   for (cp = allargs; *cp != '\0'; cp++) {
-     if (c == *cp) {
-       *hasopt = (*(cp + 1) == ':') ? true : false;
-       return (c);
-     }
+    if (c == *cp) {
+      *hasopt = (*(cp + 1) == ':') ? true : false;
+      return (c);
+    }
   }
   return (-1);
 }
 
 #define BASE_OPTS "OUH?QM2CKVL:R:P:S:E:G:I:"
 #define X11_OPTS "X:"
-#define SDL_OPTS  "F"
+#define SDL_OPTS "F"
 
-static void parsecmd(int argc,char *argv[])
-{
+static void parsecmd(int argc, char *argv[]) {
   char *word;
   int argch;
-  int16_t arg,i=0,j,speedmul;
+  int16_t arg, i = 0, j, speedmul;
   bool sf, gs, norepf, hasopt;
 
   gs = norepf = false;
 
-  for (arg=1;arg<argc;arg++) {
-    word=argv[arg];
-    if (word[0]=='/' || word[0]=='-') {
+  for (arg = 1; arg < argc; arg++) {
+    word = argv[arg];
+    if (word[0] == '/' || word[0] == '-') {
 #if defined(UNIX) && defined(_SDL)
       argch = getarg(word[1], (BASE_OPTS X11_OPTS SDL_OPTS), &hasopt);
 #else
-# if defined(_SDL)
+#if defined(_SDL)
       argch = getarg(word[1], (BASE_OPTS SDL_OPTS), &hasopt);
-# else
+#else
       argch = getarg(word[1], BASE_OPTS, &hasopt);
-# endif
+#endif
 #endif
       i = 2;
       if (argch != -1 && hasopt && word[2] == ':') {
         i = 3;
       }
       if (argch == 'L') {
-        j=0;
-        while (word[i]!=0)
-          dgstate.levfname[j++]=word[i++];
-        dgstate.levfname[j]=word[i];
-        dgstate.levfflag=true;
+        j = 0;
+        while (word[i] != 0)
+          dgstate.levfname[j++] = word[i++];
+        dgstate.levfname[j] = word[i];
+        dgstate.levfflag = true;
       }
-#if defined(UNIX) && defined(_SDL) && !defined(__EMSCRIPTEN__)
+#if defined(UNIX) && defined(_SDL) && !defined(__EMSCRIPTEN__) &&              \
+    !defined(__APPLE__)
       if (argch == 'X') {
         unsigned int x11_parent;
 
-        x11_parent = strtol (&word[i], 0, 0);
+        x11_parent = strtol(&word[i], 0, 0);
         sdl_set_x11_parent(x11_parent);
       }
 #endif
@@ -688,43 +656,43 @@ static void parsecmd(int argc,char *argv[])
         sdl_enable_fullscreen();
       }
 #endif
-      if (argch =='R')
-        recname(word+i);
-      if (argch =='P' || argch =='E') {
+      if (argch == 'R')
+        recname(word + i);
+      if (argch == 'P' || argch == 'E') {
         maininit();
-        openplay(word+i);
+        openplay(word + i);
         if (escape)
-          norepf=true;
+          norepf = true;
       }
       if (argch == 'E') {
         finish();
-	if (getenv("DIGGER_CI_RUN") != NULL) {
+        if (getenv("DIGGER_CI_RUN") != NULL) {
           game_dbg_info_emit();
-	  exit(0);
-	}
+          exit(0);
+        }
         if (escape)
           exit(0);
         exit(1);
       }
-      if (argch =='O' && !norepf) {
-        arg=0;
+      if (argch == 'O' && !norepf) {
+        arg = 0;
         continue;
       }
       if (argch == 'S') {
-        speedmul=0;
-        while (word[i]!=0)
-          speedmul=10*speedmul+word[i++]-'0';
+        speedmul = 0;
+        while (word[i] != 0)
+          speedmul = 10 * speedmul + word[i++] - '0';
         if (speedmul > 0) {
-          dgstate.ftime=speedmul*2000l;
+          dgstate.ftime = speedmul * 2000l;
         } else {
           dgstate.ftime = 1;
         }
-        gs=true;
+        gs = true;
       }
       if (argch == 'I')
-        sscanf(word+i,"%hi",&dgstate.startlev);
+        sscanf(word + i, "%hi", &dgstate.startlev);
       if (argch == 'U')
-        dgstate.unlimlives=true;
+        dgstate.unlimlives = true;
       if (argch == '?' || argch == 'H' || argch == -1) {
         if (argch == -1) {
           fprintf(stderr, "Unknown option \"%c%c\"\n", word[0], word[1]);
@@ -734,22 +702,22 @@ static void parsecmd(int argc,char *argv[])
                "Restored 1998 by AJ Software\n"
                "http://www.digger.org\n"
                "https://github.com/sobomax/digger\n"
-               "Version: "DIGGER_VERSION"\n\n"
+               "Version: " DIGGER_VERSION "\n\n"
 
                "Command line syntax:\n"
                "  DIGGER [[/S:]speed] [[/L:]level file] [/C] [/Q] [/M] "
-                                                         "[/P:playback file]\n"
+               "[/P:playback file]\n"
                "         [/E:playback file] [/R:record file] [/O] [/K[A]] "
-                                                           "[/G[:time]] [/2]\n"
+               "[/G[:time]] [/2]\n"
                "         [/U] [/I:level] "
 
 #if defined(UNIX) && defined(_SDL)
-                         "[/X:xid] "
+               "[/X:xid] "
 #endif
 #if defined(_SDL)
-                         "[/F]"
+               "[/F]"
 #endif
-                         "\n\n"
+               "\n\n"
 #ifndef UNIX
                "/C = Use CGA graphics\n"
 #endif
@@ -769,79 +737,78 @@ static void parsecmd(int argc,char *argv[])
                "/F = Full-Screen\n"
 #endif
                "/U = Allow unlimited lives\n"
-               "/I = Start on a level other than 1\n", copyright);
+               "/I = Start on a level other than 1\n",
+               copyright);
         exit(1);
       }
       if (argch == 'Q')
-        soundflag=false;
+        soundflag = false;
       if (argch == 'M')
-        musicflag=false;
+        musicflag = false;
       if (argch == '2')
-        dgstate.diggers=2;
+        dgstate.diggers = 2;
       if (argch == 'B' || argch == 'C') {
-        ddap->ginit=cgainit;
-        ddap->gpal=cgapal;
-        ddap->ginten=cgainten;
-        ddap->gclear=cgaclear;
-        ddap->ggetpix=cgagetpix;
-        ddap->gputi=cgaputi;
-        ddap->ggeti=cgageti;
-        ddap->gputim=cgaputim;
-        ddap->gwrite=cgawrite;
-        ddap->gtitle=cgatitle;
+        ddap->ginit = cgainit;
+        ddap->gpal = cgapal;
+        ddap->ginten = cgainten;
+        ddap->gclear = cgaclear;
+        ddap->ggetpix = cgagetpix;
+        ddap->gputi = cgaputi;
+        ddap->ggeti = cgageti;
+        ddap->gputim = cgaputim;
+        ddap->gwrite = cgawrite;
+        ddap->gtitle = cgatitle;
         ddap->ginit();
         ddap->gpal(0);
       }
       if (argch == 'K') {
-        if (word[2]=='A' || word[2]=='a')
+        if (word[2] == 'A' || word[2] == 'a')
           redefkeyb(ddap, true);
         else
           redefkeyb(ddap, false);
       }
       if (argch == 'Q')
-        quiet=true;
+        quiet = true;
       if (argch == 'G') {
-        dgstate.gtime=0;
-        while (word[i]!=0)
-          dgstate.gtime=10*dgstate.gtime+word[i++]-'0';
-        if (dgstate.gtime>3599)
-          dgstate.gtime=3599;
-        if (dgstate.gtime==0)
-          dgstate.gtime=120;
-        dgstate.gauntlet=true;
+        dgstate.gtime = 0;
+        while (word[i] != 0)
+          dgstate.gtime = 10 * dgstate.gtime + word[i++] - '0';
+        if (dgstate.gtime > 3599)
+          dgstate.gtime = 3599;
+        if (dgstate.gtime == 0)
+          dgstate.gtime = 120;
+        dgstate.gauntlet = true;
       }
-    }
-    else {
-      i=strlen(word);
-      if (i<1)
+    } else {
+      i = strlen(word);
+      if (i < 1)
         continue;
-      sf=true;
+      sf = true;
       if (!gs)
-        for (j=0;j<i;j++)
-          if (word[j]<'0' || word[j]>'9') {
-            sf=false;
+        for (j = 0; j < i; j++)
+          if (word[j] < '0' || word[j] > '9') {
+            sf = false;
             break;
           }
       if (sf) {
-        speedmul=0;
-        j=0;
-        while (word[j]!=0)
-          speedmul=10*speedmul+word[j++]-'0';
-        gs=true;
+        speedmul = 0;
+        j = 0;
+        while (word[j] != 0)
+          speedmul = 10 * speedmul + word[j++] - '0';
+        gs = true;
         if (speedmul > 0) {
-          dgstate.ftime=speedmul*2000l;
+          dgstate.ftime = speedmul * 2000l;
         } else {
           dgstate.ftime = 1;
         }
-      }
-      else {
-        j=0;
-        while (word[j]!=0) {
-          dgstate.levfname[j]=word[j];
+      } else {
+        j = 0;
+        while (word[j] != 0) {
+          dgstate.levfname[j] = word[j];
           j++;
         }
-        dgstate.levfname[j]=word[j];
-        dgstate.levfflag=true;
+        dgstate.levfname[j] = word[j];
+        dgstate.levfflag = true;
       }
     }
   }
@@ -857,19 +824,17 @@ static void parsecmd(int argc,char *argv[])
   }
 }
 
-int16_t randno(int16_t n)
-{
-  dgstate.randv=dgstate.randv*0x15a4e35l+1;
-  return (int16_t)((dgstate.randv&0x7fffffffl)%n);
+int16_t randno(int16_t n) {
+  dgstate.randv = dgstate.randv * 0x15a4e35l + 1;
+  return (int16_t)((dgstate.randv & 0x7fffffffl) % n);
 }
 
 int dx_sound_volume;
-bool g_bWindowed,use_640x480_fullscreen,use_async_screen_updates;
+bool g_bWindowed, use_640x480_fullscreen, use_async_screen_updates;
 
-static void inir(void)
-{
-  char kbuf[80],vbuf[80];
-  int i,j,p;
+static void inir(void) {
+  char kbuf[80], vbuf[80];
+  int i, j, p;
   bool cgaflag;
 
 #if defined(UNIX) || defined(DIGGER_DEBUG)
@@ -878,80 +843,90 @@ static void inir(void)
   digger_log = fopen("DIGGER.log", "w+");
 #endif
 
-  for (i=0;i<NKEYS;i++) {
-    sprintf(kbuf,"%s%c",keynames[i],(i>=5 && i<10) ? '2' : 0);
-    sprintf(vbuf,"%i/%i/%i/%i/%i",keycodes[i][0],keycodes[i][1],
-            keycodes[i][2],keycodes[i][3],keycodes[i][4]);
-    GetINIString(INI_KEY_SETTINGS,kbuf,vbuf,vbuf,80,ININAME);
-    krdf[i]=true;
-    p=0;
-    for (j=0;j<5;j++) {
-      keycodes[i][j]=atoi(vbuf+p);
-      while (vbuf[p]!='/' && vbuf[p]!=0)
+#if defined(_SDL)
+  sdl_enable_fullscreen(); /* Default to fullscreen unless overridden */
+#endif
+
+  for (i = 0; i < NKEYS; i++) {
+    sprintf(kbuf, "%s%c", keynames[i], (i >= 5 && i < 10) ? '2' : 0);
+    sprintf(vbuf, "%i/%i/%i/%i/%i", keycodes[i][0], keycodes[i][1],
+            keycodes[i][2], keycodes[i][3], keycodes[i][4]);
+    GetINIString(INI_KEY_SETTINGS, kbuf, vbuf, vbuf, 80, ININAME);
+    krdf[i] = true;
+    p = 0;
+    for (j = 0; j < 5; j++) {
+      keycodes[i][j] = atoi(vbuf + p);
+      while (vbuf[p] != '/' && vbuf[p] != 0)
         p++;
-      if (vbuf[p]==0)
+      if (vbuf[p] == 0)
         break;
       p++;
     }
   }
-  dgstate.gtime=(int)GetINIInt(INI_GAME_SETTINGS,"GauntletTime",120,ININAME);
+  dgstate.gtime =
+      (int)GetINIInt(INI_GAME_SETTINGS, "GauntletTime", 120, ININAME);
   if (dgstate.ftime == 0) {
-      dgstate.ftime=GetINIIntDoc(INI_GAME_SETTINGS,"Speed",80000l,ININAME,
-        "number of microseconds in one frame, eq of 12.5Hz");
+    dgstate.ftime = GetINIIntDoc(
+        INI_GAME_SETTINGS, "Speed", DEFAULT_FRAME_TIME_US, ININAME,
+        "number of microseconds in one frame; higher values slow gameplay");
   }
-  dgstate.gauntlet=GetINIBool(INI_GAME_SETTINGS,"GauntletMode",false,ININAME);
-  GetINIString(INI_GAME_SETTINGS,"Players","1",vbuf,80,ININAME);
+  dgstate.gauntlet =
+      GetINIBool(INI_GAME_SETTINGS, "GauntletMode", false, ININAME);
+  GetINIString(INI_GAME_SETTINGS, "Players", "1", vbuf, 80, ININAME);
   strupr(vbuf);
-  if (vbuf[0]=='2' && vbuf[1]=='S') {
-    dgstate.diggers=2;
-    dgstate.nplayers=1;
+  if (vbuf[0] == '2' && vbuf[1] == 'S') {
+    dgstate.diggers = 2;
+    dgstate.nplayers = 1;
+  } else {
+    dgstate.diggers = 1;
+    dgstate.nplayers = atoi(vbuf);
+    if (dgstate.nplayers < 1 || dgstate.nplayers > 2)
+      dgstate.nplayers = 1;
   }
-  else {
-    dgstate.diggers=1;
-    dgstate.nplayers=atoi(vbuf);
-    if (dgstate.nplayers<1 || dgstate.nplayers>2)
-      dgstate.nplayers=1;
-  }
-  soundflag=GetINIBool(INI_SOUND_SETTINGS,"SoundOn",true,ININAME);
-  musicflag=GetINIBool(INI_SOUND_SETTINGS,"MusicOn",true,ININAME);
-  sound_rate=(int)GetINIInt(INI_SOUND_SETTINGS,"Rate",44100,ININAME);
-  sound_length=(int)GetINIInt(INI_SOUND_SETTINGS,"BufferSize",DEFAULT_BUFFER,ININAME);
+  soundflag = GetINIBool(INI_SOUND_SETTINGS, "SoundOn", true, ININAME);
+  musicflag = GetINIBool(INI_SOUND_SETTINGS, "MusicOn", true, ININAME);
+  sound_rate = (int)GetINIInt(INI_SOUND_SETTINGS, "Rate", 44100, ININAME);
+  sound_length =
+      (int)GetINIInt(INI_SOUND_SETTINGS, "BufferSize", DEFAULT_BUFFER, ININAME);
 
 #if !defined(UNIX) && !defined(_SDL)
-  if (sound_device==1) {
+  if (sound_device == 1) {
 #else
   if (!quiet) {
 #endif
-    volume=1;
-    setupsound=s1setupsound;
-    killsound=s1killsound;
-    soundoff=s1soundoff;
-    setspkrt2=s1setspkrt2;
-    timer0=s1timer0;
-    timer2=s1timer2;
-    soundinitglob(sound_length,sound_rate);
+    volume = 1;
+    setupsound = s1setupsound;
+    killsound = s1killsound;
+    soundoff = s1soundoff;
+    setspkrt2 = s1setspkrt2;
+    timer0 = s1timer0;
+    timer2 = s1timer2;
+    soundinitglob(sound_length, sound_rate);
   }
-  dx_sound_volume=(int)GetINIInt(INI_SOUND_SETTINGS,"SoundVolume",0,ININAME);
-  g_bWindowed=true;
-  use_640x480_fullscreen=GetINIBool(INI_GRAPHICS_SETTINGS,"640x480",false,
-                                    ININAME);
-  use_async_screen_updates=GetINIBool(INI_GRAPHICS_SETTINGS,"Async",true,
-                                      ININAME);
-  cgaflag=GetINIBool(INI_GRAPHICS_SETTINGS,"CGA",false,ININAME);
+  dx_sound_volume =
+      (int)GetINIInt(INI_SOUND_SETTINGS, "SoundVolume", 0, ININAME);
+  g_bWindowed = true;
+  use_640x480_fullscreen =
+      GetINIBool(INI_GRAPHICS_SETTINGS, "640x480", false, ININAME);
+  use_async_screen_updates =
+      GetINIBool(INI_GRAPHICS_SETTINGS, "Async", true, ININAME);
+  cgaflag = GetINIBool(INI_GRAPHICS_SETTINGS, "CGA", false, ININAME);
   if (cgaflag) {
-    ddap->ginit=cgainit;
-    ddap->gpal=cgapal;
-    ddap->ginten=cgainten;
-    ddap->gclear=cgaclear;
-    ddap->ggetpix=cgagetpix;
-    ddap->gputi=cgaputi;
-    ddap->ggeti=cgageti;
-    ddap->gputim=cgaputim;
-    ddap->gwrite=cgawrite;
-    ddap->gtitle=cgatitle;
+    ddap->ginit = cgainit;
+    ddap->gpal = cgapal;
+    ddap->ginten = cgainten;
+    ddap->gclear = cgaclear;
+    ddap->ggetpix = cgagetpix;
+    ddap->gputi = cgaputi;
+    ddap->ggeti = cgageti;
+    ddap->gputim = cgaputim;
+    ddap->gwrite = cgawrite;
+    ddap->gtitle = cgatitle;
     ddap->ginit();
     ddap->gpal(0);
   }
-  dgstate.unlimlives=GetINIBool(INI_GAME_SETTINGS,"UnlimitedLives",false,ININAME);
-  dgstate.startlev=(int)GetINIInt(INI_GAME_SETTINGS,"StartLevel",1,ININAME);
+  dgstate.unlimlives =
+      GetINIBool(INI_GAME_SETTINGS, "UnlimitedLives", false, ININAME);
+  dgstate.startlev =
+      (int)GetINIInt(INI_GAME_SETTINGS, "StartLevel", 1, ININAME);
 }

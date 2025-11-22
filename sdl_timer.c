@@ -3,7 +3,9 @@
 #include <stdio.h>
 #endif
 
+#if defined(_SDL)
 #include <SDL.h>
+#endif
 
 #if defined(__EMSCRIPTEN__)
 #include <emscripten.h>
@@ -13,8 +15,9 @@
 
 #include "def.h"
 #include "digger_math.h"
-#include "hardware.h"
 #include "game.h"
+#include "hardware.h"
+#include "input.h"
 #ifdef _SDL
 #include "sdl_vid.h"
 #endif
@@ -22,85 +25,123 @@
 #include "digger_log.h"
 #endif
 
+/* Ensure doscreenupdate is declared if not in headers */
+void doscreenupdate(void);
+
 static struct PFD phase_detector;
 static struct recfilter *loop_error;
 
-void inittimer(void)
-{
-    double tfreq;
+static double next_tick_time_ms = 0.0;
+static double next_render_time_ms = 0.0;
+static double render_interval_ms = 0.0;
+static double cached_tick_duration_ms = 0.0;
 
-    tfreq = 1000000.0 / dgstate.ftime;
-    loop_error = recfilter_init(tfreq, 0.1);
-    PFD_init(&phase_detector, 0.0);
+static double detect_refresh_interval(void) {
+  SDL_DisplayMode mode;
+
+  if (SDL_WasInit(SDL_INIT_VIDEO) != 0 &&
+      SDL_GetCurrentDisplayMode(0, &mode) == 0 && mode.refresh_rate > 0)
+    return 1000.0 / (double)mode.refresh_rate;
+
+  return 1000.0 / 60.0;
+}
+
+static void ensure_render_schedule(double now_ms) {
+  if (render_interval_ms <= 0.0)
+    render_interval_ms = detect_refresh_interval();
+
+  if (next_render_time_ms == 0.0)
+    next_render_time_ms = now_ms;
+
+  /* If we fell far behind (window dragged, debugger, etc), jump to "now" */
+  if (now_ms - next_render_time_ms > (render_interval_ms * 4.0))
+    next_render_time_ms = now_ms;
+}
+
+void inittimer(void) {
+  double tfreq;
+
+  tfreq = 1000000.0 / dgstate.ftime;
+  loop_error = recfilter_init(tfreq, 0.1);
+  PFD_init(&phase_detector, 0.0);
+  next_tick_time_ms = 0.0;
+  next_render_time_ms = 0.0;
+  cached_tick_duration_ms = 0.0;
+  render_interval_ms = detect_refresh_interval();
 #if defined(DIGGER_DEBUG)
-    fprintf(digger_log, "inittimer: ftime = %u\n", dgstate.ftime);
+  fprintf(digger_log, "inittimer: ftime = %u, refresh ≈ %.2fms\n",
+          dgstate.ftime, render_interval_ms);
 #endif
 }
 
-void
-gethrt(bool minsleep)
-{
-    uint32_t add_delay;
-    double eval, clk_rl, tfreq, add_delay_d, filterval;
-    static double cum_error = 0.0;
+void gethrt(bool minsleep) {
+  double tick_duration_ms;
+  double now_ms;
 
-    if (dgstate.ftime <= 1) {
-        doscreenupdate();
-        if (minsleep)
-            SDL_Delay(10);
-        return;
-    }
-    tfreq = 1000000.0 / dgstate.ftime;
-    clk_rl = (double)SDL_GetTicks() * tfreq / 1000.0;
-    eval = PFD_get_error(&phase_detector, clk_rl);
-    if (eval != 0) {
-        filterval = recfilter_apply(loop_error, sigmoid(eval));
-    } else {
-        filterval = recfilter_getlast(loop_error);
-    }
-    add_delay_d = (freqoff_to_period(tfreq, 1.0, filterval) * 1000.0) + cum_error;
-    add_delay = round(add_delay_d);
-    cum_error = add_delay_d - (double)add_delay;
-#if defined(DIGGER_DEBUG) 
-    fprintf(digger_log, "clk_rl = %f, add_delay = %d, eval = %f, filterval = %f, cum_error = %f\n",
-      clk_rl, add_delay, eval, filterval, cum_error);
-#endif
-
+  if (dgstate.ftime <= 1) {
+    input_poll_async();
     doscreenupdate();
-    SDL_Delay(add_delay);
+    if (minsleep)
+      SDL_Delay(10);
     return;
+  }
+
+  tick_duration_ms = (double)dgstate.ftime / 1000.0;
+  now_ms = (double)SDL_GetTicks();
+  input_poll_async();
+
+  if (cached_tick_duration_ms != tick_duration_ms) {
+    cached_tick_duration_ms = tick_duration_ms;
+    next_tick_time_ms = now_ms + tick_duration_ms;
+  } else if (next_tick_time_ms == 0.0) {
+    next_tick_time_ms = now_ms + tick_duration_ms;
+  }
+
+  ensure_render_schedule(now_ms);
+
+  while (1) {
+    input_poll_async();
+    now_ms = (double)SDL_GetTicks();
+
+    if (now_ms >= next_tick_time_ms)
+      break;
+
+    if (now_ms >= next_render_time_ms) {
+      doscreenupdate();
+      next_render_time_ms += render_interval_ms;
+      continue;
+    }
+
+    double next_event_ms = next_render_time_ms;
+    if (next_tick_time_ms < next_event_ms)
+      next_event_ms = next_tick_time_ms;
+    double sleep_ms = next_event_ms - now_ms;
+
+    if (sleep_ms > 1.0) {
+      SDL_Delay((uint32_t)sleep_ms);
+    } else {
+      SDL_Delay(minsleep ? 1u : 0u);
+    }
+  }
+
+  if (now_ms - next_tick_time_ms > 500.0)
+    next_tick_time_ms = now_ms;
+
+  next_tick_time_ms += tick_duration_ms;
 }
 
-int32_t getkips(void)
-{
-	return(1);
-}
+int32_t getkips(void) { return (1); }
 
-void s0soundoff(void)
-{
-}
+void s0soundoff(void) {}
 
-void s0setspkrt2(void)
-{
-}
+void s0setspkrt2(void) {}
 
-void s0settimer0(uint16_t t0v)
-{
-}
+void s0settimer0(uint16_t t0v) {}
 
-void s0settimer2(uint16_t t0v, bool mode)
-{
-}
+void s0settimer2(uint16_t t0v, bool mode) {}
 
-void s0timer0(uint16_t t0v)
-{
-}
+void s0timer0(uint16_t t0v) {}
 
-void s0timer2(uint16_t t0v, bool mode)
-{
-}
+void s0timer2(uint16_t t0v, bool mode) {}
 
-void s0soundkillglob(void)
-{
-}
-
+void s0soundkillglob(void) {}
