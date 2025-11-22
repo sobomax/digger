@@ -35,6 +35,7 @@ static double next_tick_time_ms = 0.0;
 static double next_render_time_ms = 0.0;
 static double render_interval_ms = 0.0;
 static double cached_tick_duration_ms = 0.0;
+static double perf_counter_to_ms = 0.0;
 
 static double detect_refresh_interval(void) {
   SDL_DisplayMode mode;
@@ -67,6 +68,15 @@ void inittimer(void) {
   next_tick_time_ms = 0.0;
   next_render_time_ms = 0.0;
   cached_tick_duration_ms = 0.0;
+  if (SDL_WasInit(SDL_INIT_TIMER) == 0) {
+    SDL_InitSubSystem(SDL_INIT_TIMER);
+  }
+  uint64_t freq = SDL_GetPerformanceFrequency();
+  if (freq == 0) {
+    perf_counter_to_ms = 1.0;
+  } else {
+    perf_counter_to_ms = 1000.0 / (double)freq;
+  }
   render_interval_ms = detect_refresh_interval();
 #if defined(DIGGER_DEBUG)
   fprintf(digger_log, "inittimer: ftime = %u, refresh ≈ %.2fms\n",
@@ -87,7 +97,7 @@ void gethrt(bool minsleep) {
   }
 
   tick_duration_ms = (double)dgstate.ftime / 1000.0;
-  now_ms = (double)SDL_GetTicks();
+  now_ms = (double)SDL_GetPerformanceCounter() * perf_counter_to_ms;
   input_poll_async();
 
   if (cached_tick_duration_ms != tick_duration_ms) {
@@ -101,7 +111,7 @@ void gethrt(bool minsleep) {
 
   while (1) {
     input_poll_async();
-    now_ms = (double)SDL_GetTicks();
+    now_ms = (double)SDL_GetPerformanceCounter() * perf_counter_to_ms;
 
     if (now_ms >= next_tick_time_ms)
       break;
@@ -117,10 +127,12 @@ void gethrt(bool minsleep) {
       next_event_ms = next_tick_time_ms;
     double sleep_ms = next_event_ms - now_ms;
 
-    if (sleep_ms > 1.0) {
-      SDL_Delay((uint32_t)sleep_ms);
+    if (sleep_ms > 1.5) {
+      SDL_Delay((uint32_t)(sleep_ms - 0.5));
+    } else if (sleep_ms > 0.2) {
+      SDL_Delay(1u);
     } else {
-      SDL_Delay(minsleep ? 1u : 0u);
+      /* busy wait for the last ~0.2ms for better precision */
     }
   }
 
