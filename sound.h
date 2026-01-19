@@ -1,5 +1,5 @@
-/* Digger Remastered
-   Copyright (c) Andrew Jenner 1998-2004 */
+#include <stdbool.h>
+#include <stdint.h>
 
 void initsound(void);
 void soundstop(void);
@@ -33,8 +33,8 @@ void soundoff(void);
 void timer2(uint16_t t2v);
 */
 
-extern bool soundflag,musicflag;
-extern int16_t volume,timerrate,spkrmode,pulsewidth;
+extern bool soundflag, musicflag;
+extern int16_t volume, timerrate, spkrmode, pulsewidth;
 extern bool sounddiedone;
 
 extern void (*setupsound)(void);
@@ -44,4 +44,3 @@ extern void (*setspkrt2)(void);
 extern void (*timer0)(uint16_t t0v);
 extern void (*timer2)(uint16_t t2v, bool mode);
 extern void (*soundkillglob)(void);
-
