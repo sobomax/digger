@@ -258,16 +258,16 @@ int main(int argc, char *argv[]) {
   do {
     /* Show settings menu */
     menu_result = show_settings_menu((struct digger_draw_api *)ddap);
-    
+
     if (menu_result <= 0) {
       /* User chose to exit */
       finish();
       return 0;
     }
-    
+
     /* User chose to start game */
     rval = mainprog();
-    
+
     /* Reset escape flag for next run */
     escape = false;
   } while (menu_result == 1);
@@ -404,7 +404,7 @@ int mainprog(void) {
       frame++;
       if (frame > 250)
         frame = 0;
-      
+
       /* Check for ESC during title screen */
       if (escape) {
         escape = false;
@@ -927,7 +927,7 @@ static void inir(void) {
 #else
   if (!quiet) {
 #endif
-    volume = 1;
+    volume = 29;
     setupsound = s1setupsound;
     killsound = s1killsound;
     soundoff = s1soundoff;
@@ -936,8 +936,7 @@ static void inir(void) {
     timer2 = s1timer2;
     soundinitglob(sound_length, sound_rate);
   }
-  dx_sound_volume =
-      (int)GetINIInt(INI_SOUND_SETTINGS, "SoundVolume", 0, ININAME);
+  volume = (int16_t)GetINIInt(INI_SOUND_SETTINGS, "SoundVolume", 29, ININAME);
   g_bWindowed = true;
   use_640x480_fullscreen =
       GetINIBool(INI_GRAPHICS_SETTINGS, "640x480", false, ININAME);

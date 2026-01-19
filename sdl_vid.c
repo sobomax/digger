@@ -104,6 +104,7 @@ static int use_crt_mask = 1;
 static SDL_Texture *crt_mask_texture = NULL;
 
 /* Forward declarations */
+extern int16_t volume;
 static void update_argb_palette(const SDL_Color *pal);
 static void create_scanline_overlay(void);
 static void create_bloom_texture(void);
@@ -449,22 +450,25 @@ static void create_crt_mask_texture(void) {
   if (SDL_LockTexture(crt_mask_texture, NULL, (void **)&pixels, &pitch) == 0) {
     for (y = 0; y < 400; y++) {
       for (x = 0; x < 640; x++) {
-        /* Create a 2x2 or 3x3 RGB sub-pixel pattern simulator */
+        /* Subtle Trinitron-style vertical stripes */
         int x_sub = x % 3;
         uint32_t color = 0xFF000000;
-        if (x_sub == 0)
-          color |= 0xFF0000; /* Red */
-        if (x_sub == 1)
-          color |= 0x00FF00; /* Green */
-        if (x_sub == 2)
-          color |= 0x0000FF; /* Blue */
 
-        /* Darken every other line even more for vertical mask */
-        if (y % 2 == 1) {
+        /* Use lighter tints (mostly white) for subtle modulation */
+        if (x_sub == 0)
+          color |= 0xFFECEC; /* Slight Red tint */
+        if (x_sub == 1)
+          color |= 0xECEFEC; /* Slight Green tint */
+        if (x_sub == 2)
+          color |= 0xECECEF; /* Slight Blue tint */
+
+        /* Subtle darkening for vertical grid effect */
+        if (y % 3 == 0) {
           uint8_t r = (color >> 16) & 0xFF;
           uint8_t g = (color >> 8) & 0xFF;
           uint8_t b = color & 0xFF;
-          color = 0xFF000000 | ((r / 2) << 16) | ((g / 2) << 8) | (b / 2);
+          color = 0xFF000000 | ((r * 240 / 255) << 16) |
+                  ((g * 240 / 255) << 8) | (b * 240 / 255);
         }
 
         pixels[y * (pitch / 4) + x] = color;
@@ -705,6 +709,7 @@ void sdl_save_settings(void) {
               ININAME);
   WriteINIBool(INI_GRAPHICS_SETTINGS, "Bloom", use_bloom, ININAME);
   WriteINIBool(INI_GRAPHICS_SETTINGS, "CRTMask", use_crt_mask, ININAME);
+  WriteINIInt(INI_SOUND_SETTINGS, "SoundVolume", volume, ININAME);
 }
 
 void cgainit(void) {}
