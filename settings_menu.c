@@ -14,15 +14,21 @@
 #include "hardware.h"
 #include "input.h"
 #include "settings_menu.h"
+#include "sound.h"
 
 #ifdef _SDL
 #include "sdl_vid.h"
 #include <SDL.h>
 #endif
 
+/* Global variables */
+extern bool soundflag;
+extern int16_t volume;
+
 /* Menu items */
 enum {
   MENU_SPEED,
+  MENU_SOUND_LEVEL,
   MENU_INTEGER_SCALE,
   MENU_LINEAR_FILTER,
   MENU_SCANLINES,
@@ -33,8 +39,8 @@ enum {
 };
 
 static const char *menu_labels[] = {
-    "GAME SPEED",     "INTEGER SCALING", "LINEAR FILTER", "SCANLINES",
-    "SCANLINE LEVEL", "START GAME",      "EXIT"};
+    "GAME SPEED", "SOUND LEVEL", "INTEGER SCALING", "LINEAR FILTER",
+    "SCANLINES",  "SCANLINE LEVEL", "START GAME",      "EXIT"};
 
 static int current_item = 0;
 
@@ -81,31 +87,48 @@ static void draw_menu(struct digger_draw_api *ddap) {
 
     /* Draw value */
     switch (i) {
-    case MENU_SPEED:
-      snprintf(buf, sizeof(buf), "< %s >",
-               speed_presets[current_speed_preset].name);
+     case MENU_SPEED:
+       snprintf(buf, sizeof(buf), "< %s >",
+                speed_presets[current_speed_preset].name);
+       outtext(ddap, buf, 180, y, 2);
+       break;
+
+    case MENU_SOUND_LEVEL:
+      snprintf(buf, sizeof(buf), "< %3d%% >", (volume * 100) / 255);
       outtext(ddap, buf, 180, y, 2);
       break;
 
     case MENU_INTEGER_SCALE:
 #ifdef _SDL
-      outtext(ddap, sdl_get_integer_scaling() ? "ON " : "OFF", 200, y, 2);
+      if (sdl_get_integer_scaling())
+        outtext(ddap, "ON ", 200, y, 2);
+      else
+        outtext(ddap, "OFF", 200, y, 2);
+      outtext(ddap, ": ", 230, y, 2);
 #else
       outtext(ddap, "N/A", 200, y, 1);
 #endif
       break;
 
-    case MENU_LINEAR_FILTER:
+     case MENU_LINEAR_FILTER:
 #ifdef _SDL
-      outtext(ddap, sdl_get_linear_filter() ? "ON " : "OFF", 200, y, 2);
+        if (sdl_get_linear_filter())
+          outtext(ddap, "ON ", 200, y, 2);
+        else
+          outtext(ddap, "OFF", 200, y, 2);
+        outtext(ddap, ": ", 230, y, 2);
 #else
-      outtext(ddap, "N/A", 200, y, 1);
+        outtext(ddap, "N/A", 200, y, 1);
 #endif
-      break;
+        break;
 
     case MENU_SCANLINES:
 #ifdef _SDL
-      outtext(ddap, sdl_get_scanlines() ? "ON " : "OFF", 200, y, 2);
+      if (sdl_get_scanlines())
+        outtext(ddap, "ON ", 200, y, 2);
+      else
+        outtext(ddap, "OFF", 200, y, 2);
+      outtext(ddap, ": ", 230, y, 2);
 #else
       outtext(ddap, "N/A", 200, y, 1);
 #endif
@@ -139,14 +162,19 @@ static void handle_left(void) {
     }
     break;
 
-  case MENU_SCANLINE_INTENSITY:
+   case MENU_SCANLINE_INTENSITY:
 #ifdef _SDL
-  {
-    int intensity = sdl_get_scanline_intensity();
-    sdl_set_scanline_intensity(intensity - 10);
-  }
+   {
+     int intensity = sdl_get_scanline_intensity();
+     sdl_set_scanline_intensity(intensity - 10);
+   }
 #endif
-  break;
+   break;
+
+  case MENU_SOUND_LEVEL:
+    if (volume > 15)
+      volume -= 15;
+    break;
 
   default:
     break;
@@ -162,14 +190,19 @@ static void handle_right(void) {
     }
     break;
 
-  case MENU_SCANLINE_INTENSITY:
+   case MENU_SCANLINE_INTENSITY:
 #ifdef _SDL
-  {
-    int intensity = sdl_get_scanline_intensity();
-    sdl_set_scanline_intensity(intensity + 10);
-  }
+   {
+     int intensity = sdl_get_scanline_intensity();
+     sdl_set_scanline_intensity(intensity + 10);
+   }
 #endif
-  break;
+   break;
+
+  case MENU_SOUND_LEVEL:
+    if (volume < 255 - 15)
+      volume += 15;
+    break;
 
   default:
     break;
