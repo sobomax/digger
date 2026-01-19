@@ -34,14 +34,17 @@ enum {
   MENU_LINEAR_FILTER,
   MENU_SCANLINES,
   MENU_SCANLINE_INTENSITY,
+  MENU_BLOOM,
+  MENU_CRT_MASK,
   MENU_START,
   MENU_EXIT,
   MENU_ITEM_COUNT
 };
 
 static const char *menu_labels[] = {
-    "GAME SPEED", "SOUND LEVEL", "MUSIC", "INTEGER SCALING", "LINEAR FILTER",
-    "SCANLINES",  "SCANLINE LEVEL", "START GAME",      "EXIT"};
+    "GAME SPEED", "SOUND LEVEL",    "MUSIC", "INTEGER SCALING", "LINEAR FILTER",
+    "SCANLINES",  "SCANLINE LEVEL", "BLOOM", "CRT MASK",        "START GAME",
+    "EXIT"};
 
 static int current_item = 0;
 
@@ -88,24 +91,24 @@ static void draw_menu(struct digger_draw_api *ddap) {
 
     /* Draw value */
     switch (i) {
-     case MENU_SPEED:
-       snprintf(buf, sizeof(buf), "< %s >",
-                speed_presets[current_speed_preset].name);
-       outtext(ddap, buf, 180, y, 2);
-       break;
+    case MENU_SPEED:
+      snprintf(buf, sizeof(buf), "< %s >",
+               speed_presets[current_speed_preset].name);
+      outtext(ddap, buf, 180, y, 2);
+      break;
 
-     case MENU_SOUND_LEVEL:
-       snprintf(buf, sizeof(buf), "< %3d%% >", (volume * 100) / 255);
-       outtext(ddap, buf, 180, y, 2);
-       break;
+    case MENU_SOUND_LEVEL:
+      snprintf(buf, sizeof(buf), "< %3d%% >", (volume * 100) / 255);
+      outtext(ddap, buf, 180, y, 2);
+      break;
 
     case MENU_MUSIC:
-       if (musicflag)
-         outtext(ddap, "ON ", 200, y, 2);
-       else
-         outtext(ddap, "OFF", 200, y, 2);
-       outtext(ddap, ": ", 230, y, 2);
-       break;
+      if (musicflag)
+        outtext(ddap, "ON ", 200, y, 2);
+      else
+        outtext(ddap, "OFF", 200, y, 2);
+      outtext(ddap, ": ", 230, y, 2);
+      break;
 
     case MENU_INTEGER_SCALE:
 #ifdef _SDL
@@ -119,17 +122,17 @@ static void draw_menu(struct digger_draw_api *ddap) {
 #endif
       break;
 
-     case MENU_LINEAR_FILTER:
+    case MENU_LINEAR_FILTER:
 #ifdef _SDL
-        if (sdl_get_linear_filter())
-          outtext(ddap, "ON ", 200, y, 2);
-        else
-          outtext(ddap, "OFF", 200, y, 2);
-        outtext(ddap, ": ", 230, y, 2);
+      if (sdl_get_linear_filter())
+        outtext(ddap, "ON ", 200, y, 2);
+      else
+        outtext(ddap, "OFF", 200, y, 2);
+      outtext(ddap, ": ", 230, y, 2);
 #else
-        outtext(ddap, "N/A", 200, y, 1);
+      outtext(ddap, "N/A", 200, y, 1);
 #endif
-        break;
+      break;
 
     case MENU_SCANLINES:
 #ifdef _SDL
@@ -147,6 +150,30 @@ static void draw_menu(struct digger_draw_api *ddap) {
 #ifdef _SDL
       snprintf(buf, sizeof(buf), "< %3d%% >", sdl_get_scanline_intensity());
       outtext(ddap, buf, 180, y, 2);
+#else
+      outtext(ddap, "N/A", 200, y, 1);
+#endif
+      break;
+
+    case MENU_BLOOM:
+#ifdef _SDL
+      if (sdl_get_bloom())
+        outtext(ddap, "ON ", 200, y, 2);
+      else
+        outtext(ddap, "OFF", 200, y, 2);
+      outtext(ddap, ": ", 230, y, 2);
+#else
+      outtext(ddap, "N/A", 200, y, 1);
+#endif
+      break;
+
+    case MENU_CRT_MASK:
+#ifdef _SDL
+      if (sdl_get_crt_mask())
+        outtext(ddap, "ON ", 200, y, 2);
+      else
+        outtext(ddap, "OFF", 200, y, 2);
+      outtext(ddap, ": ", 230, y, 2);
 #else
       outtext(ddap, "N/A", 200, y, 1);
 #endif
@@ -171,28 +198,28 @@ static void handle_left(void) {
     }
     break;
 
-   case MENU_SCANLINE_INTENSITY:
+  case MENU_SCANLINE_INTENSITY:
 #ifdef _SDL
-   {
-     int intensity = sdl_get_scanline_intensity();
-     sdl_set_scanline_intensity(intensity - 10);
-   }
+  {
+    int intensity = sdl_get_scanline_intensity();
+    sdl_set_scanline_intensity(intensity - 10);
+  }
 #endif
-   break;
+  break;
 
-   case MENU_SOUND_LEVEL:
-     if (volume > 15)
-       volume -= 15;
-     break;
+  case MENU_SOUND_LEVEL:
+    if (volume > 15)
+      volume -= 15;
+    break;
 
-   case MENU_MUSIC:
-     musicflag = !musicflag;
-     if (!musicflag)
-       musicoff();
-     break;
+  case MENU_MUSIC:
+    musicflag = !musicflag;
+    if (!musicflag)
+      musicoff();
+    break;
 
-   default:
-     break;
+  default:
+    break;
   }
 }
 
@@ -205,28 +232,28 @@ static void handle_right(void) {
     }
     break;
 
-   case MENU_SCANLINE_INTENSITY:
+  case MENU_SCANLINE_INTENSITY:
 #ifdef _SDL
-   {
-     int intensity = sdl_get_scanline_intensity();
-     sdl_set_scanline_intensity(intensity + 10);
-   }
+  {
+    int intensity = sdl_get_scanline_intensity();
+    sdl_set_scanline_intensity(intensity + 10);
+  }
 #endif
-   break;
+  break;
 
-   case MENU_SOUND_LEVEL:
-     if (volume < 255 - 15)
-       volume += 15;
-     break;
+  case MENU_SOUND_LEVEL:
+    if (volume < 255 - 15)
+      volume += 15;
+    break;
 
-   case MENU_MUSIC:
-     musicflag = !musicflag;
-     if (!musicflag)
-       musicoff();
-     break;
+  case MENU_MUSIC:
+    musicflag = !musicflag;
+    if (!musicflag)
+      musicoff();
+    break;
 
-   default:
-     break;
+  default:
+    break;
   }
 }
 
@@ -244,9 +271,21 @@ static int handle_enter(void) {
 #endif
     break;
 
-   case MENU_SCANLINES:
+  case MENU_SCANLINES:
 #ifdef _SDL
     sdl_toggle_scanlines();
+#endif
+    break;
+
+  case MENU_BLOOM:
+#ifdef _SDL
+    sdl_toggle_bloom();
+#endif
+    break;
+
+  case MENU_CRT_MASK:
+#ifdef _SDL
+    sdl_toggle_crt_mask();
 #endif
     break;
 
@@ -256,7 +295,10 @@ static int handle_enter(void) {
       musicoff();
     break;
 
-   case MENU_START:
+  case MENU_START:
+#ifdef _SDL
+    sdl_save_settings();
+#endif
     return 1; /* Start game */
 
   case MENU_EXIT:
@@ -303,7 +345,8 @@ int show_settings_menu(struct digger_draw_api *ddap) {
     gethrt(true);
 
 #ifdef _SDL
-    /* Pump SDL events ( Handler will fill key buffer for game, but we use direct state for menu ) */
+    /* Pump SDL events ( Handler will fill key buffer for game, but we use
+     * direct state for menu ) */
     SDL_PumpEvents();
     state = SDL_GetKeyboardState(NULL);
 
@@ -339,11 +382,12 @@ int show_settings_menu(struct digger_draw_api *ddap) {
     }
 
     if ((state[SDL_SCANCODE_RETURN] || state[SDL_SCANCODE_KP_ENTER] ||
-         state[SDL_SCANCODE_SPACE]) && !key_enter) {
+         state[SDL_SCANCODE_SPACE]) &&
+        !key_enter) {
       key_enter = true;
       result = handle_enter();
     } else if (!(state[SDL_SCANCODE_RETURN] || state[SDL_SCANCODE_KP_ENTER] ||
-                  state[SDL_SCANCODE_SPACE])) {
+                 state[SDL_SCANCODE_SPACE])) {
       key_enter = false;
     }
 
@@ -357,7 +401,7 @@ int show_settings_menu(struct digger_draw_api *ddap) {
     /* Non-SDL fallback using arrow key scancodes */
     if (kbhit()) {
       key = getkey(true); /* Get scancode */
-      if (key == 0x48) { /* Up */
+      if (key == 0x48) {  /* Up */
         if (current_item > 0)
           current_item--;
       } else if (key == 0x50) { /* Down */

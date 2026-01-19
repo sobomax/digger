@@ -91,12 +91,23 @@ static int use_integer_scaling = 1;
 static int use_linear_filter = 0;
 static int use_scanlines = 1;
 static int scanline_intensity = 55; /* 0-100, how dark scanlines are */
-
 static SDL_Texture *scanline_overlay = NULL;
+
+/* Bloom effect */
+static int use_bloom = 1;
+static SDL_Texture *bloom_texture = NULL;
+static const int bloom_size_w = 160;
+static const int bloom_size_h = 100;
+
+/* CRT Shadow Mask */
+static int use_crt_mask = 1;
+static SDL_Texture *crt_mask_texture = NULL;
 
 /* Forward declarations */
 static void update_argb_palette(const SDL_Color *pal);
 static void create_scanline_overlay(void);
+static void create_bloom_texture(void);
+static void create_crt_mask_texture(void);
 
 struct ch2bmap_plane {
   uint8_t const *const *sprites;
@@ -179,10 +190,15 @@ void vgainit(void) {
   int window_w, window_h;
 
   /* Load graphics settings from INI */
-  use_integer_scaling = GetINIBool(INI_GRAPHICS_SETTINGS, "IntegerScale", true, ININAME);
-  use_linear_filter = GetINIBool(INI_GRAPHICS_SETTINGS, "LinearFilter", true, ININAME);
+  use_integer_scaling =
+      GetINIBool(INI_GRAPHICS_SETTINGS, "IntegerScale", true, ININAME);
+  use_linear_filter =
+      GetINIBool(INI_GRAPHICS_SETTINGS, "LinearFilter", true, ININAME);
   use_scanlines = GetINIBool(INI_GRAPHICS_SETTINGS, "Scanlines", true, ININAME);
-  scanline_intensity = GetINIInt(INI_GRAPHICS_SETTINGS, "ScanlineLevel", 55, ININAME);
+  scanline_intensity =
+      GetINIInt(INI_GRAPHICS_SETTINGS, "ScanlineLevel", 55, ININAME);
+  use_bloom = GetINIBool(INI_GRAPHICS_SETTINGS, "Bloom", true, ININAME);
+  use_crt_mask = GetINIBool(INI_GRAPHICS_SETTINGS, "CRTMask", true, ININAME);
 
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
     fprintf(stderr, "Couldn't initialize SDL: %s\n", SDL_GetError());
@@ -251,6 +267,16 @@ void vgainit(void) {
   /* Create scanline overlay if enabled */
   if (use_scanlines) {
     create_scanline_overlay();
+  }
+
+  /* Create bloom texture if enabled */
+  if (use_bloom) {
+    create_bloom_texture();
+  }
+
+  /* Create shadow mask if enabled */
+  if (use_crt_mask) {
+    create_crt_mask_texture();
   }
 
   if (setmode() == false) {
@@ -366,12 +392,86 @@ void doscreenupdate(void) {
   SDL_RenderClear(renderer);
   SDL_RenderCopy(renderer, roottxt, NULL, NULL);
 
+  /* Apply Bloom Effect */
+  if (use_bloom && bloom_texture != NULL) {
+    /* Update bloom texture by copying the root texture (auto-scaled down) */
+    SDL_SetRenderTarget(renderer, bloom_texture);
+    SDL_RenderCopy(renderer, roottxt, NULL, NULL);
+    SDL_SetRenderTarget(renderer, NULL);
+
+    /* Blit bloom texture back with additive blending */
+    SDL_SetTextureBlendMode(bloom_texture, SDL_BLENDMODE_ADD);
+    SDL_SetTextureAlphaMod(bloom_texture, 180); /* Subtle bloom */
+    SDL_RenderCopy(renderer, bloom_texture, NULL, NULL);
+  }
+
+  /* Apply CRT Shadow Mask Effect */
+  if (use_crt_mask && crt_mask_texture != NULL) {
+    /* Blit shadow mask with multiply blending */
+    SDL_RenderCopy(renderer, crt_mask_texture, NULL, NULL);
+  }
+
   /* Apply scanline effect if enabled */
   if (use_scanlines && scanline_overlay != NULL) {
     SDL_RenderCopy(renderer, scanline_overlay, NULL, NULL);
   }
 
   SDL_RenderPresent(renderer);
+}
+
+static void create_bloom_texture(void) {
+  if (renderer == NULL)
+    return;
+  if (bloom_texture != NULL)
+    SDL_DestroyTexture(bloom_texture);
+
+  bloom_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+                                    SDL_TEXTUREACCESS_TARGET, 640, 400);
+}
+
+static void create_crt_mask_texture(void) {
+  uint32_t *pixels;
+  int pitch;
+  int x, y;
+
+  if (renderer == NULL)
+    return;
+  if (crt_mask_texture != NULL)
+    SDL_DestroyTexture(crt_mask_texture);
+
+  crt_mask_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+                                       SDL_TEXTUREACCESS_STREAMING, 640, 400);
+  if (crt_mask_texture == NULL)
+    return;
+
+  SDL_SetTextureBlendMode(crt_mask_texture, SDL_BLENDMODE_MOD);
+
+  if (SDL_LockTexture(crt_mask_texture, NULL, (void **)&pixels, &pitch) == 0) {
+    for (y = 0; y < 400; y++) {
+      for (x = 0; x < 640; x++) {
+        /* Create a 2x2 or 3x3 RGB sub-pixel pattern simulator */
+        int x_sub = x % 3;
+        uint32_t color = 0xFF000000;
+        if (x_sub == 0)
+          color |= 0xFF0000; /* Red */
+        if (x_sub == 1)
+          color |= 0x00FF00; /* Green */
+        if (x_sub == 2)
+          color |= 0x0000FF; /* Blue */
+
+        /* Darken every other line even more for vertical mask */
+        if (y % 2 == 1) {
+          uint8_t r = (color >> 16) & 0xFF;
+          uint8_t g = (color >> 8) & 0xFF;
+          uint8_t b = color & 0xFF;
+          color = 0xFF000000 | ((r / 2) << 16) | ((g / 2) << 8) | (b / 2);
+        }
+
+        pixels[y * (pitch / 4) + x] = color;
+      }
+    }
+    SDL_UnlockTexture(crt_mask_texture);
+  }
 }
 
 void vgaputi(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h) {
@@ -576,6 +676,36 @@ void sdl_set_x11_parent(unsigned int xp) { x11_parent = (Window)xp; }
  * Depreciated functions, necessary only to avoid "Undefined symbol:..."
  * compiler errors.
  */
+
+void sdl_toggle_bloom(void) {
+  use_bloom = !use_bloom;
+  if (use_bloom && bloom_texture == NULL) {
+    create_bloom_texture();
+  }
+}
+
+int sdl_get_bloom(void) { return use_bloom; }
+
+void sdl_toggle_crt_mask(void) {
+  use_crt_mask = !use_crt_mask;
+  if (use_crt_mask && crt_mask_texture == NULL) {
+    create_crt_mask_texture();
+  }
+}
+
+int sdl_get_crt_mask(void) { return use_crt_mask; }
+
+void sdl_save_settings(void) {
+  WriteINIBool(INI_GRAPHICS_SETTINGS, "IntegerScale", use_integer_scaling,
+               ININAME);
+  WriteINIBool(INI_GRAPHICS_SETTINGS, "LinearFilter", use_linear_filter,
+               ININAME);
+  WriteINIBool(INI_GRAPHICS_SETTINGS, "Scanlines", use_scanlines, ININAME);
+  WriteINIInt(INI_GRAPHICS_SETTINGS, "ScanlineLevel", scanline_intensity,
+              ININAME);
+  WriteINIBool(INI_GRAPHICS_SETTINGS, "Bloom", use_bloom, ININAME);
+  WriteINIBool(INI_GRAPHICS_SETTINGS, "CRTMask", use_crt_mask, ININAME);
+}
 
 void cgainit(void) {}
 void cgaclear(void) {}
