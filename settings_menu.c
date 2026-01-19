@@ -59,8 +59,8 @@ static int current_speed_preset = 2; /* Default: NORMAL */
 
 static void draw_menu(struct digger_draw_api *ddap) {
   int i;
-  int y_start = 40;
-  int y_spacing = 20;
+  int y_start = 10;
+  int y_spacing = 12;
   char buf[32];
 
   /* Clear screen */
