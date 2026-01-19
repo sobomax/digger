@@ -19,6 +19,7 @@
 #include "scores.h"
 #include "sound.h"
 #include "sprite.h"
+#include "sdl_vid.h"
 
 static struct digger {
   int16_t h, v, rx, ry, mdir, bagtime, rechargetime, deathstage, deathbag,
@@ -671,6 +672,17 @@ void drawemeralds(void) {
     for (y = 0; y < MHEIGHT; y++)
       if (emfield[y * MWIDTH + x] & emmask)
         drawemerald(x * 20 + 12, y * 18 + 21);
+}
+
+void drawemerald_lights(void) {
+  int16_t x, y;
+  if (!sdl_get_lighting())
+    return;
+  emmask = 1 << dgstate.curplayer;
+  for (x = 0; x < MWIDTH; x++)
+    for (y = 0; y < MHEIGHT; y++)
+      if (emfield[y * MWIDTH + x] & emmask)
+        sdl_add_light(x * 20 + 18, y * 18 + 26, 40, 160, 80, 14);
 }
 
 static const int16_t embox[8] = {8, 12, 12, 9, 16, 12, 6, 9};

@@ -22,6 +22,9 @@ void sdl_toggle_bloom(void);
 int sdl_get_bloom(void);
 void sdl_toggle_crt_mask(void);
 int sdl_get_crt_mask(void);
+void sdl_toggle_lighting(void);
+int sdl_get_lighting(void);
+void sdl_add_light(int x, int y, int r, int g, int b, int radius);
 void sdl_save_settings(void);
 
 #if defined(UNIX) && !defined(__EMSCRIPTEN__)

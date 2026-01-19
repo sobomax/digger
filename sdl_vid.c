@@ -99,16 +99,27 @@ static SDL_Texture *bloom_texture = NULL;
 static const int bloom_size_w = 160;
 static const int bloom_size_h = 100;
 
-/* CRT Shadow Mask */
 static int use_crt_mask = 1;
 static SDL_Texture *crt_mask_texture = NULL;
 
+/* Dynamic Lighting */
+static int use_lighting = 1;
+static SDL_Texture *light_map = NULL;
+static SDL_Texture *light_sprite = NULL;
+static SDL_Texture *map_mask = NULL;
+
 /* Forward declarations */
 extern int16_t volume;
+extern int16_t field[];
+extern void drawemerald_lights(void);
 static void update_argb_palette(const SDL_Color *pal);
 static void create_scanline_overlay(void);
 static void create_bloom_texture(void);
 static void create_crt_mask_texture(void);
+static void create_light_map_texture(void);
+static void create_light_sprite_texture(void);
+static void create_map_mask_texture(void);
+static void update_map_mask(void);
 
 struct ch2bmap_plane {
   uint8_t const *const *sprites;
@@ -200,6 +211,7 @@ void vgainit(void) {
       GetINIInt(INI_GRAPHICS_SETTINGS, "ScanlineLevel", 55, ININAME);
   use_bloom = GetINIBool(INI_GRAPHICS_SETTINGS, "Bloom", true, ININAME);
   use_crt_mask = GetINIBool(INI_GRAPHICS_SETTINGS, "CRTMask", true, ININAME);
+  use_lighting = GetINIBool(INI_GRAPHICS_SETTINGS, "Lighting", true, ININAME);
 
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
     fprintf(stderr, "Couldn't initialize SDL: %s\n", SDL_GetError());
@@ -254,6 +266,16 @@ void vgainit(void) {
   if (roottxt == NULL) {
     fprintf(stderr, "SDL_CreateTexture() failed: %s\n", SDL_GetError());
     exit(1);
+  }
+
+  if (use_bloom)
+    create_bloom_texture();
+  if (use_crt_mask)
+    create_crt_mask_texture();
+  if (use_lighting) {
+    create_light_map_texture();
+    create_light_sprite_texture();
+    create_map_mask_texture();
   }
 
   screen16 = SDL_CreateRGBSurface(0, 640, 400, 8, 0, 0, 0, 0);
@@ -406,6 +428,20 @@ void doscreenupdate(void) {
     SDL_RenderCopy(renderer, bloom_texture, NULL, NULL);
   }
 
+  /* Apply Dynamic Lighting */
+  if (use_lighting && light_map != NULL) {
+    drawemerald_lights();
+
+    SDL_SetTextureBlendMode(light_map, SDL_BLENDMODE_ADD);
+    SDL_RenderCopy(renderer, light_map, NULL, NULL);
+
+    /* Clear light map for the next frame */
+    SDL_SetRenderTarget(renderer, light_map);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+    SDL_SetRenderTarget(renderer, NULL);
+  }
+
   /* Apply CRT Shadow Mask Effect */
   if (use_crt_mask && crt_mask_texture != NULL) {
     /* Blit shadow mask with multiply blending */
@@ -475,6 +511,101 @@ static void create_crt_mask_texture(void) {
       }
     }
     SDL_UnlockTexture(crt_mask_texture);
+  }
+}
+
+static void create_light_map_texture(void) {
+  if (renderer == NULL)
+    return;
+  if (light_map != NULL)
+    SDL_DestroyTexture(light_map);
+  if (map_mask != NULL)
+    SDL_DestroyTexture(map_mask);
+  light_map = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+                                SDL_TEXTUREACCESS_TARGET, 320, 200);
+  SDL_SetTextureBlendMode(light_map, SDL_BLENDMODE_ADD);
+  create_map_mask_texture();
+}
+
+static void create_light_sprite_texture(void) {
+  uint32_t *pixels;
+  int pitch;
+  int x, y;
+  const int size = 64;
+  const float center = size / 2.0f;
+
+  if (renderer == NULL)
+    return;
+  if (light_sprite != NULL)
+    SDL_DestroyTexture(light_sprite);
+
+  light_sprite = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+                                   SDL_TEXTUREACCESS_STREAMING, size, size);
+  if (light_sprite == NULL)
+    return;
+
+  SDL_SetTextureBlendMode(light_sprite, SDL_BLENDMODE_ADD);
+
+  if (SDL_LockTexture(light_sprite, NULL, (void **)&pixels, &pitch) == 0) {
+    for (y = 0; y < size; y++) {
+      for (x = 0; x < size; x++) {
+        float dx = x - center;
+        float dy = y - center;
+        float dist = sqrtf(dx * dx + dy * dy);
+        float alpha = 1.0f - (dist / center);
+        if (alpha < 0)
+          alpha = 0;
+
+        /* Smooth quadratic falloff */
+        uint8_t a = (uint8_t)(alpha * alpha * 255);
+        pixels[y * (pitch / 4) + x] =
+            (a << 24) | (255 << 16) | (255 << 8) | 255;
+      }
+    }
+    SDL_UnlockTexture(light_sprite);
+  }
+}
+
+static void create_map_mask_texture(void) {
+  if (renderer == NULL)
+    return;
+  if (map_mask != NULL)
+    SDL_DestroyTexture(map_mask);
+  map_mask = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+                               SDL_TEXTUREACCESS_TARGET, 320, 200);
+  SDL_SetTextureBlendMode(map_mask, SDL_BLENDMODE_MOD);
+  update_map_mask();
+}
+
+static void update_map_mask(void) {
+  uint32_t *pixels;
+  int pitch;
+  int x, y;
+
+  if (renderer == NULL || map_mask == NULL)
+    return;
+
+  if (SDL_LockTexture(map_mask, NULL, (void **)&pixels, &pitch) == 0) {
+    for (y = 0; y < 200; y++) {
+      for (x = 0; x < 320; x++) {
+        int tile_x = x / (320 / MWIDTH);
+        int tile_y = y / (200 / MHEIGHT);
+        if (tile_x >= MWIDTH) tile_x = MWIDTH - 1;
+        if (tile_y >= MHEIGHT) tile_y = MHEIGHT - 1;
+        int tile_idx = tile_y * MWIDTH + tile_x;
+        int16_t tile = field[tile_idx];
+
+        uint8_t mask = 0;
+        if (tile != -1) {
+          uint16_t horiz = tile & 0xfc0;
+          uint16_t vert = tile & 0x03f;
+          if (horiz == 0 && vert == 0)
+            mask = 255;
+        }
+        pixels[y * (pitch / 4) + x] = (mask << 24) | (255 << 16) | (255 << 8) | 255;
+      }
+    }
+    SDL_UnlockTexture(map_mask);
   }
 }
 
@@ -699,6 +830,51 @@ void sdl_toggle_crt_mask(void) {
 
 int sdl_get_crt_mask(void) { return use_crt_mask; }
 
+void sdl_toggle_lighting(void) {
+  use_lighting = !use_lighting;
+  if (use_lighting) {
+    if (light_map == NULL)
+      create_light_map_texture();
+    if (light_sprite == NULL)
+      create_light_sprite_texture();
+    if (map_mask == NULL)
+      create_map_mask_texture();
+  }
+}
+
+int sdl_get_lighting(void) { return use_lighting; }
+
+void sdl_add_light(int x, int y, int r, int g, int b, int radius) {
+  SDL_Rect dst;
+  if (!use_lighting || renderer == NULL || light_map == NULL ||
+      light_sprite == NULL)
+    return;
+
+  SDL_SetRenderTarget(renderer, light_map);
+
+  /* Light map is 320x200, but logic coordinates are already 320x200.
+   * We should NOT use virt2scrx/y here because that scales to 640x400. */
+  dst.w = radius * 2;
+  dst.h = radius * 2;
+  dst.x = x - dst.w / 2;
+  dst.y = y - dst.h / 2;
+
+  SDL_SetTextureColorMod(light_sprite, r, g, b);
+  SDL_SetTextureAlphaMod(light_sprite, 150);
+  SDL_RenderCopy(renderer, light_sprite, NULL, &dst);
+
+  /* Layer 2: Soft outer glow (wider) */
+  dst.w = (int)(dst.w * 1.5f);
+  dst.h = (int)(dst.h * 1.5f);
+  dst.x = x - dst.w / 2;
+  dst.y = y - dst.h / 2;
+
+  SDL_SetTextureAlphaMod(light_sprite, 80);
+  SDL_RenderCopy(renderer, light_sprite, NULL, &dst);
+
+  SDL_SetRenderTarget(renderer, NULL);
+}
+
 void sdl_save_settings(void) {
   WriteINIBool(INI_GRAPHICS_SETTINGS, "IntegerScale", use_integer_scaling,
                ININAME);
@@ -709,6 +885,7 @@ void sdl_save_settings(void) {
               ININAME);
   WriteINIBool(INI_GRAPHICS_SETTINGS, "Bloom", use_bloom, ININAME);
   WriteINIBool(INI_GRAPHICS_SETTINGS, "CRTMask", use_crt_mask, ININAME);
+  WriteINIBool(INI_GRAPHICS_SETTINGS, "Lighting", use_lighting, ININAME);
   WriteINIInt(INI_SOUND_SETTINGS, "SoundVolume", volume, ININAME);
 }
 

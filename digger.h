@@ -10,6 +10,7 @@ void erasebonus(struct digger_draw_api *);
 int16_t countem(void);
 void makeemfield(void);
 void drawemeralds(void);
+void drawemerald_lights(void);
 void initdigger(void);
 void drawexplosion(int n);
 void createbonus(void);

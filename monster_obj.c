@@ -33,8 +33,8 @@
 #if defined(DIGGER_DEBUG)
 #include <stdio.h>
 #endif
-#include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "def.h"
 #include "digger_types.h"
@@ -42,8 +42,7 @@
 #include "monster_obj.h"
 #include "sprite.h"
 
-struct monster_obj_private
-{
+struct monster_obj_private {
   uint16_t m_id;
   bool nobf;
   bool alive;
@@ -53,17 +52,14 @@ struct monster_obj_private
   int16_t monspd;
 };
 
-struct monster_obj_full
-{
+struct monster_obj_full {
   struct monster_obj pub;
   struct monster_obj_private priv;
 };
 
 static void monster_obj_updspr(struct monster_obj_private *);
 
-static void
-__drawmon(struct monster_obj_private *mop)
-{
+static void __drawmon(struct monster_obj_private *mop) {
   int16_t sprid;
 
   sprid = FIRSTMONSTER + mop->m_id;
@@ -79,9 +75,7 @@ __drawmon(struct monster_obj_private *mop)
   drawspr(sprid, mop->pos.x, mop->pos.y);
 }
 
-static void
-__drawmondie(struct monster_obj_private *mop)
-{
+static void __drawmondie(struct monster_obj_private *mop) {
   int16_t sprid;
 
   sprid = FIRSTMONSTER + mop->m_id;
@@ -90,9 +84,7 @@ __drawmondie(struct monster_obj_private *mop)
   drawspr(sprid, mop->pos.x, mop->pos.y);
 }
 
-static void
-monster_obj_updspr(struct monster_obj_private *mop)
-{
+static void monster_obj_updspr(struct monster_obj_private *mop) {
   int16_t sprid;
 
   sprid = FIRSTMONSTER + mop->m_id;
@@ -113,7 +105,7 @@ monster_obj_updspr(struct monster_obj_private *mop)
     if (mop->nobf) {
       initspr(sprid, 72, 4, 15, 0, 0);
     } else {
-      switch(mop->pos.dir) {
+      switch (mop->pos.dir) {
       case DIR_RIGHT:
         initspr(sprid, 76, 4, 15, 0, 0);
         break;
@@ -124,9 +116,7 @@ monster_obj_updspr(struct monster_obj_private *mop)
   }
 }
 
-static int
-monster_obj_put(struct monster_obj *self)
-{
+static int monster_obj_put(struct monster_obj *self) {
   struct monster_obj_private *mop;
 
   mop = self->priv;
@@ -136,9 +126,7 @@ monster_obj_put(struct monster_obj *self)
   return (0);
 }
 
-static int
-monster_obj_mutate(struct monster_obj *self)
-{
+static int monster_obj_mutate(struct monster_obj *self) {
   struct monster_obj_private *mop;
 
   mop = self->priv;
@@ -149,34 +137,30 @@ monster_obj_mutate(struct monster_obj *self)
   return (0);
 }
 
-static int
-monster_obj_damage(struct monster_obj *self)
-{
-  struct monster_obj_private *mop;
-
-  mop = self->priv;
-
-   if (!mop->alive) {
-      /* We can only damage live thing or try to damage zombie */
-      assert(mop->zombie);
-   }
-   mop->zombie = true;
-   mop->alive = false;
-   monster_obj_updspr(mop);
-   drawspr(FIRSTMONSTER + mop->m_id, mop->pos.x, mop->pos.y);
-   return (0);
-}
-
-static int
-monster_obj_kill(struct monster_obj *self)
-{
+static int monster_obj_damage(struct monster_obj *self) {
   struct monster_obj_private *mop;
 
   mop = self->priv;
 
   if (!mop->alive) {
-      /* No, you can't kill me twice */
-      assert(mop->zombie);
+    /* We can only damage live thing or try to damage zombie */
+    assert(mop->zombie);
+  }
+  mop->zombie = true;
+  mop->alive = false;
+  monster_obj_updspr(mop);
+  drawspr(FIRSTMONSTER + mop->m_id, mop->pos.x, mop->pos.y);
+  return (0);
+}
+
+static int monster_obj_kill(struct monster_obj *self) {
+  struct monster_obj_private *mop;
+
+  mop = self->priv;
+
+  if (!mop->alive) {
+    /* No, you can't kill me twice */
+    assert(mop->zombie);
   }
   mop->alive = false;
   mop->zombie = false;
@@ -184,9 +168,7 @@ monster_obj_kill(struct monster_obj *self)
   return (0);
 }
 
-static int
-monster_obj_animate(struct monster_obj *self)
-{
+static int monster_obj_animate(struct monster_obj *self) {
   struct monster_obj_private *mop;
 
   mop = self->priv;
@@ -199,17 +181,15 @@ monster_obj_animate(struct monster_obj *self)
   return (0);
 }
 
-static int
-monster_obj_getpos(struct monster_obj *self, struct obj_position *pos)
-{
+static int monster_obj_getpos(struct monster_obj *self,
+                              struct obj_position *pos) {
 
   memcpy(pos, &self->priv->pos, sizeof(struct obj_position));
   return (0);
 }
 
-static int
-monster_obj_setpos(struct monster_obj *self, struct obj_position *pos)
-{
+static int monster_obj_setpos(struct monster_obj *self,
+                              struct obj_position *pos) {
 #if defined(DIGGER_DEBUG)
   int dx, dy;
   const char *dsold, *dsnew;
@@ -223,38 +203,31 @@ monster_obj_setpos(struct monster_obj *self, struct obj_position *pos)
     DIR2STR(dsold, &self->priv->pos);
     DIR2STR(dsnew, pos);
     fprintf(stderr, "monster(%d): changed direction from %s to %s\n",
-     self->priv->m_id, dsold, dsnew);
+            self->priv->m_id, dsold, dsnew);
   }
 #endif
   memcpy(&self->priv->pos, pos, sizeof(struct obj_position));
   return (0);
 }
 
-static bool
-monster_obj_isalive(struct monster_obj *self)
-{
+static bool monster_obj_isalive(struct monster_obj *self) {
 
   return (self->priv->alive);
 }
 
-static bool
-monster_obj_isnobbin(struct monster_obj *self)
-{
+static bool monster_obj_isnobbin(struct monster_obj *self) {
 
   return (self->priv->nobf);
 }
 
-int
-monster_obj_dtor(struct monster_obj *self)
-{
+int monster_obj_dtor(struct monster_obj *self) {
 
   free(self);
   return (0);
 }
 
-struct monster_obj *
-monster_obj_ctor(uint16_t m_id, bool nobf, int16_t dir, int16_t x, int16_t y)
-{
+struct monster_obj *monster_obj_ctor(uint16_t m_id, bool nobf, int16_t dir,
+                                     int16_t x, int16_t y) {
   struct monster_obj_full *mofp;
   struct monster_obj_private *mp;
   struct monster_obj *mpub;
@@ -289,5 +262,4 @@ monster_obj_ctor(uint16_t m_id, bool nobf, int16_t dir, int16_t x, int16_t y)
   mpub->priv = mp;
   assert((void *)mpub == (void *)mofp);
   return (mpub);
-  
 }
