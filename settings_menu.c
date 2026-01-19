@@ -95,12 +95,12 @@ static void draw_menu(struct digger_draw_api *ddap) {
     case MENU_SPEED:
       snprintf(buf, sizeof(buf), "< %s >",
                speed_presets[current_speed_preset].name);
-      outtext(ddap, buf, 180, y, 2);
+      outtext(ddap, buf, 164, y, 2);
       break;
 
     case MENU_SOUND_LEVEL:
       snprintf(buf, sizeof(buf), "< %3d%% >", (volume * 100) / 255);
-      outtext(ddap, buf, 180, y, 2);
+      outtext(ddap, buf, 164, y, 2);
       break;
 
     case MENU_MUSIC:
@@ -150,7 +150,7 @@ static void draw_menu(struct digger_draw_api *ddap) {
     case MENU_SCANLINE_INTENSITY:
 #ifdef _SDL
       snprintf(buf, sizeof(buf), "< %3d%% >", sdl_get_scanline_intensity());
-      outtext(ddap, buf, 180, y, 2);
+      outtext(ddap, buf, 164, y, 2);
 #else
       outtext(ddap, "N/A", 200, y, 1);
 #endif
