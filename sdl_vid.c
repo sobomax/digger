@@ -87,8 +87,8 @@ static uint32_t argb_palette[16];
 
 /* Rendering options */
 static int use_integer_scaling = 1;
-static int use_linear_filter = 0;
-static int use_scanlines = 0;
+static int use_linear_filter = 1;
+static int use_scanlines = 1;
 static int scanline_intensity = 40; /* 0-100, how dark scanlines are */
 
 static SDL_Texture *scanline_overlay = NULL;
