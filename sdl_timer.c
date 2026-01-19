@@ -132,7 +132,7 @@ void gethrt(bool minsleep) {
     } else if (sleep_ms > 0.2) {
       SDL_Delay(1u);
     } else {
-      /* busy wait for the last ~0.2ms for better precision */
+      SDL_Delay(0); /* No busy-wait: relinquish remainder of time slice */
     }
   }
 

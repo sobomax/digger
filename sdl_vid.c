@@ -22,6 +22,7 @@
 #include "def.h"
 #include "hardware.h"
 #include "icon.h"
+#include "ini.h"
 #include "sdl_vid.h"
 #include "title_gz.h"
 
@@ -87,9 +88,9 @@ static uint32_t argb_palette[16];
 
 /* Rendering options */
 static int use_integer_scaling = 1;
-static int use_linear_filter = 1;
+static int use_linear_filter = 0;
 static int use_scanlines = 1;
-static int scanline_intensity = 40; /* 0-100, how dark scanlines are */
+static int scanline_intensity = 55; /* 0-100, how dark scanlines are */
 
 static SDL_Texture *scanline_overlay = NULL;
 
@@ -177,6 +178,12 @@ void vgainit(void) {
   SDL_Surface *wm_icon;
   int window_w, window_h;
 
+  /* Load graphics settings from INI */
+  use_integer_scaling = GetINIBool(INI_GRAPHICS_SETTINGS, "IntegerScale", true, ININAME);
+  use_linear_filter = GetINIBool(INI_GRAPHICS_SETTINGS, "LinearFilter", true, ININAME);
+  use_scanlines = GetINIBool(INI_GRAPHICS_SETTINGS, "Scanlines", true, ININAME);
+  scanline_intensity = GetINIInt(INI_GRAPHICS_SETTINGS, "ScanlineLevel", 55, ININAME);
+
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
     fprintf(stderr, "Couldn't initialize SDL: %s\n", SDL_GetError());
     exit(1);
@@ -240,6 +247,11 @@ void vgainit(void) {
 
   /* Initialize palette lookup table */
   update_argb_palette(npalettes[0]);
+
+  /* Create scanline overlay if enabled */
+  if (use_scanlines) {
+    create_scanline_overlay();
+  }
 
   if (setmode() == false) {
     fprintf(stderr, "Couldn't set video mode: %s\n", SDL_GetError());

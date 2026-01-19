@@ -29,6 +29,7 @@ extern int16_t volume;
 enum {
   MENU_SPEED,
   MENU_SOUND_LEVEL,
+  MENU_MUSIC,
   MENU_INTEGER_SCALE,
   MENU_LINEAR_FILTER,
   MENU_SCANLINES,
@@ -39,7 +40,7 @@ enum {
 };
 
 static const char *menu_labels[] = {
-    "GAME SPEED", "SOUND LEVEL", "INTEGER SCALING", "LINEAR FILTER",
+    "GAME SPEED", "SOUND LEVEL", "MUSIC", "INTEGER SCALING", "LINEAR FILTER",
     "SCANLINES",  "SCANLINE LEVEL", "START GAME",      "EXIT"};
 
 static int current_item = 0;
@@ -93,10 +94,18 @@ static void draw_menu(struct digger_draw_api *ddap) {
        outtext(ddap, buf, 180, y, 2);
        break;
 
-    case MENU_SOUND_LEVEL:
-      snprintf(buf, sizeof(buf), "< %3d%% >", (volume * 100) / 255);
-      outtext(ddap, buf, 180, y, 2);
-      break;
+     case MENU_SOUND_LEVEL:
+       snprintf(buf, sizeof(buf), "< %3d%% >", (volume * 100) / 255);
+       outtext(ddap, buf, 180, y, 2);
+       break;
+
+    case MENU_MUSIC:
+       if (musicflag)
+         outtext(ddap, "ON ", 200, y, 2);
+       else
+         outtext(ddap, "OFF", 200, y, 2);
+       outtext(ddap, ": ", 230, y, 2);
+       break;
 
     case MENU_INTEGER_SCALE:
 #ifdef _SDL
@@ -171,13 +180,19 @@ static void handle_left(void) {
 #endif
    break;
 
-  case MENU_SOUND_LEVEL:
-    if (volume > 15)
-      volume -= 15;
-    break;
+   case MENU_SOUND_LEVEL:
+     if (volume > 15)
+       volume -= 15;
+     break;
 
-  default:
-    break;
+   case MENU_MUSIC:
+     musicflag = !musicflag;
+     if (!musicflag)
+       musicoff();
+     break;
+
+   default:
+     break;
   }
 }
 
@@ -199,13 +214,19 @@ static void handle_right(void) {
 #endif
    break;
 
-  case MENU_SOUND_LEVEL:
-    if (volume < 255 - 15)
-      volume += 15;
-    break;
+   case MENU_SOUND_LEVEL:
+     if (volume < 255 - 15)
+       volume += 15;
+     break;
 
-  default:
-    break;
+   case MENU_MUSIC:
+     musicflag = !musicflag;
+     if (!musicflag)
+       musicoff();
+     break;
+
+   default:
+     break;
   }
 }
 
@@ -223,13 +244,19 @@ static int handle_enter(void) {
 #endif
     break;
 
-  case MENU_SCANLINES:
+   case MENU_SCANLINES:
 #ifdef _SDL
     sdl_toggle_scanlines();
 #endif
     break;
 
-  case MENU_START:
+  case MENU_MUSIC:
+    musicflag = !musicflag;
+    if (!musicflag)
+      musicoff();
+    break;
+
+   case MENU_START:
     return 1; /* Start game */
 
   case MENU_EXIT:

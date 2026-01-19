@@ -90,6 +90,8 @@ static void fill_audio(void *udata, uint8_t *stream, int len)
 #if !defined(NO_SND_FILTER)
         double sample;
 #endif
+        extern int16_t volume;
+        int32_t mix_volume;
 
         if (!wave_device_available)
 		wave_device_available = true;
@@ -109,8 +111,9 @@ static void fill_audio(void *udata, uint8_t *stream, int len)
 #endif
         }
 
+        mix_volume = (SDL_MIX_MAXVOLUME * volume) / 255;
 	SDL_MixAudioFormat(stream, (uint8_t *)sud->buf, sud->obtained.format, len,
-            SDL_MIX_MAXVOLUME);
+            mix_volume);
 }
 
 

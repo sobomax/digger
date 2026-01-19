@@ -1,3 +1,6 @@
+#ifndef DRAW_API_H
+#define DRAW_API_H
+
 #define MAX_W 320
 #define MAX_H 200
 #define CHR_W 12
@@ -17,3 +20,5 @@ struct digger_draw_api {
 
   void (*gflush)(void);
 };
+
+#endif /* DRAW_API_H */

@@ -248,19 +248,30 @@ void maininit(void) {
 
 int main(int argc, char *argv[]) {
   int rval;
+  int menu_result;
 
   inir();
   parsecmd(argc, argv);
   maininit();
 
-  /* Show settings menu before game starts */
-  if (!show_settings_menu((struct digger_draw_api *)ddap)) {
-    /* User chose to exit */
-    finish();
-    return 0;
-  }
+  /* Main loop: show settings menu -> play game -> back to menu on ESC */
+  do {
+    /* Show settings menu */
+    menu_result = show_settings_menu((struct digger_draw_api *)ddap);
+    
+    if (menu_result <= 0) {
+      /* User chose to exit */
+      finish();
+      return 0;
+    }
+    
+    /* User chose to start game */
+    rval = mainprog();
+    
+    /* Reset escape flag for next run */
+    escape = false;
+  } while (menu_result == 1);
 
-  rval = mainprog();
   if (digger_log != NULL) {
     fflush(digger_log);
     fclose(digger_log);
@@ -296,6 +307,10 @@ int mainprog(void) {
         switchnplayers();
         shownplayers();
         mode_change = false;
+      }
+      if (escape) {
+        escape = false;
+        return 1;
       }
       if (frame == 0)
         for (t = 54; t < 174; t += 12)
@@ -389,6 +404,12 @@ int mainprog(void) {
       frame++;
       if (frame > 250)
         frame = 0;
+      
+      /* Check for ESC during title screen */
+      if (escape) {
+        escape = false;
+        return 1; /* Return to menu */
+      }
     }
     if (savedrf) {
       if (gotgame) {
@@ -398,8 +419,11 @@ int mainprog(void) {
       savedrf = false;
       continue;
     }
-    if (escape)
-      break;
+    if (escape) {
+      /* ESC pressed - return to settings menu instead of exiting */
+      escape = false;
+      return 1; /* Return 1 to indicate return to menu */
+    }
     recinit();
     game();
     gotgame = true;
