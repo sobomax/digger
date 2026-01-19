@@ -1,11 +1,11 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
-#include <stdlib.h>
 #include "def.h"
 #include "device.h"
-#include "hardware.h"
 #include "digger.h"
+#include "hardware.h"
+#include <stdlib.h>
 #if !defined(newsnd_test)
 #include "sound.h"
 #endif
@@ -26,9 +26,9 @@
 static uint16_t t0rate;
 
 #if !defined(newsnd_test)
-extern int16_t spkrmode,pulsewidth;
+extern int16_t spkrmode, pulsewidth;
 #else
-static int16_t spkrmode=0,pulsewidth=1;
+static int16_t spkrmode = 0, pulsewidth = 1;
 #endif
 
 /* Initialise circular buffer and PC speaker emulator
@@ -49,34 +49,36 @@ static int16_t spkrmode=0,pulsewidth=1;
    to take into account. bufsize should also be a power of 2.
 */
 
+#include "soundgen.h"
 #include <assert.h>
 #include <math.h>
-#include "soundgen.h"
 
 static struct sgen_state *ssp;
 static unsigned int intmod;
 
-int16_t getsample(void)
-{
+int16_t getsample(void) {
 
   if ((sgen_getstep(ssp) + 1) % intmod == 0)
     soundint();
   return (sgen_getsample(ssp));
 }
 
-void soundinitglob(uint16_t bufsize,uint16_t samprate)
-{
+void soundinitglob(uint16_t bufsize, uint16_t samprate) {
+  uint16_t obtained_rate;
+
+#if !defined(newsnd_test)
+  setsounddevice(samprate, bufsize);
+  obtained_rate = getobtainedrate();
+  if (obtained_rate != 0)
+    samprate = obtained_rate;
+#endif
 
   ssp = sgen_ctor(samprate, 2);
   assert(ssp != NULL);
-  intmod = round(samprate / 72.8);
-#if !defined(newsnd_test)
-  setsounddevice(samprate,bufsize);
-#endif
+  intmod = round((double)samprate / (1193181.0 / 16384.0));
 }
 
-void s1setupsound(void)
-{
+void s1setupsound(void) {
 #if !defined(newsnd_test)
   inittimer();
   soundint();
@@ -84,8 +86,7 @@ void s1setupsound(void)
 #endif
 }
 
-void s1killsound(void)
-{
+void s1killsound(void) {
 #if !defined(newsnd_test)
   setsoundt2();
   timer2(40, false);
@@ -101,8 +102,7 @@ void s1killsound(void)
 #define T0_BND 0
 #define T2_BND 1
 
-void s1timer2(uint16_t t2, bool mode)
-{
+void s1timer2(uint16_t t2, bool mode) {
   double rphase;
 
   if (t2 > 40 && t2 < 0x4000) {
@@ -123,30 +123,27 @@ void s1timer2(uint16_t t2, bool mode)
   }
 }
 
-void s1soundoff(void)
-{
+void s1soundoff(void) {
 
   sgen_setmuteband(ssp, 0, 1);
   sgen_setmuteband(ssp, 1, 1);
 }
 
-void s1setspkrt2(void)
-{
+void s1setspkrt2(void) {
 
   if (spkrmode == 0) {
-      sgen_setmuteband(ssp, 0, 1);
-      sgen_setmuteband(ssp, 1, 0);
+    sgen_setmuteband(ssp, 0, 1);
+    sgen_setmuteband(ssp, 1, 0);
   } else if (spkrmode == 1) {
-      sgen_setmuteband(ssp, 0, 0);
-      sgen_setmuteband(ssp, 1, 1);
+    sgen_setmuteband(ssp, 0, 0);
+    sgen_setmuteband(ssp, 1, 1);
   } else {
-      sgen_setmuteband(ssp, 0, 1);
-      sgen_setmuteband(ssp, 1, 1);
+    sgen_setmuteband(ssp, 0, 1);
+    sgen_setmuteband(ssp, 1, 1);
   }
 }
 
-void s1timer0(uint16_t t0)
-{
+void s1timer0(uint16_t t0) {
   double rphase;
 
   if (t0 > 40 && t0 < 0x4000) {
@@ -157,5 +154,5 @@ void s1timer0(uint16_t t0)
     sgen_setband(ssp, 0, 0.0, 0.0);
   }
 
-  t0rate=t0;
+  t0rate = t0;
 }

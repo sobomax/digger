@@ -4,20 +4,21 @@
 #ifndef DEF_H
 #define DEF_H
 
-#if defined(__FreeBSD__) || defined(__linux__) || defined(__APPLE__) || defined YOUR_UNIX_LIKE_ARCH_GOING_HERE
+#if defined(__FreeBSD__) || defined(__linux__) || defined(__APPLE__) ||        \
+    defined YOUR_UNIX_LIKE_ARCH_GOING_HERE
 #define UNIX
 #endif
 
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
 #if defined(_MSC_VER) || defined(__MINGW32__)
-# include <malloc.h>
+#include <malloc.h>
 #else
-# if defined(__linux__)
-#  include <alloca.h>
-# else
-#  include <stdlib.h>
-# endif
+#if defined(__linux__)
+#include <alloca.h>
+#else
+#include <stdlib.h>
+#endif
 #endif
 
 #define DIR_NONE -1
@@ -33,30 +34,30 @@
 #define MONSTERS 6
 #define FIREBALLS DIGGERS
 #define DIGGERS 2
-#define SPRITES (BONUSES+BAGS+MONSTERS+FIREBALLS+DIGGERS)
+#define SPRITES (BONUSES + BAGS + MONSTERS + FIREBALLS + DIGGERS)
 
 /* Sprite order is figured out here. By LAST I mean last+1. */
 
 #define FIRSTBONUS 0
-#define LASTBONUS (FIRSTBONUS+BONUSES)
+#define LASTBONUS (FIRSTBONUS + BONUSES)
 #define FIRSTBAG LASTBONUS
-#define LASTBAG (FIRSTBAG+BAGS)
+#define LASTBAG (FIRSTBAG + BAGS)
 #define FIRSTMONSTER LASTBAG
-#define LASTMONSTER (FIRSTMONSTER+MONSTERS)
+#define LASTMONSTER (FIRSTMONSTER + MONSTERS)
 #define FIRSTFIREBALL LASTMONSTER
-#define LASTFIREBALL (FIRSTFIREBALL+FIREBALLS)
+#define LASTFIREBALL (FIRSTFIREBALL + FIREBALLS)
 #define FIRSTDIGGER LASTFIREBALL
-#define LASTDIGGER (FIRSTDIGGER+DIGGERS)
+#define LASTDIGGER (FIRSTDIGGER + DIGGERS)
 
 #define MWIDTH 15
 #define MHEIGHT 10
-#define MSIZE MWIDTH*MHEIGHT
+#define MSIZE MWIDTH *MHEIGHT
 
 #define DEFAULT_SPEED_SETTING 5
 #define DEFAULT_FRAME_TIME_US (DEFAULT_SPEED_SETTING * 2000l)
 
 #define MAX_REC_BUFFER 262144l
-           /* I reckon this is enough for about 36 hours of continuous play. */
+/* I reckon this is enough for about 36 hours of continuous play. */
 
 #define INI_GAME_SETTINGS "Game"
 #define INI_GRAPHICS_SETTINGS "Graphics"
@@ -66,7 +67,7 @@
 /* using lesser buffer size will break ie. alsa on linux, no reason to use
  * lesser size anyways...
  */
-#define DEFAULT_BUFFER 512
+#define DEFAULT_BUFFER 1024
 
 #define near
 #define far
@@ -87,7 +88,9 @@
 #define PATH_MAX 1024
 #endif
 #endif
-#define ININAME strncat(strncpy((char*)alloca(PATH_MAX),getenv("HOME"),PATH_MAX),"/.digger.rc",PATH_MAX)
+#define ININAME                                                                \
+  strncat(strncpy((char *)alloca(PATH_MAX), getenv("HOME"), PATH_MAX),         \
+          "/.digger.rc", PATH_MAX)
 #else
 #define ININAME "DIGGER.INI"
 #endif

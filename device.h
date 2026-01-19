@@ -3,6 +3,7 @@
 
 /* Generic sound device header */
 
-bool setsounddevice(uint16_t samprate,uint16_t bufsize);
+bool setsounddevice(uint16_t samprate, uint16_t bufsize);
 bool initsounddevice(void);
 void pausesounddevice(bool p);
+uint16_t getobtainedrate(void);
