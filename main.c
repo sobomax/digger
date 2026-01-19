@@ -28,6 +28,7 @@ static const char copyright[] =
 #include "newsnd.h"
 #include "record.h"
 #include "scores.h"
+#include "settings_menu.h"
 #include "sound.h"
 #include "sprite.h"
 
@@ -251,6 +252,14 @@ int main(int argc, char *argv[]) {
   inir();
   parsecmd(argc, argv);
   maininit();
+
+  /* Show settings menu before game starts */
+  if (!show_settings_menu((struct digger_draw_api *)ddap)) {
+    /* User chose to exit */
+    finish();
+    return 0;
+  }
+
   rval = mainprog();
   if (digger_log != NULL) {
     fflush(digger_log);

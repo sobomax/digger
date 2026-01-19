@@ -1,6 +1,9 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
+#include <stdbool.h>
+#include <stdint.h>
+
 void detectjoy(void);
 bool teststart(void);
 void readdirect(int n);

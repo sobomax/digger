@@ -113,6 +113,7 @@ SET( DIGGER_SOURCE
      soundgen.c
      spinlock.c
      game.c
+     settings_menu.c
 )
 
 IF ( NOT MSVC )

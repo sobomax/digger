@@ -71,6 +71,32 @@ static int Handler(void *uptr, SDL_Event *event) {
       switchmode();
       goto out;
     }
+    /* F2 - Toggle integer scaling */
+    if (event->key.keysym.scancode == SDL_SCANCODE_F2) {
+      sdl_toggle_integer_scaling();
+      goto out;
+    }
+    /* F3 - Toggle linear filter */
+    if (event->key.keysym.scancode == SDL_SCANCODE_F3) {
+      sdl_toggle_linear_filter();
+      goto out;
+    }
+    /* F4 - Toggle scanlines */
+    if (event->key.keysym.scancode == SDL_SCANCODE_F4) {
+      sdl_toggle_scanlines();
+      goto out;
+    }
+    /* F5/F6 - Adjust scanline intensity */
+    if (event->key.keysym.scancode == SDL_SCANCODE_F5) {
+      int intensity = sdl_get_scanline_intensity();
+      sdl_set_scanline_intensity(intensity - 10);
+      goto out;
+    }
+    if (event->key.keysym.scancode == SDL_SCANCODE_F6) {
+      int intensity = sdl_get_scanline_intensity();
+      sdl_set_scanline_intensity(intensity + 10);
+      goto out;
+    }
     kbuffer[klen].scancode = event->key.keysym.scancode;
     kbuffer[klen].sym = event->key.keysym.sym;
     klen++;
