@@ -11,6 +11,7 @@
  */
 
 #include <SDL.h>
+#include <string.h>
 
 #include "def.h"
 #include "hardware.h"

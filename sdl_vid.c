@@ -13,6 +13,7 @@
 #include <stdio.h>
 /* malloc() and friends */
 #include <stdlib.h>
+#include <math.h>
 
 /* Lovely SDL */
 #include <SDL.h>
@@ -256,9 +257,11 @@ void vgainit(void) {
     SDL_FreeSurface(wm_icon);
   }
 
-  /* Use accelerated renderer with vsync */
-  renderer = SDL_CreateRenderer(
-      window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+  /* Use accelerated renderer without vsync — game tick timer handles pacing.
+   * VSync blocking in SDL_RenderPresent() causes unpredictable delays that
+   * fight with the fixed-step game timer, producing micro-stutters when the
+   * tick period (28 ms) does not align with the display refresh (16.67 ms). */
+  renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
   if (renderer == NULL) {
     /* Fallback to software renderer */
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
@@ -504,9 +507,9 @@ static void apply_post_effects(void) {
   /* Apply Bloom Effect — downsample→blur→upsample */
   if (use_bloom && bloom_down != NULL && bloom_blur_a != NULL &&
       bloom_blur_b != NULL) {
-    static const int h_off[] = {-3, -1, 0, 1, 3};
-    static const int v_off[] = {-3, -1, 0, 1, 3};
-    static const uint8_t weights[] = {15, 30, 45, 30, 15};
+    static const int h_off[] = {-4, -2, 0, 2, 4};
+    static const int v_off[] = {-4, -2, 0, 2, 4};
+    static const uint8_t weights[] = {20, 40, 55, 40, 20};
     int bi;
 
     /* Temporarily disable logical size for render target operations */
@@ -552,7 +555,7 @@ static void apply_post_effects(void) {
 
     /* Step 4: Upsample bloom_blur_b back to screen with additive blend */
     SDL_SetTextureBlendMode(bloom_blur_b, SDL_BLENDMODE_ADD);
-    SDL_SetTextureAlphaMod(bloom_blur_b, 55);
+    SDL_SetTextureAlphaMod(bloom_blur_b, 100);
     SDL_RenderCopy(renderer, bloom_blur_b, NULL, NULL);
     SDL_SetTextureBlendMode(bloom_blur_b, SDL_BLENDMODE_NONE);
   }

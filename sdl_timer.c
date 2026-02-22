@@ -51,6 +51,29 @@ static void ensure_render_schedule(double now_ms) {
     next_render_time_ms = now_ms;
 }
 
+/* Precision sleep: SDL_Delay for the bulk, then busy-wait the last 2 ms.
+ * macOS timer granularity is 1-5 ms; sleeping right up to the deadline
+ * causes frequent overshoots and visible stuttering. */
+static void precision_wait_until(double target_ms) {
+  double now_ms;
+  double sleep_ms;
+
+  for (;;) {
+    now_ms = (double)SDL_GetPerformanceCounter() * perf_counter_to_ms;
+    if (now_ms >= target_ms)
+      return;
+
+    sleep_ms = target_ms - now_ms;
+    if (sleep_ms > 2.0) {
+      /* Sleep conservatively, leaving 2 ms headroom for busy-wait */
+      SDL_Delay((uint32_t)(sleep_ms - 2.0));
+    }
+    /* Last 2 ms: spin (yields via loop overhead, no SDL_Delay) */
+
+    input_poll_async();
+  }
+}
+
 void inittimer(void) {
   next_tick_time_ms = 0.0;
   next_render_time_ms = 0.0;
@@ -103,7 +126,6 @@ void gethrt(bool minsleep) {
     ensure_render_schedule(now_ms);
 
     while (1) {
-      input_poll_async();
       now_ms = (double)SDL_GetPerformanceCounter() * perf_counter_to_ms;
 
       if (now_ms >= next_tick_time_ms)
@@ -114,6 +136,7 @@ void gethrt(bool minsleep) {
         float t = (float)((now_ms - last_tick_start_ms) / tick_duration_ms);
         doscreenupdate_interp(t);
         next_render_time_ms += render_interval_ms;
+        input_poll_async();
         continue;
       }
 
@@ -121,42 +144,14 @@ void gethrt(bool minsleep) {
         double next_event_ms = next_render_time_ms;
         if (next_tick_time_ms < next_event_ms)
           next_event_ms = next_tick_time_ms;
-        {
-          double sleep_ms = next_event_ms - now_ms;
-
-          if (sleep_ms > 1.5) {
-            SDL_Delay((uint32_t)(sleep_ms - 0.5));
-          } else if (sleep_ms > 0.2) {
-            SDL_Delay(1u);
-          } else {
-            SDL_Delay(0);
-          }
-        }
+        precision_wait_until(next_event_ms);
       }
     }
   } else {
-    /* Interpolation OFF: render once, then just wait for next tick */
+    /* Interpolation OFF: render once, then precision-wait for next tick */
     doscreenupdate();
-
-    while (1) {
-      input_poll_async();
-      now_ms = (double)SDL_GetPerformanceCounter() * perf_counter_to_ms;
-
-      if (now_ms >= next_tick_time_ms)
-        break;
-
-      {
-        double sleep_ms = next_tick_time_ms - now_ms;
-
-        if (sleep_ms > 1.5) {
-          SDL_Delay((uint32_t)(sleep_ms - 0.5));
-        } else if (sleep_ms > 0.2) {
-          SDL_Delay(1u);
-        } else {
-          SDL_Delay(0);
-        }
-      }
-    }
+    precision_wait_until(next_tick_time_ms);
+    now_ms = (double)SDL_GetPerformanceCounter() * perf_counter_to_ms;
   }
 
   if (now_ms - next_tick_time_ms > 500.0)

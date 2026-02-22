@@ -41,10 +41,10 @@ enum {
 };
 
 static const char *menu_labels[] = {
-    "GAME SPEED",    "SOUND LEVEL",   "MUSIC",          "INTEGER SCALING",
-    "LINEAR FILTER", "SCANLINES",     "SCANLINE LEVEL", "BLOOM",
-    "CRT MASK",      "LIGHTING",      "PALETTE FADE",   "FRAME INTERP",
-    "START GAME",    "EXIT"};
+    "SPEED",      "VOLUME",     "MUSIC",      "INT SCALE",
+    "BILINEAR",   "SCANLINES",  "SCAN LVL",   "BLOOM",
+    "CRT MASK",   "LIGHTING",   "PAL FADE",   "FRM INTERP",
+    "START GAME", "EXIT"};
 
 static int current_item = 0;
 
@@ -52,166 +52,132 @@ static int current_item = 0;
 static const struct {
   const char *name;
   int value;
-} speed_presets[] = {{"TURBO", 7},      /* 286/386 speed */
-                     {"1983", 8},       /* Authentic IBM PC 4.77MHz 8088 speed */
+} speed_presets[] = {{"TURBO", 7},
+                     {"1983", 8},
                      {"RELAXED", 14},
                      {"SLOW", 25},
-                     {"VERY SLOW", 50}};
+                     {"V.SLOW", 50}};
 #define NUM_SPEED_PRESETS 5
 
-static int current_speed_preset = 1; /* Default: 1983 (authentic 8088 speed) */
+static int current_speed_preset = 2; /* Default: RELAXED */
+
+static void draw_toggle(struct digger_draw_api *ddap, bool val, int16_t x,
+                        int16_t y) {
+  if (val)
+    outtext(ddap, "ON ", x, y, 2);
+  else
+    outtext(ddap, "OFF", x, y, 2);
+}
+
+#define MENU_Y_START 2
+#define MENU_Y_SPACING 13
+#define MENU_LABEL_X 32
+#define MENU_VAL_X 168
 
 static void draw_menu(struct digger_draw_api *ddap) {
   int i;
-  int y_start = 10;
-  int y_spacing = 12;
-  char buf[32];
+  char buf[20];
 
-  /* Clear screen */
   ddap->gclear();
 
-  /* Title */
-  outtext(ddap, "SETTINGS", 120, 15, 3);
-
-  /* Draw menu items */
   for (i = 0; i < MENU_ITEM_COUNT; i++) {
-    int y = y_start + i * y_spacing;
-    int color =
-        (i == current_item) ? 3 : 1; /* Yellow if selected, blue otherwise */
+    int y = MENU_Y_START + i * MENU_Y_SPACING;
+    int color = (i == current_item) ? 3 : 1;
 
-    /* Draw selection indicator */
-    if (i == current_item) {
-      outtext(ddap, ">", 20, y, 3);
-    } else {
-      erasetext(ddap, 1, 20, y, 0);
-    }
+    if (i == current_item)
+      outtext(ddap, ">", 16, y, 3);
+    else
+      erasetext(ddap, 1, 16, y, 0);
 
-    /* Draw label */
-    outtext(ddap, menu_labels[i], 36, y, color);
+    outtext(ddap, menu_labels[i], MENU_LABEL_X, y, color);
 
-    /* Draw value */
     switch (i) {
     case MENU_SPEED:
-      snprintf(buf, sizeof(buf), "< %s >",
+      snprintf(buf, sizeof(buf), "< %-7s >",
                speed_presets[current_speed_preset].name);
-      outtext(ddap, buf, 164, y, 2);
+      outtext(ddap, buf, MENU_VAL_X, y, 2);
       break;
 
     case MENU_SOUND_LEVEL:
-      snprintf(buf, sizeof(buf), "< %3d%% >", (volume * 100) / 255);
-      outtext(ddap, buf, 164, y, 2);
+      snprintf(buf, sizeof(buf), "< %3d%%    >", (volume * 100) / 255);
+      outtext(ddap, buf, MENU_VAL_X, y, 2);
       break;
 
     case MENU_MUSIC:
-      if (musicflag)
-        outtext(ddap, "ON ", 200, y, 2);
-      else
-        outtext(ddap, "OFF", 200, y, 2);
-      outtext(ddap, ": ", 230, y, 2);
+      draw_toggle(ddap, musicflag, MENU_VAL_X, y);
       break;
 
     case MENU_INTEGER_SCALE:
 #ifdef _SDL
-      if (sdl_get_integer_scaling())
-        outtext(ddap, "ON ", 200, y, 2);
-      else
-        outtext(ddap, "OFF", 200, y, 2);
-      outtext(ddap, ": ", 230, y, 2);
+      draw_toggle(ddap, sdl_get_integer_scaling(), MENU_VAL_X, y);
 #else
-      outtext(ddap, "N/A", 200, y, 1);
+      outtext(ddap, "N/A", MENU_VAL_X, y, 1);
 #endif
       break;
 
     case MENU_LINEAR_FILTER:
 #ifdef _SDL
-      if (sdl_get_linear_filter())
-        outtext(ddap, "ON ", 200, y, 2);
-      else
-        outtext(ddap, "OFF", 200, y, 2);
-      outtext(ddap, ": ", 230, y, 2);
+      draw_toggle(ddap, sdl_get_linear_filter(), MENU_VAL_X, y);
 #else
-      outtext(ddap, "N/A", 200, y, 1);
+      outtext(ddap, "N/A", MENU_VAL_X, y, 1);
 #endif
       break;
 
     case MENU_SCANLINES:
 #ifdef _SDL
-      if (sdl_get_scanlines())
-        outtext(ddap, "ON ", 200, y, 2);
-      else
-        outtext(ddap, "OFF", 200, y, 2);
-      outtext(ddap, ": ", 230, y, 2);
+      draw_toggle(ddap, sdl_get_scanlines(), MENU_VAL_X, y);
 #else
-      outtext(ddap, "N/A", 200, y, 1);
+      outtext(ddap, "N/A", MENU_VAL_X, y, 1);
 #endif
       break;
 
     case MENU_SCANLINE_INTENSITY:
 #ifdef _SDL
-      snprintf(buf, sizeof(buf), "< %3d%% >", sdl_get_scanline_intensity());
-      outtext(ddap, buf, 164, y, 2);
+      snprintf(buf, sizeof(buf), "< %3d%%    >",
+               sdl_get_scanline_intensity());
+      outtext(ddap, buf, MENU_VAL_X, y, 2);
 #else
-      outtext(ddap, "N/A", 200, y, 1);
+      outtext(ddap, "N/A", MENU_VAL_X, y, 1);
 #endif
       break;
 
     case MENU_BLOOM:
 #ifdef _SDL
-      if (sdl_get_bloom())
-        outtext(ddap, "ON ", 200, y, 2);
-      else
-        outtext(ddap, "OFF", 200, y, 2);
-      outtext(ddap, ": ", 230, y, 2);
+      draw_toggle(ddap, sdl_get_bloom(), MENU_VAL_X, y);
 #else
-      outtext(ddap, "N/A", 200, y, 1);
+      outtext(ddap, "N/A", MENU_VAL_X, y, 1);
 #endif
       break;
 
     case MENU_CRT_MASK:
 #ifdef _SDL
-      if (sdl_get_crt_mask())
-        outtext(ddap, "ON ", 200, y, 2);
-      else
-        outtext(ddap, "OFF", 200, y, 2);
-      outtext(ddap, ": ", 230, y, 2);
+      draw_toggle(ddap, sdl_get_crt_mask(), MENU_VAL_X, y);
 #else
-      outtext(ddap, "N/A", 200, y, 1);
+      outtext(ddap, "N/A", MENU_VAL_X, y, 1);
 #endif
       break;
 
     case MENU_LIGHTING:
 #ifdef _SDL
-      if (sdl_get_lighting())
-        outtext(ddap, "ON ", 200, y, 2);
-      else
-        outtext(ddap, "OFF", 200, y, 2);
-      outtext(ddap, ": ", 230, y, 2);
+      draw_toggle(ddap, sdl_get_lighting(), MENU_VAL_X, y);
 #else
-      outtext(ddap, "N/A", 200, y, 1);
+      outtext(ddap, "N/A", MENU_VAL_X, y, 1);
 #endif
       break;
 
     case MENU_PALETTE_FADE:
 #ifdef _SDL
-      if (sdl_get_palette_fade())
-        outtext(ddap, "ON ", 200, y, 2);
-      else
-        outtext(ddap, "OFF", 200, y, 2);
-      outtext(ddap, ": ", 230, y, 2);
+      draw_toggle(ddap, sdl_get_palette_fade(), MENU_VAL_X, y);
 #else
-      outtext(ddap, "N/A", 200, y, 1);
+      outtext(ddap, "N/A", MENU_VAL_X, y, 1);
 #endif
       break;
 
     case MENU_FRAME_INTERP:
 #ifdef _SDL
-      if (sdl_get_frame_interp())
-        outtext(ddap, "ON ", 200, y, 2);
-      else
-        outtext(ddap, "OFF", 200, y, 2);
-      outtext(ddap, ": ", 230, y, 2);
+      draw_toggle(ddap, sdl_get_frame_interp(), MENU_VAL_X, y);
 #else
-      outtext(ddap, "N/A", 200, y, 1);
+      outtext(ddap, "N/A", MENU_VAL_X, y, 1);
 #endif
       break;
 
@@ -220,9 +186,7 @@ static void draw_menu(struct digger_draw_api *ddap) {
     }
   }
 
-  /* Instructions */
-  outtext(ddap, "ARROWS TO SELECT", 68, 170, 1);
-  outtext(ddap, "ENTER TO CONFIRM", 68, 184, 1);
+  outtext(ddap, "ARROWS/ENTER/ESC", 68, 186, 1);
 }
 
 static void handle_left(void) {
@@ -381,7 +345,7 @@ int show_settings_menu(struct digger_draw_api *ddap) {
   /* Initialize speed preset from current ftime */
   int i;
   int current_speed = (int)(dgstate.ftime / 2000l);
-  current_speed_preset = 1; /* Default to 1983 (authentic 8088) */
+  current_speed_preset = 2; /* Default to RELAXED */
   for (i = 0; i < NUM_SPEED_PRESETS; i++) {
     if (speed_presets[i].value == current_speed) {
       current_speed_preset = i;

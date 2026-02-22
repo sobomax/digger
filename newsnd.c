@@ -76,6 +76,8 @@ void soundinitglob(uint16_t bufsize, uint16_t samprate) {
   ssp = sgen_ctor(samprate, 2);
   assert(ssp != NULL);
   intmod = round((double)samprate / (1193181.0 / 16384.0));
+  if (intmod == 0)
+    intmod = 1;
 }
 
 void s1setupsound(void) {

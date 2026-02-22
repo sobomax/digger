@@ -53,13 +53,15 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize) {
 
   if ((SDL_Init(SDL_INIT_AUDIO)) >= 0) {
     sud->dev = SDL_OpenAudioDevice(NULL, 0, &wanted, &sud->obtained,
-                                   SDL_AUDIO_ALLOW_ANY_CHANGE);
+                                   SDL_AUDIO_ALLOW_FREQUENCY_CHANGE |
+                                   SDL_AUDIO_ALLOW_SAMPLES_CHANGE);
     if (sud->dev > 0)
       result = true;
   }
   if (result == false) {
     fprintf(digger_log, "Couldn't open audio: %s\n", SDL_GetError());
     free(sud);
+    sud = NULL;
     return (false);
   }
 #if defined(DIGGER_DEBUG)
