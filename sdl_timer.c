@@ -94,6 +94,9 @@ void gethrt(bool minsleep) {
     next_tick_time_ms = now_ms + tick_duration_ms;
   }
 
+  /* Capture this game tick's frame for interpolation (no render/present) */
+  sdl_frame_tick_commit();
+
   ensure_render_schedule(now_ms);
 
   while (1) {
@@ -104,22 +107,28 @@ void gethrt(bool minsleep) {
       break;
 
     if (now_ms >= next_render_time_ms) {
-      doscreenupdate();
+      double last_tick_start_ms = next_tick_time_ms - tick_duration_ms;
+      float t = (float)((now_ms - last_tick_start_ms) / tick_duration_ms);
+      doscreenupdate_interp(t);
       next_render_time_ms += render_interval_ms;
       continue;
     }
 
-    double next_event_ms = next_render_time_ms;
-    if (next_tick_time_ms < next_event_ms)
-      next_event_ms = next_tick_time_ms;
-    double sleep_ms = next_event_ms - now_ms;
+    {
+      double next_event_ms = next_render_time_ms;
+      if (next_tick_time_ms < next_event_ms)
+        next_event_ms = next_tick_time_ms;
+      {
+        double sleep_ms = next_event_ms - now_ms;
 
-    if (sleep_ms > 1.5) {
-      SDL_Delay((uint32_t)(sleep_ms - 0.5));
-    } else if (sleep_ms > 0.2) {
-      SDL_Delay(1u);
-    } else {
-      SDL_Delay(0); /* No busy-wait: relinquish remainder of time slice */
+        if (sleep_ms > 1.5) {
+          SDL_Delay((uint32_t)(sleep_ms - 0.5));
+        } else if (sleep_ms > 0.2) {
+          SDL_Delay(1u);
+        } else {
+          SDL_Delay(0);
+        }
+      }
     }
   }
 

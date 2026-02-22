@@ -96,9 +96,12 @@ static int use_scanlines = 1;
 static int scanline_intensity = 55; /* 0-100, how dark scanlines are */
 static SDL_Texture *scanline_overlay = NULL;
 
-/* Bloom effect */
+/* Bloom effect — downsample→blur→upsample pipeline */
 static int use_bloom = 1;
-static SDL_Texture *bloom_texture = NULL;
+static SDL_Texture *bloom_texture = NULL; /* kept for API compat, unused */
+static SDL_Texture *bloom_down = NULL;    /* 160x100 downsample */
+static SDL_Texture *bloom_blur_a = NULL;  /* 160x100 horizontal blur */
+static SDL_Texture *bloom_blur_b = NULL;  /* 160x100 vertical blur */
 
 static int use_crt_mask = 1;
 static SDL_Texture *crt_mask_texture = NULL;
@@ -108,6 +111,21 @@ static int use_lighting = 1;
 static SDL_Texture *light_map = NULL;
 static SDL_Texture *light_sprite = NULL;
 static SDL_Texture *map_mask = NULL;
+
+/* Palette fade interpolation */
+static int use_palette_fade = 1;
+static uint32_t fade_from[16];
+static uint32_t fade_to[16];
+static float fade_progress = 1.0f; /* 1.0 = complete, no fade active */
+static double fade_start_time_ms = 0.0;
+static double fade_duration_ms = 0.0;
+static double vid_perf_counter_to_ms = 0.0;
+
+/* Frame interpolation */
+static int use_frame_interp = 0;
+static SDL_Texture *prev_frame = NULL;
+static SDL_Texture *curr_frame = NULL;
+static int frame_interp_ready = 0; /* Need 2 commits before interpolation */
 
 /* Forward declarations */
 static void update_argb_palette(const SDL_Color *pal);
@@ -210,6 +228,8 @@ void vgainit(void) {
   use_bloom = GetINIBool(INI_GRAPHICS_SETTINGS, "Bloom", true, ININAME);
   use_crt_mask = GetINIBool(INI_GRAPHICS_SETTINGS, "CRTMask", true, ININAME);
   use_lighting = GetINIBool(INI_GRAPHICS_SETTINGS, "Lighting", true, ININAME);
+  use_palette_fade =
+      GetINIBool(INI_GRAPHICS_SETTINGS, "PaletteFade", true, ININAME);
 
   if (SDL_Init(SDL_INIT_VIDEO) < 0) {
     fprintf(stderr, "Couldn't initialize SDL: %s\n", SDL_GetError());
@@ -266,6 +286,14 @@ void vgainit(void) {
     exit(1);
   }
 
+  /* Frame interpolation textures */
+  use_frame_interp =
+      GetINIBool(INI_GRAPHICS_SETTINGS, "FrameInterp", false, ININAME);
+  prev_frame = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+                                 SDL_TEXTUREACCESS_TARGET, 640, 400);
+  curr_frame = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+                                 SDL_TEXTUREACCESS_TARGET, 640, 400);
+
   if (use_bloom)
     create_bloom_texture();
   if (use_crt_mask)
@@ -284,6 +312,12 @@ void vgainit(void) {
 
   /* Initialize palette lookup table */
   update_argb_palette(npalettes[0]);
+
+  /* Cache performance counter frequency for fade timing */
+  {
+    uint64_t freq = SDL_GetPerformanceFrequency();
+    vid_perf_counter_to_ms = (freq == 0) ? 1.0 : 1000.0 / (double)freq;
+  }
 
   /* Create scanline overlay if enabled */
   if (use_scanlines) {
@@ -317,6 +351,7 @@ static void update_argb_palette(const SDL_Color *pal) {
 static void setpal(const SDL_Color *pal) {
   SDL_SetPaletteColors(screen16->format->palette, pal, 0, 16);
   update_argb_palette(pal);
+  fade_progress = 1.0f; /* Cancel any in-progress fade */
 }
 
 static void create_scanline_overlay(void) {
@@ -375,7 +410,37 @@ void vgapal(int16_t pal) {
   currpal = pal;
 }
 
-void doscreenupdate(void) {
+void sdl_fade_to_intensity(int inten, int duration_ms) {
+  int i;
+  const SDL_Color *target;
+
+  if (!use_palette_fade || duration_ms <= 0) {
+    vgainten(inten);
+    return;
+  }
+
+  /* Snapshot current rendered palette as "from" */
+  for (i = 0; i < 16; i++)
+    fade_from[i] = argb_palette[i];
+
+  /* Compute target palette */
+  target = (inten == 1) ? ipalettes[currpal] : npalettes[currpal];
+  for (i = 0; i < 16; i++)
+    fade_to[i] =
+        (0xFFu << 24) | (target[i].r << 16) | (target[i].g << 8) | target[i].b;
+
+  /* Set the palette immediately on screen16 so sprites draw with target */
+  SDL_SetPaletteColors(screen16->format->palette, target, 0, 16);
+
+  fade_progress = 0.0f;
+  fade_duration_ms = (double)duration_ms;
+  fade_start_time_ms =
+      (double)SDL_GetPerformanceCounter() * vid_perf_counter_to_ms;
+}
+
+/* Convert screen16 (8-bit indexed) → roottxt (ARGB streaming texture).
+ * Handles palette fade interpolation. No rendering or present. */
+static void flush_screen16_to_roottxt(void) {
   void *texture_pixels;
   int texture_pitch;
   uint8_t *src_row;
@@ -383,6 +448,38 @@ void doscreenupdate(void) {
   int x, y;
   int src_pitch = screen16->pitch;
   int dest_pitch_pixels;
+  uint32_t render_palette[16];
+  const uint32_t *pal;
+
+  /* Compute interpolated palette if fade is in progress */
+  if (fade_progress < 1.0f && use_palette_fade) {
+    double now_ms =
+        (double)SDL_GetPerformanceCounter() * vid_perf_counter_to_ms;
+    float t = (float)((now_ms - fade_start_time_ms) / fade_duration_ms);
+    if (t >= 1.0f) {
+      t = 1.0f;
+      fade_progress = 1.0f;
+      /* Set final palette */
+      for (x = 0; x < 16; x++)
+        argb_palette[x] = fade_to[x];
+    } else {
+      fade_progress = t;
+      /* Lerp each channel */
+      for (x = 0; x < 16; x++) {
+        uint32_t fr = fade_from[x];
+        uint32_t to = fade_to[x];
+        uint8_t r = (uint8_t)((float)((fr >> 16) & 0xFF) * (1.0f - t) +
+                               (float)((to >> 16) & 0xFF) * t);
+        uint8_t g = (uint8_t)((float)((fr >> 8) & 0xFF) * (1.0f - t) +
+                               (float)((to >> 8) & 0xFF) * t);
+        uint8_t b = (uint8_t)((float)(fr & 0xFF) * (1.0f - t) +
+                               (float)(to & 0xFF) * t);
+        render_palette[x] = (0xFFu << 24) | (r << 16) | (g << 8) | b;
+      }
+    }
+  }
+
+  pal = (fade_progress < 1.0f) ? render_palette : argb_palette;
 
   SDL_LockTexture(roottxt, NULL, &texture_pixels, &texture_pitch);
   dest_pitch_pixels = texture_pitch / 4;
@@ -390,44 +487,79 @@ void doscreenupdate(void) {
   src_row = (uint8_t *)screen16->pixels;
   dest_row = (uint32_t *)texture_pixels;
 
-  /* Optimized palette lookup - no per-pixel struct access */
   for (y = 0; y < 400; y++) {
     for (x = 0; x < 640; x++) {
-      dest_row[x] = argb_palette[src_row[x] & 0x0F];
+      dest_row[x] = pal[src_row[x] & 0x0F];
     }
     src_row += src_pitch;
     dest_row += dest_pitch_pixels;
   }
   SDL_UnlockTexture(roottxt);
+}
 
-  SDL_RenderClear(renderer);
-  SDL_RenderCopy(renderer, roottxt, NULL, NULL);
+/* Shared post-processing: bloom, lighting, CRT mask, scanlines.
+ * Called after the base frame is already rendered to the default target. */
+static void apply_post_effects(void) {
+  /* Apply Bloom Effect — downsample→blur→upsample */
+  if (use_bloom && bloom_down != NULL && bloom_blur_a != NULL &&
+      bloom_blur_b != NULL) {
+    static const int h_off[] = {-3, -1, 0, 1, 3};
+    static const int v_off[] = {-3, -1, 0, 1, 3};
+    static const uint8_t weights[] = {15, 30, 45, 30, 15};
+    int bi;
 
-  /* Apply Bloom Effect */
-  if (use_bloom && bloom_texture != NULL) {
-    /* Update bloom texture by copying the root texture (auto-scaled down) */
-    SDL_SetRenderTarget(renderer, bloom_texture);
-    SDL_RenderCopy(renderer, roottxt, NULL, NULL);
-    SDL_SetRenderTarget(renderer, NULL);
+    /* Temporarily disable logical size for render target operations */
+    SDL_RenderSetLogicalSize(renderer, 0, 0);
 
-    /* Blit bloom texture back with additive blending */
-    SDL_SetTextureBlendMode(bloom_texture, SDL_BLENDMODE_ADD);
-    SDL_SetTextureAlphaMod(bloom_texture, 180); /* Subtle bloom */
-    SDL_RenderCopy(renderer, bloom_texture, NULL, NULL);
-  }
-
-  /* Apply Dynamic Lighting */
-  if (use_lighting && light_map != NULL) {
-    drawemerald_lights();
-
-    SDL_SetTextureBlendMode(light_map, SDL_BLENDMODE_ADD);
-    SDL_RenderCopy(renderer, light_map, NULL, NULL);
-
-    /* Clear light map for the next frame */
-    SDL_SetRenderTarget(renderer, light_map);
+    /* Step 1: Downsample roottxt (640x400) → bloom_down (160x100) */
+    SDL_SetTextureBlendMode(roottxt, SDL_BLENDMODE_NONE);
+    SDL_SetTextureAlphaMod(roottxt, 255);
+    SDL_SetRenderTarget(renderer, bloom_down);
     SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
     SDL_RenderClear(renderer);
+    SDL_RenderCopy(renderer, roottxt, NULL, NULL);
+
+    /* Step 2: Horizontal blur: bloom_down → bloom_blur_a */
+    SDL_SetTextureBlendMode(bloom_down, SDL_BLENDMODE_ADD);
+    SDL_SetRenderTarget(renderer, bloom_blur_a);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+    for (bi = 0; bi < 5; bi++) {
+      SDL_Rect dst = {h_off[bi], 0, 160, 100};
+      SDL_SetTextureAlphaMod(bloom_down, weights[bi]);
+      SDL_RenderCopy(renderer, bloom_down, NULL, &dst);
+    }
+
+    /* Step 3: Vertical blur: bloom_blur_a → bloom_blur_b */
+    SDL_SetTextureBlendMode(bloom_blur_a, SDL_BLENDMODE_ADD);
+    SDL_SetRenderTarget(renderer, bloom_blur_b);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+    SDL_RenderClear(renderer);
+    for (bi = 0; bi < 5; bi++) {
+      SDL_Rect dst = {0, v_off[bi], 160, 100};
+      SDL_SetTextureAlphaMod(bloom_blur_a, weights[bi]);
+      SDL_RenderCopy(renderer, bloom_blur_a, NULL, &dst);
+    }
+
+    /* Reset blend modes before compositing */
+    SDL_SetTextureBlendMode(bloom_down, SDL_BLENDMODE_NONE);
+    SDL_SetTextureBlendMode(bloom_blur_a, SDL_BLENDMODE_NONE);
+
+    /* Restore logical size before compositing to screen */
     SDL_SetRenderTarget(renderer, NULL);
+    SDL_RenderSetLogicalSize(renderer, 640, 400);
+
+    /* Step 4: Upsample bloom_blur_b back to screen with additive blend */
+    SDL_SetTextureBlendMode(bloom_blur_b, SDL_BLENDMODE_ADD);
+    SDL_SetTextureAlphaMod(bloom_blur_b, 55);
+    SDL_RenderCopy(renderer, bloom_blur_b, NULL, NULL);
+    SDL_SetTextureBlendMode(bloom_blur_b, SDL_BLENDMODE_NONE);
+  }
+
+  /* Apply Dynamic Lighting — composite pre-built light_map */
+  if (use_lighting && light_map != NULL) {
+    SDL_SetTextureBlendMode(light_map, SDL_BLENDMODE_ADD);
+    SDL_RenderCopy(renderer, light_map, NULL, NULL);
   }
 
   /* Apply CRT Shadow Mask Effect */
@@ -439,18 +571,59 @@ void doscreenupdate(void) {
   if (use_scanlines && scanline_overlay != NULL) {
     SDL_RenderCopy(renderer, scanline_overlay, NULL, NULL);
   }
+}
 
+/* Rebuild the light map: clear and redraw all emerald lights.
+ * Called once per game tick, not per render frame. */
+static void rebuild_light_map(void) {
+  if (!use_lighting || light_map == NULL)
+    return;
+  SDL_SetRenderTarget(renderer, light_map);
+  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+  SDL_RenderClear(renderer);
+  SDL_SetRenderTarget(renderer, NULL);
+  drawemerald_lights();
+}
+
+void doscreenupdate(void) {
+  flush_screen16_to_roottxt();
+  rebuild_light_map();
+
+  SDL_RenderClear(renderer);
+  SDL_RenderCopy(renderer, roottxt, NULL, NULL);
+
+  apply_post_effects();
   SDL_RenderPresent(renderer);
 }
 
 static void create_bloom_texture(void) {
   if (renderer == NULL)
     return;
+
   if (bloom_texture != NULL)
     SDL_DestroyTexture(bloom_texture);
+  bloom_texture = NULL;
 
-  bloom_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
-                                    SDL_TEXTUREACCESS_TARGET, 640, 400);
+  if (bloom_down != NULL)
+    SDL_DestroyTexture(bloom_down);
+  if (bloom_blur_a != NULL)
+    SDL_DestroyTexture(bloom_blur_a);
+  if (bloom_blur_b != NULL)
+    SDL_DestroyTexture(bloom_blur_b);
+
+  /* Enable linear filtering for these textures (free bilinear downsample) */
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+
+  bloom_down = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+                                 SDL_TEXTUREACCESS_TARGET, 160, 100);
+  bloom_blur_a = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+                                   SDL_TEXTUREACCESS_TARGET, 160, 100);
+  bloom_blur_b = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+                                   SDL_TEXTUREACCESS_TARGET, 160, 100);
+
+  /* Restore original filter hint */
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY,
+              use_linear_filter ? "linear" : "nearest");
 }
 
 static void create_crt_mask_texture(void) {
@@ -801,7 +974,7 @@ void sdl_set_x11_parent(unsigned int xp) { x11_parent = (Window)xp; }
 
 void sdl_toggle_bloom(void) {
   use_bloom = !use_bloom;
-  if (use_bloom && bloom_texture == NULL) {
+  if (use_bloom && bloom_down == NULL) {
     create_bloom_texture();
   }
 }
@@ -831,6 +1004,75 @@ void sdl_toggle_lighting(void) {
 
 int sdl_get_lighting(void) { return use_lighting; }
 
+void sdl_toggle_palette_fade(void) { use_palette_fade = !use_palette_fade; }
+
+int sdl_get_palette_fade(void) { return use_palette_fade; }
+
+void sdl_toggle_frame_interp(void) {
+  use_frame_interp = !use_frame_interp;
+  frame_interp_ready = 0;
+}
+
+int sdl_get_frame_interp(void) { return use_frame_interp; }
+
+void sdl_frame_tick_commit(void) {
+  SDL_Texture *tmp;
+
+  if (!use_frame_interp)
+    return;
+  if (renderer == NULL || prev_frame == NULL || curr_frame == NULL)
+    return;
+
+  /* Convert screen16 → roottxt (no render/present) */
+  flush_screen16_to_roottxt();
+
+  /* Rebuild light map once per tick for interpolated renders */
+  rebuild_light_map();
+
+  /* Swap: curr becomes prev */
+  tmp = prev_frame;
+  prev_frame = curr_frame;
+  curr_frame = tmp;
+
+  /* Copy roottxt into new curr_frame */
+  SDL_SetRenderTarget(renderer, curr_frame);
+  SDL_RenderCopy(renderer, roottxt, NULL, NULL);
+  SDL_SetRenderTarget(renderer, NULL);
+
+  if (frame_interp_ready < 2)
+    frame_interp_ready++;
+}
+
+void doscreenupdate_interp(float t) {
+  if (!use_frame_interp || frame_interp_ready < 2 || renderer == NULL ||
+      prev_frame == NULL || curr_frame == NULL) {
+    doscreenupdate();
+    return;
+  }
+
+  /* Clamp */
+  if (t < 0.0f)
+    t = 0.0f;
+  if (t > 1.0f)
+    t = 1.0f;
+
+  SDL_RenderClear(renderer);
+
+  /* Draw prev_frame at full alpha */
+  SDL_SetTextureBlendMode(prev_frame, SDL_BLENDMODE_NONE);
+  SDL_SetTextureAlphaMod(prev_frame, 255);
+  SDL_RenderCopy(renderer, prev_frame, NULL, NULL);
+
+  /* Draw curr_frame with alpha = t*255 using BLEND mode
+   * Result: curr*t + prev*(1-t) */
+  SDL_SetTextureBlendMode(curr_frame, SDL_BLENDMODE_BLEND);
+  SDL_SetTextureAlphaMod(curr_frame, (uint8_t)(t * 255.0f));
+  SDL_RenderCopy(renderer, curr_frame, NULL, NULL);
+
+  apply_post_effects();
+  SDL_RenderPresent(renderer);
+}
+
 void sdl_add_light(int x, int y, int r, int g, int b, int radius) {
   SDL_Rect dst;
   if (!use_lighting || renderer == NULL || light_map == NULL ||
@@ -847,7 +1089,7 @@ void sdl_add_light(int x, int y, int r, int g, int b, int radius) {
   dst.y = y - dst.h / 2;
 
   SDL_SetTextureColorMod(light_sprite, r, g, b);
-  SDL_SetTextureAlphaMod(light_sprite, 150);
+  SDL_SetTextureAlphaMod(light_sprite, 120);
   SDL_RenderCopy(renderer, light_sprite, NULL, &dst);
 
   /* Layer 2: Soft outer glow (wider) */
@@ -856,7 +1098,7 @@ void sdl_add_light(int x, int y, int r, int g, int b, int radius) {
   dst.x = x - dst.w / 2;
   dst.y = y - dst.h / 2;
 
-  SDL_SetTextureAlphaMod(light_sprite, 80);
+  SDL_SetTextureAlphaMod(light_sprite, 60);
   SDL_RenderCopy(renderer, light_sprite, NULL, &dst);
 
   SDL_SetRenderTarget(renderer, NULL);
@@ -873,6 +1115,8 @@ void sdl_save_settings(void) {
   WriteINIBool(INI_GRAPHICS_SETTINGS, "Bloom", use_bloom, ININAME);
   WriteINIBool(INI_GRAPHICS_SETTINGS, "CRTMask", use_crt_mask, ININAME);
   WriteINIBool(INI_GRAPHICS_SETTINGS, "Lighting", use_lighting, ININAME);
+  WriteINIBool(INI_GRAPHICS_SETTINGS, "PaletteFade", use_palette_fade, ININAME);
+  WriteINIBool(INI_GRAPHICS_SETTINGS, "FrameInterp", use_frame_interp, ININAME);
 }
 
 void cgainit(void) {}

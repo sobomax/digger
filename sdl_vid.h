@@ -25,6 +25,18 @@ int sdl_get_crt_mask(void);
 void sdl_toggle_lighting(void);
 int sdl_get_lighting(void);
 void sdl_add_light(int x, int y, int r, int g, int b, int radius);
+
+/* Palette fade controls */
+void sdl_fade_to_intensity(int inten, int duration_ms);
+void sdl_toggle_palette_fade(void);
+int sdl_get_palette_fade(void);
+
+/* Frame interpolation controls */
+void sdl_toggle_frame_interp(void);
+int sdl_get_frame_interp(void);
+void sdl_frame_tick_commit(void);
+void doscreenupdate_interp(float t);
+
 void sdl_save_settings(void);
 
 #if defined(UNIX) && !defined(__EMSCRIPTEN__) && !defined(__APPLE__)

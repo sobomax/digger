@@ -598,7 +598,7 @@ static void initbonusmode(struct digger_draw_api *ddap) {
   int i;
   bonusmode = true;
   erasebonus(ddap);
-  ddap->ginten(1);
+  sdl_fade_to_intensity(1, 300);
   bonustimeleft = 250 - levof10() * 20;
   startbonustimeleft = 20;
   for (i = 0; i < dgstate.diggers; i++)
@@ -607,7 +607,7 @@ static void initbonusmode(struct digger_draw_api *ddap) {
 
 static void endbonusmode(struct digger_draw_api *ddap) {
   bonusmode = false;
-  ddap->ginten(0);
+  sdl_fade_to_intensity(0, 300);
 }
 
 void erasebonus(struct digger_draw_api *ddap) {

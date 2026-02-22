@@ -33,15 +33,18 @@ enum {
   MENU_BLOOM,
   MENU_CRT_MASK,
   MENU_LIGHTING,
+  MENU_PALETTE_FADE,
+  MENU_FRAME_INTERP,
   MENU_START,
   MENU_EXIT,
   MENU_ITEM_COUNT
 };
 
 static const char *menu_labels[] = {
-    "GAME SPEED",    "SOUND LEVEL", "MUSIC",          "INTEGER SCALING",
-    "LINEAR FILTER", "SCANLINES",   "SCANLINE LEVEL", "BLOOM",
-    "CRT MASK",      "LIGHTING",    "START GAME",     "EXIT"};
+    "GAME SPEED",    "SOUND LEVEL",   "MUSIC",          "INTEGER SCALING",
+    "LINEAR FILTER", "SCANLINES",     "SCANLINE LEVEL", "BLOOM",
+    "CRT MASK",      "LIGHTING",      "PALETTE FADE",   "FRAME INTERP",
+    "START GAME",    "EXIT"};
 
 static int current_item = 0;
 
@@ -188,6 +191,30 @@ static void draw_menu(struct digger_draw_api *ddap) {
 #endif
       break;
 
+    case MENU_PALETTE_FADE:
+#ifdef _SDL
+      if (sdl_get_palette_fade())
+        outtext(ddap, "ON ", 200, y, 2);
+      else
+        outtext(ddap, "OFF", 200, y, 2);
+      outtext(ddap, ": ", 230, y, 2);
+#else
+      outtext(ddap, "N/A", 200, y, 1);
+#endif
+      break;
+
+    case MENU_FRAME_INTERP:
+#ifdef _SDL
+      if (sdl_get_frame_interp())
+        outtext(ddap, "ON ", 200, y, 2);
+      else
+        outtext(ddap, "OFF", 200, y, 2);
+      outtext(ddap, ": ", 230, y, 2);
+#else
+      outtext(ddap, "N/A", 200, y, 1);
+#endif
+      break;
+
     default:
       break;
     }
@@ -305,6 +332,18 @@ static int handle_enter(void) {
   case MENU_LIGHTING:
 #ifdef _SDL
     sdl_toggle_lighting();
+#endif
+    break;
+
+  case MENU_PALETTE_FADE:
+#ifdef _SDL
+    sdl_toggle_palette_fade();
+#endif
+    break;
+
+  case MENU_FRAME_INTERP:
+#ifdef _SDL
+    sdl_toggle_frame_interp();
 #endif
     break;
 
