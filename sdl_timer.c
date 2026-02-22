@@ -98,14 +98,23 @@ void gethrt(bool minsleep) {
   double tick_duration_ms;
   double now_ms;
 
-  /* Mark light map stale once per game tick so it rebuilds exactly once */
+  if (minsleep) {
+    /* Non-frame callers (sound wait, keyboard poll, settings menu):
+     * just refresh screen + yield CPU.  Do NOT advance the tick timer,
+     * invalidate the light map, or commit interpolation frames — those
+     * belong to the real game-tick path only. */
+    input_poll_async();
+    doscreenupdate();
+    SDL_Delay(10);
+    return;
+  }
+
+  /* Mark light map stale once per real game tick so it rebuilds exactly once */
   sdl_invalidate_light_map();
 
   if (dgstate.ftime <= 1) {
     input_poll_async();
     doscreenupdate();
-    if (minsleep)
-      SDL_Delay(10);
     return;
   }
 

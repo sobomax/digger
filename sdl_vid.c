@@ -129,6 +129,9 @@ static SDL_Texture *prev_frame = NULL;
 static SDL_Texture *curr_frame = NULL;
 static int frame_interp_ready = 0; /* Need 2 commits before interpolation */
 
+/* Tiled background for letterbox bars */
+static SDL_Texture *bg_tiled_texture = NULL;
+
 /* Forward declarations */
 static void update_argb_palette(const SDL_Color *pal);
 static void create_scanline_overlay(void);
@@ -138,6 +141,7 @@ static void create_light_map_texture(void);
 static void create_light_sprite_texture(void);
 static void create_map_mask_texture(void);
 static void update_map_mask(void);
+static void fill_letterbox_background(void);
 
 struct ch2bmap_plane {
   uint8_t const *const *sprites;
@@ -592,11 +596,138 @@ static void rebuild_light_map(void) {
 
 void sdl_invalidate_light_map(void) { light_map_dirty = 1; }
 
+/* Build a 640x400 texture filled with a tiled level-background pattern.
+ * Called once per level from drawstatics() so the letterbox bars always
+ * show the correct earth texture. */
+void sdl_clear_bg_tile(void) {
+  if (bg_tiled_texture != NULL) {
+    SDL_DestroyTexture(bg_tiled_texture);
+    bg_tiled_texture = NULL;
+  }
+}
+
+void sdl_update_bg_tile(int level_plan) {
+  const uint8_t *sprite_data;
+  int sprite_idx;
+  const int tile_w = 40; /* virt2scrw(5) */
+  const int tile_h = 8;  /* virt2scrh(4) */
+  uint32_t tile_pal[16];
+  uint32_t *pixels;
+  int pitch, x, y, i;
+  const SDL_Color *pal;
+
+  if (renderer == NULL)
+    return;
+
+  sprite_idx = (93 + level_plan) * 2;
+  sprite_data = vgatable[sprite_idx];
+  if (sprite_data == NULL)
+    return;
+
+  /* Use normal-intensity palette 0 (matches drawbackg context) */
+  pal = npalettes[0];
+  for (i = 0; i < 16; i++)
+    tile_pal[i] =
+        (0xFFu << 24) | (pal[i].r << 16) | (pal[i].g << 8) | pal[i].b;
+
+  if (bg_tiled_texture != NULL)
+    SDL_DestroyTexture(bg_tiled_texture);
+
+  bg_tiled_texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+                                       SDL_TEXTUREACCESS_STREAMING, 640, 400);
+  if (bg_tiled_texture == NULL)
+    return;
+
+  if (SDL_LockTexture(bg_tiled_texture, NULL, (void **)&pixels, &pitch) == 0) {
+    int dest_pitch = pitch / 4;
+    for (y = 0; y < 400; y++) {
+      int ty = y % tile_h;
+      for (x = 0; x < 640; x++) {
+        int tx = x % tile_w;
+        uint8_t idx = sprite_data[ty * tile_w + tx] & 0x0F;
+        pixels[y * dest_pitch + x] = tile_pal[idx];
+      }
+    }
+    SDL_UnlockTexture(bg_tiled_texture);
+  }
+}
+
+/* Fill letterbox bars with tiled level-background earth blocks.
+ * On ultrawide or integer-scaled displays the 4:3 viewport leaves black
+ * borders; this tiles the level texture into those areas at reduced
+ * brightness so the screen never looks empty. */
+static void fill_letterbox_background(void) {
+  int output_w, output_h;
+  float scale_x, scale_y, scale;
+  int copy_w, copy_h;
+  int x, y;
+  SDL_Rect dst;
+
+  if (renderer == NULL || bg_tiled_texture == NULL)
+    return;
+
+  SDL_GetRendererOutputSize(renderer, &output_w, &output_h);
+
+  /* Compute the same scale SDL uses for logical size */
+  scale_x = (float)output_w / 640.0f;
+  scale_y = (float)output_h / 400.0f;
+
+  if (use_integer_scaling) {
+    int is = (int)(scale_x < scale_y ? scale_x : scale_y);
+    if (is < 1)
+      is = 1;
+    scale = (float)is;
+  } else {
+    scale = (scale_x < scale_y) ? scale_x : scale_y;
+  }
+
+  copy_w = (int)(640.0f * scale);
+  copy_h = (int)(400.0f * scale);
+
+  /* Prevent infinite loop if scale rounds to zero */
+  if (copy_w <= 0 || copy_h <= 0)
+    return;
+
+  /* No bars visible — nothing to fill */
+  if (copy_w >= output_w && copy_h >= output_h)
+    return;
+
+  /* Disable logical size so we can draw across the full output area */
+  SDL_RenderSetLogicalSize(renderer, 0, 0);
+  SDL_RenderSetIntegerScale(renderer, SDL_FALSE);
+
+  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+  SDL_RenderClear(renderer);
+
+  /* Tile the background at the game's pixel scale, dimmed to ~30% */
+  SDL_SetTextureBlendMode(bg_tiled_texture, SDL_BLENDMODE_NONE);
+  SDL_SetTextureColorMod(bg_tiled_texture, 80, 80, 80);
+
+  for (y = 0; y < output_h; y += copy_h) {
+    for (x = 0; x < output_w; x += copy_w) {
+      dst.x = x;
+      dst.y = y;
+      dst.w = copy_w;
+      dst.h = copy_h;
+      SDL_RenderCopy(renderer, bg_tiled_texture, NULL, &dst);
+    }
+  }
+
+  SDL_SetTextureColorMod(bg_tiled_texture, 255, 255, 255);
+
+  /* Restore logical rendering — the main frame will overwrite the centre */
+  SDL_RenderSetLogicalSize(renderer, 640, 400);
+  if (use_integer_scaling)
+    SDL_RenderSetIntegerScale(renderer, SDL_TRUE);
+}
+
 void doscreenupdate(void) {
   flush_screen16_to_roottxt();
   rebuild_light_map();
 
-  SDL_RenderClear(renderer);
+  fill_letterbox_background();
+
+  /* Main game frame renders inside the logical viewport */
   SDL_RenderCopy(renderer, roottxt, NULL, NULL);
 
   apply_post_effects();
@@ -814,23 +945,26 @@ void vgageti(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h) {
 }
 
 int16_t vgagetpix(int16_t x, int16_t y) {
-  SDL_Surface *tmp = NULL;
-  uint16_t xi, yi;
-  uint16_t i = 0;
+  int16_t sx, sy, sw, sh;
+  int16_t xi, yi;
   int16_t rval = 0;
-  uint8_t *pixels;
+  uint8_t *base;
 
   if ((x > 319) || (y > 199))
     return (0xff);
 
-  vgageti(x, y, (uint8_t *)&tmp, 1, 1);
-  pixels = (uint8_t *)tmp->pixels;
-  for (yi = 0; yi < tmp->h; yi++)
-    for (xi = 0; xi < tmp->w; xi++)
-      if (pixels[i++])
-        rval |= 0x80 >> xi;
+  /* Read directly from screen16 instead of allocating a temporary
+   * surface per call.  virt2scr maps virtual 1x1 to 8x2 real pixels. */
+  sx = virt2scrx(x);
+  sy = virt2scry(y);
+  sw = virt2scrw(1);
+  sh = virt2scrh(1);
 
-  SDL_FreeSurface(tmp);
+  base = (uint8_t *)screen16->pixels + sy * screen16->pitch + sx;
+  for (yi = 0; yi < sh; yi++)
+    for (xi = 0; xi < sw; xi++)
+      if (base[yi * screen16->pitch + xi])
+        rval |= 0x80 >> xi;
 
   return (rval & 0xee);
 }
@@ -869,7 +1003,12 @@ void vgawrite(int16_t x, int16_t y, int16_t ch, int16_t c) {
     return;
   tmp = ch2bmap(&alphas, ch - 32, w, h);
   size = tmp->w * tmp->h;
-  copy = (uint8_t *)malloc(size);
+  {
+    /* Static buffer avoids malloc/free per character drawn.
+     * Max size: virt2scrw(3) * virt2scrh(12) = 24 * 24 = 576 bytes. */
+    static uint8_t copy_buf[24 * 24];
+    copy = copy_buf;
+  }
   memcpy(copy, tmp->pixels, size);
 
   for (i = size; i != 0;) {
@@ -896,7 +1035,6 @@ void vgawrite(int16_t x, int16_t y, int16_t ch, int16_t c) {
   tmp->pixels = copy;
   vgaputi(x, y, (uint8_t *)&tmp, w, h);
   tmp->pixels = orig;
-  free(copy);
 }
 
 void vgatitle(void) {
@@ -1063,7 +1201,7 @@ void doscreenupdate_interp(float t) {
   if (t > 1.0f)
     t = 1.0f;
 
-  SDL_RenderClear(renderer);
+  fill_letterbox_background();
 
   /* Draw prev_frame at full alpha */
   SDL_SetTextureBlendMode(prev_frame, SDL_BLENDMODE_NONE);

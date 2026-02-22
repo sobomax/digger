@@ -321,17 +321,20 @@ void getinitials(struct digger_draw_api *ddap)
 
 void flashywait(struct digger_draw_api *ddap, int16_t n)
 {
-  int16_t i,gt,cx,p=0;
-  int8_t gap=19;
+  int16_t i,cx,p=0;
 
   gethrt(true);
   setretr(false);
-  for (i=0;i<(n<<1);i++)
-    for (cx=0;cx<volume;cx++) {
-      ddap->gpal(p=1-p);
-      ddap->gflush();
-      for (gt=0;gt<gap;gt++);
-    }
+  /* Toggle palette volume times per iteration (cheap), but only
+     render once per outer step.  The original called gflush() inside
+     the inner loop (870 renders per call), which is far too slow with
+     the modern full-pipeline doscreenupdate(). */
+  for (i=0;i<(n<<1);i++) {
+    for (cx=0;cx<volume;cx++)
+      p = 1 - p;
+    ddap->gpal(p);
+    ddap->gflush();
+  }
 }
 
 int16_t getinitial(struct digger_draw_api *ddap, int16_t x,int16_t y)

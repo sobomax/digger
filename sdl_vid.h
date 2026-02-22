@@ -40,6 +40,10 @@ void doscreenupdate_interp(float t);
 
 void sdl_save_settings(void);
 
+/* Letterbox background tile (call on level start / game end) */
+void sdl_update_bg_tile(int level_plan);
+void sdl_clear_bg_tile(void);
+
 #if defined(UNIX) && !defined(__EMSCRIPTEN__) && !defined(__APPLE__)
 void sdl_set_x11_parent(unsigned int);
 #endif

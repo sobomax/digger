@@ -92,6 +92,7 @@ void drawstatics(struct digger_draw_api *ddap) {
   ddap->gpal(0);
   ddap->ginten(0);
   drawbackg(levplan());
+  sdl_update_bg_tile(levplan());
   drawfield();
 }
 

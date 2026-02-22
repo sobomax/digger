@@ -268,6 +268,11 @@ int main(int argc, char *argv[]) {
     /* User chose to start game */
     rval = mainprog();
 
+#ifdef _SDL
+    /* Clear level background tile so menu shows black letterbox bars */
+    sdl_clear_bg_tile();
+#endif
+
     /* Reset escape flag for next run */
     escape = false;
   } while (menu_result == 1);
