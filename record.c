@@ -16,7 +16,7 @@
 #include "sprite.h"
 #include "game.h"
 
-static char huge *recb,huge *plb,huge *plp;
+static char *recb, *plb, *plp;
 
 bool playing=false,savedrf=false,gotname=false,gotgame=false,drfvalid=true,
      kludge=false;
@@ -151,8 +151,8 @@ void openplay(char *name)
   l=ftell(playf)-i;
   if (l < 0 || fseek(playf,i,SEEK_SET) < 0)
     goto out_0;
-  plb=plp=(char huge *)farmalloc(l);
-  if (plb==(char huge *)NULL) {
+  plb = plp = (char *)malloc(l);
+  if (plb == NULL) {
     goto out_0;
   }
 
@@ -171,7 +171,7 @@ void openplay(char *name)
   game();
   gotgame=true;
   playing=false;
-  farfree(plb);
+  free(plb);
   dgstate.gauntlet=origg;
   dgstate.gtime=origgtime;
   kludge=false;
@@ -190,10 +190,10 @@ void recstart(void)
 {
   uint32_t s=MAX_REC_BUFFER;
   do {
-    recb=(char huge *)farmalloc(s);
-    if (recb==NULL)
-      s>>=1;
-  } while (recb==(char huge *)NULL && s>1024);
+    recb = (char *)malloc(s);
+    if (recb == NULL)
+      s >>= 1;
+  } while (recb == NULL && s > 1024);
   if (recb==NULL) {
     finish();
     printf("Cannot allocate memory for recording buffer.\n");
@@ -208,7 +208,7 @@ static void mprintf(const char *f,...)
   char buf[80];
   int i,l;
   va_start(ap,f);
-  vsprintf(buf,f,ap);
+  vsnprintf(buf,sizeof(buf),f,ap);
   va_end(ap);
   l=strlen(buf);
   for (i=0;i<l;i++)

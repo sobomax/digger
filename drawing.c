@@ -361,7 +361,7 @@ void drawlives(struct digger_draw_api *ddap) {
   char buf[10];
   if (dgstate.gauntlet) {
     g = (int16_t)(dgstate.cgtime / 1193181l);
-    sprintf(buf, "%3i:%02i", g / 60, g % 60);
+    snprintf(buf, sizeof(buf), "%3i:%02i", g / 60, g % 60);
     outtext(ddap, buf, 124, 0, 3);
     return;
   }
@@ -369,7 +369,7 @@ void drawlives(struct digger_draw_api *ddap) {
   erasetext(ddap, 5, 96, 0, 2);
   if (n > 4) {
     drawlife(0, 80, 0);
-    sprintf(buf, "X%i", n);
+    snprintf(buf, sizeof(buf), "X%i", n);
     outtext(ddap, buf, 100, 0, 2);
   } else
     for (l = 1; l < 5; l++) {
@@ -380,7 +380,7 @@ void drawlives(struct digger_draw_api *ddap) {
     erasetext(ddap, 5, 164, 0, 2);
     n = getlives(1) - 1;
     if (n > 4) {
-      sprintf(buf, "%iX", n);
+      snprintf(buf, sizeof(buf), "%iX", n);
       outtext(ddap, buf, 220 - strlen(buf) * CHR_W, 0, 2);
       drawlife(1, 224, 0);
     } else
@@ -393,7 +393,7 @@ void drawlives(struct digger_draw_api *ddap) {
     erasetext(ddap, 5, 164, 0, 1);
     n = getlives(1) - 1;
     if (n > 4) {
-      sprintf(buf, "%iX", n);
+      snprintf(buf, sizeof(buf), "%iX", n);
       outtext(ddap, buf, 220 - strlen(buf) * CHR_W, 0, 1);
       drawlife(3, 224, 0);
     } else

@@ -49,18 +49,18 @@ static const char *menu_labels[] = {
 
 static int current_item = 0;
 
-/* Speed presets */
+/* Speed presets - value * 2000 = microseconds per frame */
 static const struct {
   const char *name;
   int value;
-} speed_presets[] = {{"VERY FAST", 5},
-                     {"FAST", 10},
-                     {"NORMAL", 20},
-                     {"SLOW", 40},
-                     {"VERY SLOW", 80}};
+} speed_presets[] = {{"TURBO", 7},      /* 286/386 speed */
+                     {"1983", 8},       /* Authentic IBM PC 4.77MHz 8088 speed */
+                     {"RELAXED", 14},
+                     {"SLOW", 25},
+                     {"VERY SLOW", 50}};
 #define NUM_SPEED_PRESETS 5
 
-static int current_speed_preset = 2; /* Default: NORMAL */
+static int current_speed_preset = 1; /* Default: 1983 (authentic 8088 speed) */
 
 static void draw_menu(struct digger_draw_api *ddap) {
   int i;
@@ -342,7 +342,7 @@ int show_settings_menu(struct digger_draw_api *ddap) {
   /* Initialize speed preset from current ftime */
   int i;
   int current_speed = (int)(dgstate.ftime / 2000l);
-  current_speed_preset = 2; /* Default to NORMAL */
+  current_speed_preset = 1; /* Default to 1983 (authentic 8088) */
   for (i = 0; i < NUM_SPEED_PRESETS; i++) {
     if (speed_presets[i].value == current_speed) {
       current_speed_preset = i;

@@ -69,8 +69,9 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize) {
   sud->buf = (int16_t *)malloc(sud->bsize);
   if (sud->buf == NULL) {
     fprintf(digger_log, "setsounddevice: malloc(3) failed\n");
-    SDL_CloseAudio();
+    SDL_CloseAudioDevice(sud->dev);
     free(sud);
+    sud = NULL;
     return (false);
   }
   sud->lp_fltr =

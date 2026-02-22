@@ -19,7 +19,7 @@
 
 static int16_t wavetype = 0, musvol = 0;
 static uint16_t t2val = 0, t0val = 0;
-int16_t spkrmode = 0, pulsewidth = 1, volume = 0;
+int16_t spkrmode = 0, pulsewidth = 1, volume = 29;
 
 static int8_t timerclock = 0;
 

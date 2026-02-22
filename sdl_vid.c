@@ -96,8 +96,6 @@ static SDL_Texture *scanline_overlay = NULL;
 /* Bloom effect */
 static int use_bloom = 1;
 static SDL_Texture *bloom_texture = NULL;
-static const int bloom_size_w = 160;
-static const int bloom_size_h = 100;
 
 static int use_crt_mask = 1;
 static SDL_Texture *crt_mask_texture = NULL;
@@ -292,16 +290,6 @@ void vgainit(void) {
     create_scanline_overlay();
   }
 
-  /* Create bloom texture if enabled */
-  if (use_bloom) {
-    create_bloom_texture();
-  }
-
-  /* Create shadow mask if enabled */
-  if (use_crt_mask) {
-    create_crt_mask_texture();
-  }
-
   if (setmode() == false) {
     fprintf(stderr, "Couldn't set video mode: %s\n", SDL_GetError());
     exit(1);
@@ -444,7 +432,6 @@ void doscreenupdate(void) {
 
   /* Apply CRT Shadow Mask Effect */
   if (use_crt_mask && crt_mask_texture != NULL) {
-    /* Blit shadow mask with multiply blending */
     SDL_RenderCopy(renderer, crt_mask_texture, NULL, NULL);
   }
 
@@ -886,7 +873,6 @@ void sdl_save_settings(void) {
   WriteINIBool(INI_GRAPHICS_SETTINGS, "Bloom", use_bloom, ININAME);
   WriteINIBool(INI_GRAPHICS_SETTINGS, "CRTMask", use_crt_mask, ININAME);
   WriteINIBool(INI_GRAPHICS_SETTINGS, "Lighting", use_lighting, ININAME);
-  WriteINIInt(INI_SOUND_SETTINGS, "SoundVolume", volume, ININAME);
 }
 
 void cgainit(void) {}

@@ -580,9 +580,7 @@ void testpause(void) {
 }
 
 static void calibrate(void) {
-  volume = (int16_t)(getkips() / 291);
-  if (volume == 0)
-    volume = 1;
+  /* Volume defaults to 29 in sound.c */
 }
 
 #define read_levf_fail(s, p)                                                   \
@@ -936,7 +934,7 @@ static void inir(void) {
     timer2 = s1timer2;
     soundinitglob(sound_length, sound_rate);
   }
-  volume = (int16_t)GetINIInt(INI_SOUND_SETTINGS, "SoundVolume", 29, ININAME);
+  /* Volume defaults to 29 in sound.c, don't override from INI */
   g_bWindowed = true;
   use_640x480_fullscreen =
       GetINIBool(INI_GRAPHICS_SETTINGS, "640x480", false, ININAME);

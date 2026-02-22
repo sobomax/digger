@@ -146,8 +146,8 @@ void redefkeyb(struct digger_draw_api *ddap, bool allf)
 
   for (i=0;i<NKEYS;i++)
     if (krdf[i]) {
-      sprintf(kbuf,"%s%c",keynames[i],(i>=5 && i<10) ? '2' : 0);
-      sprintf(vbuf,"%i/%i/%i/%i/%i",keycodes[i][0],keycodes[i][1],
+      snprintf(kbuf,sizeof(kbuf),"%s%c",keynames[i],(i>=5 && i<10) ? '2' : 0);
+      snprintf(vbuf,sizeof(vbuf),"%i/%i/%i/%i/%i",keycodes[i][0],keycodes[i][1],
               keycodes[i][2],keycodes[i][3],keycodes[i][4]);
       WriteINIString(INI_KEY_SETTINGS,kbuf,vbuf,ININAME);
     }
