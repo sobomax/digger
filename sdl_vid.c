@@ -20,10 +20,13 @@
 
 #include "alpha.h"
 #include "def.h"
+#include "digger.h"
+#include "drawing.h"
 #include "hardware.h"
 #include "icon.h"
 #include "ini.h"
 #include "sdl_vid.h"
+#include "sound.h"
 #include "title_gz.h"
 
 extern const uint8_t *vgatable[];
@@ -107,9 +110,6 @@ static SDL_Texture *light_sprite = NULL;
 static SDL_Texture *map_mask = NULL;
 
 /* Forward declarations */
-extern int16_t volume;
-extern int16_t field[];
-extern void drawemerald_lights(void);
 static void update_argb_palette(const SDL_Color *pal);
 static void create_scanline_overlay(void);
 static void create_bloom_texture(void);

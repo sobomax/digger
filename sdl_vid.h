@@ -27,7 +27,7 @@ int sdl_get_lighting(void);
 void sdl_add_light(int x, int y, int r, int g, int b, int radius);
 void sdl_save_settings(void);
 
-#if defined(UNIX) && !defined(__EMSCRIPTEN__)
+#if defined(UNIX) && !defined(__EMSCRIPTEN__) && !defined(__APPLE__)
 void sdl_set_x11_parent(unsigned int);
 #endif
 

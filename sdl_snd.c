@@ -11,6 +11,7 @@
 #include "hardware.h"
 #include "newsnd.h"
 #include "sdl_snd.h"
+#include "sound.h"
 
 static void fill_audio(void *udata, uint8_t *stream, int len);
 
@@ -91,7 +92,6 @@ static void fill_audio(void *udata, uint8_t *stream, int len) {
 #if !defined(NO_SND_FILTER)
   double sample;
 #endif
-  extern int16_t volume;
   int32_t mix_volume;
 
   if (!wave_device_available)

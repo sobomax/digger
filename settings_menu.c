@@ -21,10 +21,6 @@
 #include <SDL.h>
 #endif
 
-/* Global variables */
-extern bool soundflag;
-extern int16_t volume;
-
 /* Menu items */
 enum {
   MENU_SPEED,
@@ -221,14 +217,17 @@ static void handle_left(void) {
   break;
 
   case MENU_SOUND_LEVEL:
-    if (volume > 15)
+    if (volume >= 15)
       volume -= 15;
+    else
+      volume = 0;
     break;
 
   case MENU_MUSIC:
-    musicflag = !musicflag;
-    if (!musicflag)
+    if (musicflag) {
+      musicflag = false;
       musicoff();
+    }
     break;
 
   default:
@@ -255,14 +254,15 @@ static void handle_right(void) {
   break;
 
   case MENU_SOUND_LEVEL:
-    if (volume < 255 - 15)
+    if (volume <= 240)
       volume += 15;
+    else
+      volume = 255;
     break;
 
   case MENU_MUSIC:
-    musicflag = !musicflag;
     if (!musicflag)
-      musicoff();
+      musicflag = true;
     break;
 
   default:

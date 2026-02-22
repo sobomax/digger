@@ -1,4 +1,3 @@
-#include <math.h>
 #if defined(DIGGER_DEBUG)
 #include <stdio.h>
 #endif
@@ -14,7 +13,6 @@
 #endif
 
 #include "def.h"
-#include "digger_math.h"
 #include "game.h"
 #include "hardware.h"
 #include "input.h"
@@ -24,12 +22,6 @@
 #if defined(DIGGER_DEBUG)
 #include "digger_log.h"
 #endif
-
-/* Ensure doscreenupdate is declared if not in headers */
-void doscreenupdate(void);
-
-static struct PFD phase_detector;
-static struct recfilter *loop_error;
 
 static double next_tick_time_ms = 0.0;
 static double next_render_time_ms = 0.0;
@@ -60,11 +52,6 @@ static void ensure_render_schedule(double now_ms) {
 }
 
 void inittimer(void) {
-  double tfreq;
-
-  tfreq = 1000000.0 / dgstate.ftime;
-  loop_error = recfilter_init(tfreq, 0.1);
-  PFD_init(&phase_detector, 0.0);
   next_tick_time_ms = 0.0;
   next_render_time_ms = 0.0;
   cached_tick_duration_ms = 0.0;
