@@ -38,7 +38,7 @@ int keycodes[NKEYS][5] = {
     {SDL_SCANCODE_KP_MINUS, -2, -2, -2, -2}, /* Brake */
     {SDL_SCANCODE_F7, -2, -2, -2, -2},       /* Music */
     {SDL_SCANCODE_F9, -2, -2, -2, -2},       /* Sound */
-    {SDL_SCANCODE_F10, -2, -2, -2, -2},      /* Exit */
+    {SDL_SCANCODE_ESCAPE, SDL_SCANCODE_F10, -2, -2, -2}, /* Exit */
     {SDL_SCANCODE_P, -2, -2, -2, -2},        /* Pause */
     {SDL_SCANCODE_N, -2, -2, -2, -2},        /* Change mode */
     {SDL_SCANCODE_F8, -2, -2, -2, -2}};      /* Save DRF */
