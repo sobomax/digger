@@ -111,6 +111,7 @@ static int use_lighting = 1;
 static SDL_Texture *light_map = NULL;
 static SDL_Texture *light_sprite = NULL;
 static SDL_Texture *map_mask = NULL;
+static int light_map_dirty = 1;
 
 /* Palette fade interpolation */
 static int use_palette_fade = 1;
@@ -574,16 +575,19 @@ static void apply_post_effects(void) {
 }
 
 /* Rebuild the light map: clear and redraw all emerald lights.
- * Called once per game tick, not per render frame. */
+ * Skips work if already up-to-date for the current tick. */
 static void rebuild_light_map(void) {
-  if (!use_lighting || light_map == NULL)
+  if (!use_lighting || light_map == NULL || !light_map_dirty)
     return;
+  light_map_dirty = 0;
   SDL_SetRenderTarget(renderer, light_map);
   SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
   SDL_RenderClear(renderer);
   SDL_SetRenderTarget(renderer, NULL);
   drawemerald_lights();
 }
+
+void sdl_invalidate_light_map(void) { light_map_dirty = 1; }
 
 void doscreenupdate(void) {
   flush_screen16_to_roottxt();

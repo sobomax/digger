@@ -25,6 +25,7 @@ int sdl_get_crt_mask(void);
 void sdl_toggle_lighting(void);
 int sdl_get_lighting(void);
 void sdl_add_light(int x, int y, int r, int g, int b, int radius);
+void sdl_invalidate_light_map(void);
 
 /* Palette fade controls */
 void sdl_fade_to_intensity(int inten, int duration_ms);

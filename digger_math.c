@@ -81,7 +81,7 @@ _recfilter_peak_detect(struct recfilter *f)
     if (f->lastval > f->maxval) {
         f->maxval = f->lastval;
     } if (f->lastval < f->minval) {
-        f->minval = f->maxval;
+        f->minval = f->lastval;
     }
 }
 

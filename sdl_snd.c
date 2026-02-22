@@ -77,7 +77,7 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize) {
   }
   sud->lp_fltr =
       bqd_lp_init(sud->obtained.freq,
-                  (sud->obtained.freq > 12000) ? 6000 : sud->obtained.freq / 2);
+                  (sud->obtained.freq > 24000) ? 12000 : sud->obtained.freq / 2);
   sud->hp_fltr =
       bqd_hp_init(sud->obtained.freq,
                   (sud->obtained.freq > 80) ? 20 : sud->obtained.freq / 4);
@@ -106,7 +106,14 @@ static void fill_audio(void *udata, uint8_t *stream, int len) {
 #if !defined(NO_SND_FILTER)
     sample = (double)getsample();
     sample = bqd_apply(sud->hp_fltr, sample);
-    sud->buf[i] = (int16_t)round(bqd_apply(sud->lp_fltr, sample));
+    {
+      double out = round(bqd_apply(sud->lp_fltr, sample));
+      if (out > INT16_MAX)
+        out = INT16_MAX;
+      else if (out < INT16_MIN)
+        out = INT16_MIN;
+      sud->buf[i] = (int16_t)out;
+    }
 #else
     sud->buf[i] = getsample();
 #endif
