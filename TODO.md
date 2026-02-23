@@ -1,7 +1,7 @@
 # Digger Remastered TODO
 
 Generated from brainstorm roundtable review (2026-02-23).
-Verified against current codebase state (2026-02-23). Last reviewed: 2026-02-23 (re-verified and corrected).
+Verified against current codebase state (2026-02-23). Last reviewed: 2026-02-23 (re-verified; all items accurate, 2 P5 items remain open).
 
 ---
 
@@ -75,11 +75,10 @@ Verified against current codebase state (2026-02-23). Last reviewed: 2026-02-23 
 - [x] **Extract duplicated CGA init code**
   - Extracted `init_cga_mode()` helper in `main.c`, called from both `parsecmd()` and `inir()`
 
-- [ ] **Unify duplicate RNG implementations**
-  - `randno()` in `main.c:863-866` and `randnos()` in `sound.c:72-75` — identical LCG
-  - Both use multiplier `0x15a4e35l` + increment `1`, mask `0x7fffffff`
-  - Separate state is correct (thread safety), but share the algorithm
-  - Extract `lcg_next(uint32_t *state)` helper
+- [x] **Unify duplicate RNG implementations**
+  - `randno()` in `main.c` and `randnos()` in `sound.c` — identical LCG
+  - Extracted `lcg_next(int32_t *state)` inline in `digger_math.h`
+  - Both callers now use `lcg_next()`, separate state preserved
 
 - [x] **Clean up `#if defined(INTDRF) || 1` in `digger.c`**
   - Removed the dead `#if` guards — code is now unconditional
@@ -87,11 +86,10 @@ Verified against current codebase state (2026-02-23). Last reviewed: 2026-02-23 
 - [x] **Rename `kludge` variable**
   - Renamed to `replay_compat_mode` in `record.c`, `record.h`, `monster.c`
 
-- [ ] **Guard FreeBSD debug prints**
-  - `fbsd_vid.c`: 5 unconditional `fprintf(stderr, ...)` calls (lines 123-135, 216, 258)
-  - `fbsd_timer.c`: 8 `FIXME()` stubs (lines 26, 74-105)
-  - `fbsd_snd.c`: 3 `FIXME()` stubs (lines 5, 11, 17)
-  - All unconditional in all build types — guard with `#ifdef DIGGER_DEBUG` or remove
+- [x] **Guard FreeBSD debug prints**
+  - `FIXME()` macro in `fbsd_sup.h` now conditional on `DIGGER_DEBUG`
+  - Debug `fprintf` calls in `fbsd_vid.c` (doscreenupdate, vgaputi) guarded with `#ifdef DIGGER_DEBUG`
+  - Fatal error messages (exit paths) left unconditional — those are user-facing
 
 ## P5 — Product / Features (medium-large effort)
 
