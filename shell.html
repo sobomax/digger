@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>D I G G E R</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0a0a0a;
+      color: #c0c0c0;
+      font-family: 'Press Start 2P', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+
+    .header {
+      padding: 24px 0 12px;
+      text-align: center;
+    }
+
+    .title {
+      font-size: 28px;
+      color: #33ff33;
+      text-shadow: 0 0 20px #33ff3366, 0 0 40px #33ff3333;
+      letter-spacing: 0.3em;
+    }
+
+    .subtitle {
+      font-size: 9px;
+      color: #888;
+      margin-top: 8px;
+      letter-spacing: 0.15em;
+      font-family: monospace;
+    }
+
+    .game-wrap {
+      position: relative;
+      margin: 12px auto;
+      border: 2px solid #222;
+      border-radius: 4px;
+      box-shadow: 0 0 30px #000, 0 0 2px #33ff3322;
+      background: #000;
+      line-height: 0;
+    }
+
+    canvas {
+      display: block;
+      border: 0;
+      background: #000;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .controls-bar {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      justify-content: center;
+      margin: 12px 0;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      padding: 8px 20px;
+      border: 1px solid #33ff33;
+      background: transparent;
+      color: #33ff33;
+      cursor: pointer;
+      letter-spacing: 0.1em;
+      transition: all 0.15s;
+    }
+    .btn:hover {
+      background: #33ff3318;
+      box-shadow: 0 0 12px #33ff3333;
+    }
+    .btn:active {
+      background: #33ff3330;
+    }
+
+    .instructions {
+      max-width: 640px;
+      padding: 20px 24px;
+      text-align: center;
+    }
+
+    .instructions h2 {
+      font-size: 11px;
+      color: #33ff33;
+      margin-bottom: 14px;
+    }
+
+    .keys {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      flex-wrap: wrap;
+      font-family: monospace;
+      font-size: 12px;
+      line-height: 1.8;
+    }
+
+    .keys .col {
+      text-align: left;
+    }
+
+    .key {
+      display: inline-block;
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 3px;
+      padding: 1px 7px;
+      font-size: 11px;
+      color: #e0e0e0;
+      min-width: 24px;
+      text-align: center;
+    }
+
+    .label {
+      color: #777;
+      font-size: 11px;
+    }
+
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: #000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      transition: opacity 0.4s;
+    }
+    .loading-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-text {
+      font-size: 12px;
+      color: #33ff33;
+      margin-bottom: 16px;
+    }
+
+    .progress-bar {
+      width: 200px;
+      height: 4px;
+      background: #1a1a1a;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #33ff33;
+      width: 0%;
+      transition: width 0.2s;
+    }
+
+    .footer {
+      padding: 16px 0 24px;
+      text-align: center;
+      font-family: monospace;
+      font-size: 10px;
+      color: #444;
+    }
+    .footer a {
+      color: #33ff3388;
+      text-decoration: none;
+    }
+    .footer a:hover {
+      color: #33ff33;
+    }
+
+    @media (max-width: 700px) {
+      .title { font-size: 20px; }
+      .header { padding: 16px 0 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">D I G G E R</div>
+    <div class="subtitle">REMASTERED &mdash; WINDMILL SOFTWARE 1983</div>
+  </div>
+
+  <div class="game-wrap" id="game-wrap">
+    <div class="loading-overlay" id="loading">
+      <div class="loading-text" id="status">Loading...</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+      </div>
+    </div>
+    <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex=-1></canvas>
+  </div>
+
+  <div class="controls-bar">
+    <button class="btn" id="btn-fullscreen">FULLSCREEN</button>
+    <button class="btn" id="btn-settings">F11 SETTINGS</button>
+  </div>
+
+  <div class="instructions">
+    <h2>CONTROLS</h2>
+    <div class="keys">
+      <div class="col">
+        <span class="key">&uarr;</span> <span class="key">&darr;</span> <span class="key">&larr;</span> <span class="key">&rarr;</span> <span class="label">Move</span><br>
+        <span class="key">F1</span> <span class="label">Fire</span>
+      </div>
+      <div class="col">
+        <span class="key">F7</span> <span class="label">Sound On/Off</span><br>
+        <span class="key">F9</span> <span class="label">Pause</span>
+      </div>
+      <div class="col">
+        <span class="key">F11</span> <span class="label">Settings</span><br>
+        <span class="key">ESC</span> <span class="label">Exit</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <a href="https://github.com/nicholatian/digger">github</a>
+  </div>
+
+  <script>
+    var statusElement = document.getElementById('status');
+    var progressFill = document.getElementById('progress-fill');
+    var loadingOverlay = document.getElementById('loading');
+    var canvasElement = document.getElementById('canvas');
+
+    canvasElement.addEventListener('webglcontextlost', function(e) {
+      e.preventDefault();
+      statusElement.textContent = 'WebGL context lost. Please reload.';
+    }, false);
+
+    document.getElementById('btn-fullscreen').addEventListener('click', function() {
+      Module.requestFullscreen(false, true);
+    });
+
+    document.getElementById('btn-settings').addEventListener('click', function() {
+      /* simulate F11 keypress */
+      canvasElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'F11', code: 'F11', keyCode: 122, bubbles: true}));
+      canvasElement.focus();
+    });
+
+    var setStatus = function(text) {
+      if (!setStatus.last) setStatus.last = { time: Date.now(), text: '' };
+      if (text === setStatus.last.text) return;
+      var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+      var now = Date.now();
+      if (m && now - setStatus.last.time < 30) return;
+      setStatus.last.time = now;
+      setStatus.last.text = text;
+      if (m) {
+        var pct = (parseInt(m[2]) / parseInt(m[4])) * 100;
+        progressFill.style.width = pct + '%';
+        statusElement.textContent = m[1].trim() || 'Loading...';
+      } else {
+        if (!text) {
+          loadingOverlay.classList.add('hidden');
+          canvasElement.focus();
+        } else {
+          statusElement.textContent = text;
+        }
+      }
+    };
+
+    var Module = {
+      print: function() {
+        var text = Array.prototype.slice.call(arguments).join(' ');
+        console.log(text);
+      },
+      canvas: canvasElement,
+      setStatus: setStatus,
+      totalDependencies: 0,
+      monitorRunDependencies: function(left) {
+        this.totalDependencies = Math.max(this.totalDependencies, left);
+        setStatus(left
+          ? 'Preparing... (' + (this.totalDependencies - left) + '/' + this.totalDependencies + ')'
+          : 'All downloads complete.');
+      }
+    };
+
+    setStatus('Downloading...');
+
+    window.onerror = function(event) {
+      statusElement.textContent = 'Error - see console';
+      setStatus = function(text) {
+        if (text) console.error('[post-exception] ' + text);
+      };
+    };
+  </script>
+  {{{ SCRIPT }}}
+</body>
+</html>
