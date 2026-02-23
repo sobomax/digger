@@ -78,6 +78,16 @@ Cross-compile targets: `ARCH=MINGW` (Win32), `ARCH=MINGW64` (Win64), `ARCH=WASM`
 
 SDL2 >= 2.0.9, zlib >= 1.3.1, libm, libatomic (fallback on some platforms).
 
+## Security Hardening
+
+The replay parser (`record.c`) is the primary untrusted-input boundary:
+- `plp_end` tracks replay buffer bounds; all reader functions check before dereferencing
+- Header fields validated: `diggers` (1..2), `startlev` (1..8), `gtime` (>0 in gauntlet)
+- Error paths set `escape=true` for graceful termination
+- All `sprintf` migrated to `snprintf`; `strcpy` replaced with `snprintf` where input length is unbounded
+
+The `getfield()` function in `monster.c` bounds-checks coordinates and returns -1 (solid wall) for OOB. The `eatfield()` function in `drawing.c` bounds-checks all 4 direction cases.
+
 ## Pre-commit Checks
 
 1. Builds succeed on LINUX (both debug and production)

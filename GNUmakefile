@@ -3,9 +3,11 @@ CFLAGS	+= -pipe
 ifeq (${BUILD_TYPE},production)
 CFLAGS  += -O3
 else
-CFLAGS  += -O0 -g3 -DDIGGER_DEBUG
+CFLAGS  += -O0 -g3 -DDIGGER_DEBUG -Wextra
 endif
-RCFLAGS = -D_SDL -std=c11 -Wall #-DNO_SND_FILTER #-DNO_SND_EFFECTS
+RCFLAGS = -D_SDL -std=c11 -Wall
+# Optional: -DNO_SND_FILTER disables high-pass audio filter (sdl_snd.c)
+#           -DNO_SND_EFFECTS disables emerald/wobble sound effects (sound.c)
 OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o sound.o \
 		newsnd.o ini.o input.o monster.o bags.o alpha.o vgagrafx.o \
 		title_gz.o icon.o sdl_kbd.o sdl_vid.o sdl_timer.o sdl_snd.o \

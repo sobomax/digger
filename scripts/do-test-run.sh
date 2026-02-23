@@ -20,7 +20,9 @@ wait_pids() {
   PIDS=""
 }
 
-mv ./production/* ./
+if [ -d ./production ]; then
+  mv ./production/* ./
+fi
 for TTYPE in ${TEST_TYPES}
 do
   for x in tests/data/*.drf

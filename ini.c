@@ -111,9 +111,11 @@ void GetINIString(const char *section, const char *key, const char *def,
                   char *dest, int destsize, const char *filename) {
   FILE *fp;
   char s1[80], s2[80], s3[80];
-  /* Copy default value to destination if they differ */
+  /* Copy default value to destination (memmove handles overlap) */
   if (dest != def) {
-    strncpy(dest, def, destsize - 1);
+    size_t deflen = strlen(def);
+    memmove(dest, def, deflen < (size_t)(destsize - 1) ?
+            deflen + 1 : (size_t)destsize);
     dest[destsize - 1] = '\0';
   }
   fp = fopen(filename, "rb");

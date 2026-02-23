@@ -33,7 +33,4 @@ void declife(int pl);
 
 extern bool bonusvisible,digonscr,bonusmode;
 
-#ifdef INTDRF
-extern uint32_t frame;
-#endif
 uint32_t getframe(void);

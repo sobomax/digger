@@ -1,7 +1,7 @@
 # Digger Remastered TODO
 
 Generated from brainstorm roundtable review (2026-02-23).
-Verified against current codebase state (2026-02-23).
+Verified against current codebase state (2026-02-23). Last reviewed: 2026-02-23 (re-verified and corrected).
 
 ---
 
@@ -32,64 +32,66 @@ Verified against current codebase state (2026-02-23).
 
 ## P2 — Build System Hygiene (small effort)
 
-- [ ] **Fix NO_SND_FILTER inconsistency**
-  - `GNUmakefile:8` has `-DNO_SND_FILTER` commented out
-  - `CMakeLists.txt` doesn't mention it at all
-  - Document the flag or remove from GNUmakefile
+- [x] **Fix NO_SND_FILTER / NO_SND_EFFECTS inconsistency**
+  - Removed commented-out flags from `GNUmakefile:8`, added documenting comment
+  - Added `OPTION(NO_SND_FILTER)` and `OPTION(NO_SND_EFFECTS)` to `CMakeLists.txt`
+  - Both build systems now default to filters/effects ON, with documented opt-out
 
-- [ ] **Fix `do-test-run.sh` for local use**
-  - Script does `mv ./production/* ./` assuming CI directory layout
-  - Fails when running `make do-test` locally
-  - Add check: if binary already exists in `.`, skip the move
+- [x] **Fix `do-test-run.sh` for local use**
+  - Guarded `mv ./production/* ./` with `if [ -d ./production ]`
+  - Script now works both in CI (with production dir) and locally (without)
 
-- [ ] **Remove `-Wextra -pedantic` gap** in GNUmakefile
-  - `CMakeLists.txt` debug mode has `-Wextra`
-  - `GNUmakefile` only has `-Wall`
-  - Add `-Wextra` to GNUmakefile for consistency
+- [x] **Remove `-Wextra -pedantic` gap** in GNUmakefile
+  - Added `-Wextra` to non-production (debug) CFLAGS in GNUmakefile
+  - Also fixed `CMakeLists.txt` C standard from `-std=c99` to `-std=c11`
 
 ## P3 — Security Hardening (medium effort)
 
-- [ ] **Add bounds checking to field array access**
-  - `field[y*MWIDTH+x]` used in `drawing.c`, `bags.c`, `monster.c` without bounds checks
-  - Grid is 15x10 — out-of-range x/y could corrupt memory
-  - Especially relevant for replay parser: crafted `.drf` could feed invalid positions
+- [x] **Add bounds checking to field array access**
+  - `getfield()` in `monster.c` now bounds-checks and returns -1 (solid) for OOB
+  - `eatfield()` in `drawing.c` now bounds-checks all 4 direction cases
+  - `drawfield()` look-aheads at `drawing.c:133-137` already guarded (`x < 14`, `y < 9`)
 
-- [ ] **Harden replay file parser** in `record.c`
-  - Validate input records before feeding to game logic
-  - Important for WASM build where users may load untrusted `.drf` files
+- [x] **Harden replay file parser** in `record.c`
+  - Added `plp_end` buffer boundary tracking (set after load, cleared after free/error)
+  - Header validation: `diggers` (1..2), `startlev` (>=1), `gtime` (>0 in gauntlet)
+  - Bounds-checked `playgetdir()`, `playgetrand()`, `playskipeol()`
+  - All error paths use `escape=true` for graceful termination
+  - Remaining: level map data still copied raw without character validation
 
-- [ ] **Fix undefined behavior in `ini.c:123`**
-  - `strcpy(dest, def)` where `dest == def` is possible (see FIXME comment)
-  - `strcpy` with overlapping buffers is UB per C standard
-  - Use `memmove()` or restructure
+- [x] **Fix undefined behavior in `ini.c`**
+  - `GetINIString()` now uses `memmove()` instead of `strncpy()` — safe for overlapping buffers
 
-- [ ] **Migrate `sprintf` to `snprintf`** — 6 remaining calls
-  - `main.c`: 2 calls (lines 887-888)
-  - `record.c`: 4 calls (line 379, 382, 385, 387)
-  - Currently safe (controlled inputs) but fragile against future changes
+- [x] **Migrate `sprintf` to `snprintf`** — all 6 calls migrated
+  - `main.c:887-888`: `snprintf(kbuf/vbuf, sizeof(...), ...)`
+  - `record.c:391-400`: `snprintf(nambuf, sizeof(nambuf), ...)` + `strncat` for ".drf"
+  - No `sprintf` calls remain in the codebase
+
+- [x] **Fix assert-only `strcpy` guard** in `record.c`
+  - Replaced `assert` + `strcpy` with `snprintf(rname, sizeof(rname), "%s", name)`
 
 ## P4 — Code Cleanup (small effort, nice to have)
 
-- [ ] **Extract duplicated CGA init code**
-  - Identical ~10-line blocks in `parsecmd()` (main.c) and `inir()` (main.c)
-  - Extract to `init_cga_mode()` function
+- [x] **Extract duplicated CGA init code**
+  - Extracted `init_cga_mode()` helper in `main.c`, called from both `parsecmd()` and `inir()`
 
 - [ ] **Unify duplicate RNG implementations**
-  - `randno()` in `main.c` and `randnos()` in `sound.c` — identical LCG algorithm
+  - `randno()` in `main.c:863-866` and `randnos()` in `sound.c:72-75` — identical LCG
+  - Both use multiplier `0x15a4e35l` + increment `1`, mask `0x7fffffff`
   - Separate state is correct (thread safety), but share the algorithm
   - Extract `lcg_next(uint32_t *state)` helper
 
-- [ ] **Clean up `#if defined(INTDRF) || 1` in `digger.c:83,94`**
-  - The `|| 1` makes it unconditionally compiled — remove the conditional or the `|| 1`
+- [x] **Clean up `#if defined(INTDRF) || 1` in `digger.c`**
+  - Removed the dead `#if` guards — code is now unconditional
 
-- [ ] **Rename `kludge` variable** in `record.c:22`, `record.h:18`
-  - Used for replay format backward compatibility (`monster.c:357-366`)
-  - Rename to `replay_compat_mode` or similar descriptive name
+- [x] **Rename `kludge` variable**
+  - Renamed to `replay_compat_mode` in `record.c`, `record.h`, `monster.c`
 
 - [ ] **Guard FreeBSD debug prints**
-  - `fbsd_vid.c:434` and many `fbsd_timer.c` stubs use `FIXME()` macro
-  - These are unconditional `fprintf(stderr, ...)` in all build types
-  - Guard with `#ifdef DIGGER_DEBUG` or remove
+  - `fbsd_vid.c`: 5 unconditional `fprintf(stderr, ...)` calls (lines 123-135, 216, 258)
+  - `fbsd_timer.c`: 8 `FIXME()` stubs (lines 26, 74-105)
+  - `fbsd_snd.c`: 3 `FIXME()` stubs (lines 5, 11, 17)
+  - All unconditional in all build types — guard with `#ifdef DIGGER_DEBUG` or remove
 
 ## P5 — Product / Features (medium-large effort)
 
@@ -103,9 +105,11 @@ Verified against current codebase state (2026-02-23).
   - 448-line functional implementation with 14 menu items
   - Sound, speed, graphics toggles (bloom, CRT, lighting, scanlines, etc.)
 
-- [ ] **Remove obsolete DOS functions**
-  - README roadmap item: `s0setupsound()` and similar stubs
-  - FreeBSD stubs in `fbsd_snd.c`, `fbsd_timer.c` are all no-ops
+- [ ] **Remove obsolete DOS functions** — 11 FIXME stubs remain
+  - `fbsd_snd.c`: 3 stubs (`initsounddevice`, `setsounddevice`, `killsounddevice`)
+  - `fbsd_timer.c`: 8 stubs (`inittimer`, `getkips`, `s0soundoff`, `s0setspkrt2`, etc.)
+  - `sound.c:794`: `s0setupsound()` wrapper calls `inittimer()`
+  - All are FreeBSD VGL-only no-ops, dead code in SDL2 builds
 
 - [x] **Independent framerate from game speed** (README roadmap v2.0)
   - Frame interpolation fully implemented (`sdl_frame_tick_commit`, `doscreenupdate_interp`)

@@ -146,6 +146,7 @@ void eatfield(int16_t x, int16_t y, int16_t dir) {
   switch (dir) {
   case DIR_RIGHT:
     h++;
+    if (h<0 || h>=MWIDTH || v<0 || v>=MHEIGHT) break;
     field[v * MWIDTH + h] &= bitmasks[xr];
     if (field[v * MWIDTH + h] & 0x1f)
       break;
@@ -157,6 +158,7 @@ void eatfield(int16_t x, int16_t y, int16_t dir) {
       yr += 6;
       v--;
     }
+    if (h<0 || h>=MWIDTH || v<0 || v>=MHEIGHT) break;
     field[v * MWIDTH + h] &= bitmasks[6 + yr];
     if (field[v * MWIDTH + h] & 0xfc0)
       break;
@@ -168,6 +170,7 @@ void eatfield(int16_t x, int16_t y, int16_t dir) {
       xr += 5;
       h--;
     }
+    if (h<0 || h>=MWIDTH || v<0 || v>=MHEIGHT) break;
     field[v * MWIDTH + h] &= bitmasks[xr];
     if (field[v * MWIDTH + h] & 0x1f)
       break;
@@ -175,6 +178,7 @@ void eatfield(int16_t x, int16_t y, int16_t dir) {
     break;
   case DIR_DOWN:
     v++;
+    if (h<0 || h>=MWIDTH || v<0 || v>=MHEIGHT) break;
     field[v * MWIDTH + h] &= bitmasks[6 + yr];
     if (field[v * MWIDTH + h] & 0xfc0)
       break;

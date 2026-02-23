@@ -16,10 +16,10 @@
 #include "sprite.h"
 #include "game.h"
 
-static char *recb, *plb, *plp;
+static char *recb, *plb, *plp, *plp_end;
 
 bool playing=false,savedrf=false,gotname=false,gotgame=false,drfvalid=true,
-     kludge=false;
+     replay_compat_mode=false;
 
 static char rname[128];
 
@@ -87,12 +87,12 @@ void openplay(char *name)
   if (buf[0]!='D' || buf[1]!='R' || buf[2]!='F') {
     goto out_0;
   }
-  /* Get version for kludge switches */
+  /* Get version for replay_compat_mode switches */
   if (smart_fgets(buf, 80, playf) == NULL) {
     goto out_0;
   }
   if (atol(buf+7)<=19981125l)
-    kludge=true;
+    replay_compat_mode=true;
   /* Get mode */
   if (smart_fgets(buf, 80, playf) == NULL) {
     goto out_0;
@@ -125,6 +125,13 @@ void openplay(char *name)
     x++;
   if (buf[x]=='I')
     dgstate.startlev=atoi(buf+x+1);
+  /* Validate parsed header fields */
+  if (dgstate.diggers<1 || dgstate.diggers>DIGGERS)
+    goto out_0;
+  if (dgstate.startlev<1 || dgstate.startlev>8)
+    goto out_0;
+  if (dgstate.gauntlet && dgstate.gtime<=0)
+    goto out_0;
   /* Get bonus score */
   if (smart_fgets(buf, 80, playf) == NULL) {
     goto out_0;
@@ -163,6 +170,7 @@ void openplay(char *name)
     if (c>=' ')
       *(plp++)= (char)c;
   }
+  plp_end=plp;
   fclose(playf);
   plp=plb;
 
@@ -172,14 +180,16 @@ void openplay(char *name)
   gotgame=true;
   playing=false;
   free(plb);
+  plp_end=NULL;
   dgstate.gauntlet=origg;
   dgstate.gtime=origgtime;
-  kludge=false;
+  replay_compat_mode=false;
   dgstate.startlev=origstartlev;
   dgstate.diggers=origdiggers;
   dgstate.nplayers=orignplayers;
   return;
 out_0:
+  plp_end=NULL;
   if (playf != NULL) {
     fclose(playf);
   }
@@ -242,12 +252,16 @@ void playgetdir(int16_t *dir,bool *fire)
     rlleft--;
   }
   else {
+    if (plp>=plp_end) {
+      escape=true;
+      return;
+    }
     if (*plp=='E' || *plp=='e') {
       escape=true;
       return;
     }
     rld=*(plp++);
-    while (*plp>='0' && *plp<='9')
+    while (plp<plp_end && *plp>='0' && *plp<='9')
       rlleft=rlleft*10+((*(plp++))-'0');
     makedir(dir,fire,rld);
     if (rlleft>0)
@@ -314,7 +328,7 @@ void recinit(void)
   drfvalid=true;
 
   mprintf("DRF\n"); /* Required at start of DRF */
-  if (kludge)
+  if (replay_compat_mode)
     mprintf("AJ DOS 19981125\n");
   else
     mprintf(DIGGER_VERSION"\n");
@@ -376,16 +390,16 @@ void recsavedrf(void)
       }
       init[3]=0;
       if (scoret<100000l)
-        sprintf(nambuf,"%s%i",init,scoret);
+        snprintf(nambuf,sizeof(nambuf),"%s%i",init,scoret);
       else
         if (init[2]=='_')
-          sprintf(nambuf,"%c%c%i",init[0],init[1],scoret);
+          snprintf(nambuf,sizeof(nambuf),"%c%c%i",init[0],init[1],scoret);
         else
           if (init[0]=='_')
-            sprintf(nambuf,"%c%c%i",init[1],init[2],scoret);
+            snprintf(nambuf,sizeof(nambuf),"%c%c%i",init[1],init[2],scoret);
           else
-            sprintf(nambuf,"%c%c%i",init[0],init[2],scoret);
-      strcat(nambuf,".drf");
+            snprintf(nambuf,sizeof(nambuf),"%c%c%i",init[0],init[2],scoret);
+      strncat(nambuf,".drf",sizeof(nambuf)-strlen(nambuf)-1);
       recf=fopen(nambuf,"wt");
     }
     if (recf==NULL)
@@ -402,6 +416,10 @@ void recsavedrf(void)
 
 void playskipeol(void)
 {
+  if (plp+3>plp_end) {
+    escape=true;
+    return;
+  }
   plp+=3;
 }
 
@@ -410,9 +428,22 @@ uint32_t playgetrand(void)
   int i;
   uint32_t r=0;
   char p;
-  if ((*plp)=='*')
+  if (plp>=plp_end) {
+    escape=true;
+    return 0;
+  }
+  if ((*plp)=='*') {
+    if (plp+4>plp_end) {
+      escape=true;
+      return 0;
+    }
     plp+=4;
+  }
   for (i=0;i<8;i++) {
+    if (plp>=plp_end) {
+      escape=true;
+      return r;
+    }
     p=*(plp++);
     if (p>='0' && p<='9')
       r|=(uint32_t)(p-'0')<<((7-i)<<2);
@@ -445,7 +476,6 @@ void recputeog(void)
 
 void recname(char *name)
 {
-  assert(strlen(name) < sizeof(rname));
   gotname=true;
-  strcpy(rname,name);
+  snprintf(rname, sizeof(rname), "%s", name);
 }

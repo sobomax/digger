@@ -80,9 +80,7 @@ void initdigger(void) {
   bonusvisible = bonusmode = false;
 }
 
-#if defined(INTDRF) || 1
 static uint32_t frame;
-#endif
 
 uint32_t getframe(void) { return (frame); }
 
@@ -91,9 +89,7 @@ void newframe(void) {
   gethrt(sounddiedone ? false : true);
   checkkeyb();
 
-#if defined(INTDRF) || 1
   frame++;
-#endif
 }
 
 void drawdig(int n) {

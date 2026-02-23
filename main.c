@@ -38,6 +38,22 @@ static struct game {
 } gamedat[2];
 
 static bool levnotdrawn = false, alldead = false;
+
+static void init_cga_mode(struct digger_draw_api *ddap) {
+  ddap->ginit = cgainit;
+  ddap->gpal = cgapal;
+  ddap->ginten = cgainten;
+  ddap->gclear = cgaclear;
+  ddap->ggetpix = cgagetpix;
+  ddap->gputi = cgaputi;
+  ddap->ggeti = cgageti;
+  ddap->gputim = cgaputim;
+  ddap->gwrite = cgawrite;
+  ddap->gtitle = cgatitle;
+  ddap->ginit();
+  ddap->gpal(0);
+}
+
 static bool started;
 static int16_t penalty = 0;
 
@@ -783,20 +799,8 @@ static void parsecmd(int argc, char *argv[]) {
         musicflag = false;
       if (argch == '2')
         dgstate.diggers = 2;
-      if (argch == 'B' || argch == 'C') {
-        ddap->ginit = cgainit;
-        ddap->gpal = cgapal;
-        ddap->ginten = cgainten;
-        ddap->gclear = cgaclear;
-        ddap->ggetpix = cgagetpix;
-        ddap->gputi = cgaputi;
-        ddap->ggeti = cgageti;
-        ddap->gputim = cgaputim;
-        ddap->gwrite = cgawrite;
-        ddap->gtitle = cgatitle;
-        ddap->ginit();
-        ddap->gpal(0);
-      }
+      if (argch == 'B' || argch == 'C')
+        init_cga_mode(ddap);
       if (argch == 'K') {
         if (word[2] == 'A' || word[2] == 'a')
           redefkeyb(ddap, true);
@@ -884,8 +888,8 @@ static void inir(void) {
 #endif
 
   for (i = 0; i < NKEYS; i++) {
-    sprintf(kbuf, "%s%c", keynames[i], (i >= 5 && i < 10) ? '2' : 0);
-    sprintf(vbuf, "%i/%i/%i/%i/%i", keycodes[i][0], keycodes[i][1],
+    snprintf(kbuf, sizeof(kbuf), "%s%c", keynames[i], (i >= 5 && i < 10) ? '2' : 0);
+    snprintf(vbuf, sizeof(vbuf), "%i/%i/%i/%i/%i", keycodes[i][0], keycodes[i][1],
             keycodes[i][2], keycodes[i][3], keycodes[i][4]);
     GetINIString(INI_KEY_SETTINGS, kbuf, vbuf, vbuf, 80, ININAME);
     krdf[i] = true;
@@ -946,20 +950,8 @@ static void inir(void) {
   use_async_screen_updates =
       GetINIBool(INI_GRAPHICS_SETTINGS, "Async", true, ININAME);
   cgaflag = GetINIBool(INI_GRAPHICS_SETTINGS, "CGA", false, ININAME);
-  if (cgaflag) {
-    ddap->ginit = cgainit;
-    ddap->gpal = cgapal;
-    ddap->ginten = cgainten;
-    ddap->gclear = cgaclear;
-    ddap->ggetpix = cgagetpix;
-    ddap->gputi = cgaputi;
-    ddap->ggeti = cgageti;
-    ddap->gputim = cgaputim;
-    ddap->gwrite = cgawrite;
-    ddap->gtitle = cgatitle;
-    ddap->ginit();
-    ddap->gpal(0);
-  }
+  if (cgaflag)
+    init_cga_mode(ddap);
   dgstate.unlimlives =
       GetINIBool(INI_GAME_SETTINGS, "UnlimitedLives", false, ININAME);
   dgstate.startlev =

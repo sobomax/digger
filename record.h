@@ -15,4 +15,4 @@ void playskipeol(void);
 void recputdir(int16_t dir,bool fire);
 void recsavedrf(void);
 
-extern bool playing,savedrf,gotname,gotgame,drfvalid,kludge;
+extern bool playing,savedrf,gotname,gotgame,drfvalid,replay_compat_mode;

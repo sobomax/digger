@@ -354,16 +354,16 @@ monai(struct digger_draw_api *ddap, int16_t mon)
       if (mondat[mon].dir==mondat[m].dir && mondat[m].stime==0 &&
           mondat[mon].stime==0)
         mondat[m].dir=reversedir(mondat[m].dir);
-      /* The kludge here is to preserve playback for a bug in previous
+      /* Use replay_compat_mode to preserve playback for a bug in previous
          versions. */
-      if (!kludge)
+      if (!replay_compat_mode)
         incpenalty();
       else
         if (!(m&1))
           incpenalty();
       i=clcoll[i];
     } while (i!=-1);
-    if (kludge)
+    if (replay_compat_mode)
       if (clfirst[0]!=-1)
         incpenalty();
   }
@@ -591,5 +591,7 @@ void incmont(int16_t n)
 
 int16_t getfield(int16_t x,int16_t y)
 {
-  return field[y*15+x];
+  if (x<0 || x>=MWIDTH || y<0 || y>=MHEIGHT)
+    return -1;
+  return field[y*MWIDTH+x];
 }
