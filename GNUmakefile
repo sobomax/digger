@@ -74,9 +74,10 @@ endif
 ifeq ($(ARCH),WASM)
 CC      = emcc
 CFLAGS  += -flto=full -DUNIX -s USE_SDL=2 -s USE_ZLIB=1 -s ASYNCIFY
+OBJS    += ems_vid.o
 OBJS    += fbsd_sup.o
 RCFLAGS += -DLINUX
-LIBS    += --emrun -lm
+LIBS    += --emrun -lm --shell-file shell.html
 ESUFFIX = .html
 SSUFFIX = .wasm
 STRIP   = llvm-strip

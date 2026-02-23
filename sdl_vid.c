@@ -19,6 +19,9 @@
 #include <SDL_syswm.h>
 
 #include "alpha.h"
+#if defined(__EMSCRIPTEN__)
+#include "ems_vid.h"
+#endif
 #include "def.h"
 #include "hardware.h"
 #include "title_gz.h"
@@ -32,6 +35,8 @@ static const int16_t yratio = 2;
 static const int16_t yoffset = 0;
 static const int16_t hratio = 2;
 static const int16_t wratio = 2 * 4;
+#define SCREEN_WIDTH 640
+#define SCREEN_HEIGHT 400
 #define virt2scrx(x) (x*xratio)
 #define virt2scry(y) (y*yratio+yoffset)
 #define virt2scrw(w) (w*wratio)
@@ -129,6 +134,9 @@ x11_set_parent(Window parent)
 static bool
 setmode(void)
 {
+#if defined(__EMSCRIPTEN__)
+	return (true);
+#else
 #if defined(SDL_OLD)
 #if defined(HAVE_SDL_X11_WINDOW)
         static int x11_parent_inited = 0;
@@ -153,10 +161,14 @@ setmode(void)
                 SDL_SetWindowFullscreen(window, 0);
         }
 	return(true);
+#endif
 }
 
 void switchmode(void)
 {
+#if defined(__EMSCRIPTEN__)
+	ems_vid_switchmode();
+#else
 	uint32_t saved;
 
 	saved = addflag;
@@ -174,6 +186,7 @@ void switchmode(void)
 			exit(1);
 		}
 	}
+#endif
 }
 
 
@@ -194,12 +207,15 @@ void vgainit(void)
 	}
 #endif
         window = SDL_CreateWindow("D I G G E R", SDL_WINDOWPOS_UNDEFINED,
-            SDL_WINDOWPOS_UNDEFINED, 640, 400, window_flags);
+            SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, window_flags);
         if (window == NULL) {
                 fprintf(stderr, "SDL_CreateWindow() failed: %s\n",
                     SDL_GetError());
                 exit(1);
         }
+#if defined(__EMSCRIPTEN__)
+	ems_vid_init(window, &addflag, SCREEN_WIDTH, SCREEN_HEIGHT);
+#endif
 #if defined(HAVE_SDL_X11_WINDOW)
 	if (x11_parent != 0) {
 		x11_set_parent(x11_parent);
@@ -219,20 +235,21 @@ void vgainit(void)
                 exit(1);
         }
         roottxt = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
-             SDL_TEXTUREACCESS_STREAMING, 640, 400);
+             SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
         if (roottxt == NULL) {
                 fprintf(stderr, "SDL_CreateTexture() failed: %s\n",
                     SDL_GetError());
                 exit(1);
         }
-        screen = SDL_CreateRGBSurface(0, 640, 400, 32,
+        screen = SDL_CreateRGBSurface(0, SCREEN_WIDTH, SCREEN_HEIGHT, 32,
             0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
         if (screen == NULL) {
                 fprintf(stderr, "SDL_CreateRGBSurface() failed: %s\n",
                     SDL_GetError());
                 exit(1);
         }
-        screen16 = SDL_CreateRGBSurface(0, 640, 400, 8, 0, 0, 0, 0);
+        screen16 = SDL_CreateRGBSurface(0, SCREEN_WIDTH, SCREEN_HEIGHT, 8, 0,
+            0, 0, 0);
         if (screen16 == NULL) {
                 fprintf(stderr, "SDL_CreateRGBSurface() failed: %s\n",
                     SDL_GetError());
@@ -449,8 +466,9 @@ void savescreen(void)
 void
 sdl_enable_fullscreen(void)
 {
-
+#if !defined(__EMSCRIPTEN__)
   addflag |= SDL_FULLSCREEN;
+#endif
 }
 
 #if defined(HAVE_SDL_X11_WINDOW)
