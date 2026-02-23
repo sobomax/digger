@@ -100,9 +100,12 @@ void gethrt(bool minsleep) {
 
   if (minsleep) {
     /* Non-frame callers (sound wait, keyboard poll, settings menu):
-     * just refresh screen + yield CPU.  Do NOT advance the tick timer,
-     * invalidate the light map, or commit interpolation frames — those
-     * belong to the real game-tick path only. */
+     * just refresh screen + yield CPU.  Do NOT advance the tick timer
+     * or commit interpolation frames — those belong to the real
+     * game-tick path only.
+     * Light map must still be invalidated so dynamic lights (fireballs,
+     * explosions) don't accumulate during death animation. */
+    sdl_invalidate_light_map();
     input_poll_async();
     doscreenupdate();
     SDL_Delay(10);

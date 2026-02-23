@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Digger Remastered — a C99 remake of the 1983 Windmill Software arcade game, using SDL2 for cross-platform graphics/audio/input. Supports Linux, FreeBSD, Windows (cross-compile), macOS, and WebAssembly.
+Digger Remastered — a C11 remake of the 1983 Windmill Software arcade game, using SDL2 for cross-platform graphics/audio/input. Supports Linux, FreeBSD, Windows (cross-compile), macOS, and WebAssembly.
 
 ## Build Commands
 
@@ -68,7 +68,7 @@ Cross-compile targets: `ARCH=MINGW` (Win32), `ARCH=MINGW64` (Win64), `ARCH=WASM`
 
 ## Code Style
 
-- C99 strict (`-std=c99 -Wall -Wextra -pedantic`)
+- C11 strict (`-std=c11 -Wall -Wextra -pedantic`)
 - Block comments only (`/* */`), no `//`
 - `snake_case` functions/variables, `UPPER_CASE` macros
 - Fixed-width types (`int16_t`, `uint32_t`, etc.) and `bool` from `<stdbool.h>`
@@ -76,7 +76,7 @@ Cross-compile targets: `ARCH=MINGW` (Win32), `ARCH=MINGW64` (Win64), `ARCH=WASM`
 
 ## Dependencies
 
-SDL2 >= 2.0.9, zlib >= 1.2.11, libm, libatomic (fallback on some platforms).
+SDL2 >= 2.0.9, zlib >= 1.3.1, libm, libatomic (fallback on some platforms).
 
 ## Pre-commit Checks
 
