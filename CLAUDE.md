@@ -34,6 +34,14 @@ make coverage-report-html
 
 Cross-compile targets: `ARCH=MINGW` (Win32), `ARCH=MINGW64` (Win64), `ARCH=WASM` (Emscripten).
 
+```bash
+# WASM build + local preview
+make ARCH=WASM
+python3 -m http.server 8080   # then open http://localhost:8080/digger.html
+```
+
+**WASM shell**: `shell.html` is the custom Emscripten shell template (retro-themed landing page). The build outputs `digger.html` + `digger.js` + `digger.wasm`.
+
 ## Architecture
 
 **Game loop** in `main.c` drives everything: initialization, per-frame updates, level transitions.
