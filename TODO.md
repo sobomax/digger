@@ -1,7 +1,7 @@
 # Digger Remastered TODO
 
 Generated from brainstorm roundtable review (2026-02-23).
-Verified against current codebase state (2026-02-23). Last reviewed: 2026-02-23 (re-verified; all items accurate, 2 P5 items remain open).
+Verified against current codebase state (2026-02-23). Last reviewed: 2026-02-23. Code review: 2026-02-23 (3-agent team review of last 5 commits).
 
 ---
 
@@ -58,6 +58,8 @@ Verified against current codebase state (2026-02-23). Last reviewed: 2026-02-23 
   - Bounds-checked `playgetdir()`, `playgetrand()`, `playskipeol()`
   - All error paths use `escape=true` for graceful termination
   - Remaining: level map data still copied raw without character validation
+  - Remaining: `rlleft` digit-parsing in `playgetdir()` has no overflow cap (int)
+  - Remaining: `bonusscore` parsed via `atoi()` without range validation
 
 - [x] **Fix undefined behavior in `ini.c`**
   - `GetINIString()` now uses `memmove()` instead of `strncpy()` — safe for overlapping buffers
@@ -138,3 +140,29 @@ These were discussed and deemed premature or unnecessary:
 **What needs attention:**
 - Build system inconsistencies (P2 items above)
 - Input validation at system boundaries (P3 items above)
+
+---
+
+## Code Review Findings (2026-02-23)
+
+3-agent team review of commits `5e3efb4..1f2dd1d` (5 commits, 18 files, +502/-115 lines).
+
+### Verified Correct
+
+- **`plp_end` bounds tracking** — correctly initialized after load, checked in all 3 reader functions, cleared on all exit paths (normal, error, out_0)
+- **`getfield()` OOB return** — returning -1 (0xFFFF all-bits-set) is safe; callers check specific bit patterns and all-bits-set acts as impassable wall
+- **`eatfield()` bounds checks** — all 4 direction cases guarded after coordinate adjustment, before `field[]` write
+- **`lcg_next()` behavioral equivalence** — uint32_t arithmetic matches original signed multiplication; `& 0x7FFFFFFF` mask preserves behavior
+- **`init_cga_mode()` extraction** — all 10 function pointers + `ginit()` + `gpal(0)` calls present; `ddap` parameter shadow is benign (only `-Wshadow`)
+- **`memmove()` in `ini.c`** — correctly handles overlap case; length calculation and null-termination are correct
+- **`snprintf` migrations** — all 6 former `sprintf` calls use `sizeof()` for buffer size; `strncat` for ".drf" is correct
+- **`recname()` fix** — `snprintf(rname, sizeof(rname), "%s", name)` replaces `assert` + `strcpy` safely
+- **INTDRF cleanup** — no remaining references; removal is clean
+- **DIGGER_DEBUG guards** — all FreeBSD debug `fprintf` and `FIXME()` properly conditional; fatal messages remain unconditional (correct)
+
+### Remaining Items (low priority)
+
+- **`rlleft` overflow** (`record.c:265`): digit-parsing loop `rlleft=rlleft*10+(digit)` has no overflow cap; crafted replay with long digit string could overflow `int`. Low risk (replay files are not a high-value attack surface).
+- **`bonusscore` via `atoi()`** (`record.c:139`): parsed without range validation. Impact is cosmetic only (score display).
+- **`drawfield()` magic numbers** (`drawing.c:133-137`): look-ahead guards use hardcoded `14` and `9` instead of `MWIDTH-1` and `MHEIGHT-1`. Safe (values are correct for 15x10 grid) but inconsistent with `MWIDTH`/`MHEIGHT` usage elsewhere.
+- **Level map data** (`record.c`): replay level data is still copied raw without character validation (pre-existing).

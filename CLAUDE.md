@@ -97,8 +97,9 @@ The replay parser (`record.c`) is the primary untrusted-input boundary:
 - Header fields validated: `diggers` (1..2), `startlev` (1..8), `gtime` (>0 in gauntlet)
 - Error paths set `escape=true` for graceful termination
 - All `sprintf` migrated to `snprintf`; `strcpy` replaced with `snprintf` where input length is unbounded
+- Known remaining items: `rlleft` digit-parsing loop in `playgetdir()` has no overflow cap; `bonusscore` parsed via `atoi` without range validation; level map data copied without character validation
 
-The `getfield()` function in `monster.c` bounds-checks coordinates and returns -1 (solid wall) for OOB. The `eatfield()` function in `drawing.c` bounds-checks all 4 direction cases.
+The `getfield()` function in `monster.c` bounds-checks coordinates and returns -1 (solid wall) for OOB — callers check specific bit patterns, and all-bits-set is safe (acts as impassable). The `eatfield()` function in `drawing.c` bounds-checks all 4 direction cases after coordinate adjustment, before `field[]` write.
 
 ## Pre-commit Checks
 
