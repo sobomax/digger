@@ -4,6 +4,7 @@
 #include "sound.h"
 #include "def.h"
 #include "device.h"
+#include "digger_math.h"
 #include "digger.h"
 #include "hardware.h"
 #include "input.h"
@@ -70,8 +71,7 @@ static bool sndflag = false, soundpausedflag = false;
 static int32_t randvs;
 
 static int16_t randnos(int16_t n) {
-  randvs = randvs * 0x15a4e35l + 1;
-  return (int16_t)((randvs & 0x7fffffffl) % n);
+  return (int16_t)(lcg_next(&randvs) % n);
 }
 
 static void sett2val(int16_t t2v, bool mode) {

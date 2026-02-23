@@ -28,6 +28,8 @@
 #ifndef _DIGGER_MATH_H_
 #define _DIGGER_MATH_H_
 
+#include <stdint.h>
+
 #ifdef MIN
 #undef MIN
 #endif
@@ -41,6 +43,18 @@
 #define MAX(x, y)       (((x) > (y)) ? (x) : (y))
 #define ABS(x)          ((x) > 0 ? (x) : (-x))
 #define D_PI		3.141592653589793238462643383279502884L
+
+/*
+ * Linear congruential generator -- classic Borland/MSDOS LCG.
+ * Separate state variables keep game RNG and sound RNG independent.
+ * Arithmetic done in uint32_t to avoid signed overflow UB.
+ */
+static inline int32_t lcg_next(int32_t *state)
+{
+    uint32_t s = (uint32_t)*state * UINT32_C(0x15A4E35) + 1;
+    *state = (int32_t)s;
+    return (int32_t)(s & UINT32_C(0x7FFFFFFF));
+}
 
 struct recfilter {
     double a;

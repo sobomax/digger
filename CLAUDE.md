@@ -66,6 +66,8 @@ Cross-compile targets: `ARCH=MINGW` (Win32), `ARCH=MINGW64` (Win64), `ARCH=WASM`
 
 **Map constants** (`def.h`): 15 wide x 10 high grid, max 2 diggers, 6 monsters, 7 bags, directions encoded as 0/2/4/6 (right/up/left/down).
 
+**Shared math utilities** (`digger_math.h`): `MIN`/`MAX`/`ABS` macros, `D_PI`, `lcg_next()` inline LCG helper (shared game and sound RNG), and DSP filter structs (`recfilter`, `PFD`, `bqd_filter`).
+
 ## Code Style
 
 - C11 strict (`-std=c11 -Wall -Wextra -pedantic`)
@@ -73,6 +75,8 @@ Cross-compile targets: `ARCH=MINGW` (Win32), `ARCH=MINGW64` (Win64), `ARCH=WASM`
 - `snake_case` functions/variables, `UPPER_CASE` macros
 - Fixed-width types (`int16_t`, `uint32_t`, etc.) and `bool` from `<stdbool.h>`
 - Platform-specific code guarded with `#ifdef LINUX`, `#ifdef MINGW`, etc.
+- Shared algorithm helpers placed in headers as `static inline` functions (e.g., `lcg_next()` in `digger_math.h`)
+- Debug-only output guarded with `#ifdef DIGGER_DEBUG`; fatal error messages left unconditional
 
 ## Dependencies
 

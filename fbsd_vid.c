@@ -213,7 +213,9 @@ doscreenupdate(void)
     struct PendNode *ptr;
     int pendnum = 0;
 
+#ifdef DIGGER_DEBUG
     fprintf(stderr, "doscreenupdate: pendnum =%d\n", pendups.pendnum);
+#endif
     for (ptr = pendups.First; ptr != NULL; ptr = pendups.First) {
         VGLBitmapCopy(sVGLDisplay, ptr->realx, ptr->realy, VGLDisplay, ptr->realx,
           ptr->realy + yoffset, ptr->realw, ptr->realh);
@@ -234,7 +236,9 @@ vgaputi(int16_t x, int16_t y, uint8_t * p, int16_t w, int16_t h)
     VGLBitmap      *tmp;
     struct PendNode tmpn;
     struct PendNode *newn;
+#ifdef DIGGER_DEBUG
     static int pending_match = 0;
+#endif
 
     tmpn.realx = virt2scrx(x);
     tmpn.realy = virt2scry(y);
@@ -253,10 +257,12 @@ vgaputi(int16_t x, int16_t y, uint8_t * p, int16_t w, int16_t h)
         pendappend(newn);
     } else {
         rect_merge(newn, &tmpn);
+#ifdef DIGGER_DEBUG
         pending_match += 1;
         if (pending_match < 10 || pending_match % 50 == 0) {
             fprintf(stderr, "vgaputi: pending_match = %d\n", pending_match);
         }
+#endif
     }
     memcpy(&tmp, p, (sizeof(VGLBitmap *)));
     VGLBitmapCopy(tmp, 0, 0, sVGLDisplay, tmpn.realx, tmpn.realy, tmpn.realw, tmpn.realh);

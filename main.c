@@ -13,6 +13,7 @@ static const char copyright[] =
 #include "bags.h"
 #include "def.h"
 #include "digger.h"
+#include "digger_math.h"
 #include "digger_obj.h"
 #include "digger_types.h"
 #include "draw_api.h"
@@ -865,8 +866,7 @@ static void parsecmd(int argc, char *argv[]) {
 }
 
 int16_t randno(int16_t n) {
-  dgstate.randv = dgstate.randv * 0x15a4e35l + 1;
-  return (int16_t)((dgstate.randv & 0x7fffffffl) % n);
+  return (int16_t)(lcg_next(&dgstate.randv) % n);
 }
 
 int dx_sound_volume;
