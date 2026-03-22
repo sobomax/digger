@@ -2,6 +2,7 @@
    Copyright (c) Andrew Jenner 1998-2004 */
 
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -136,9 +137,15 @@ void openplay(char *name)
   if (smart_fgets(buf, 80, playf) == NULL) {
     goto out_0;
   }
-  bonusscore=atoi(buf);
-  if (bonusscore<0)
-    goto out_0;
+  {
+    char *endp;
+    long bval;
+    errno=0;
+    bval=strtol(buf,&endp,10);
+    if (endp==buf || errno!=0 || bval<0 || bval>999999)
+      goto out_0;
+    bonusscore=(int)bval;
+  }
   for (n=0;n<8;n++)
     for (y=0;y<10;y++) {
       for (x=0;x<15;x++)
@@ -267,6 +274,7 @@ void playgetdir(int16_t *dir,bool *fire)
       return;
     }
     rld=*(plp++);
+    rlleft=0;
     {
       int ndigits=0;
       while (plp<plp_end && *plp>='0' && *plp<='9') {
