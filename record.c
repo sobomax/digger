@@ -137,6 +137,8 @@ void openplay(char *name)
     goto out_0;
   }
   bonusscore=atoi(buf);
+  if (bonusscore<0)
+    goto out_0;
   for (n=0;n<8;n++)
     for (y=0;y<10;y++) {
       for (x=0;x<15;x++)
@@ -145,8 +147,12 @@ void openplay(char *name)
       if (smart_fgets(buf, 80, playf) == NULL) {
         goto out_0;
       }
-      for (x=0;x<15;x++)
-        dgstate.leveldat[n][y][x]=buf[x];
+      for (x=0;x<15;x++) {
+        char ch=buf[x];
+        if (ch!='S' && ch!='H' && ch!='V' && ch!='C' && ch!='B' && ch!=' ')
+          ch=' ';
+        dgstate.leveldat[n][y][x]=ch;
+      }
     }
 
   /* This is the second. The line breaks here really are only so that the file
@@ -261,8 +267,17 @@ void playgetdir(int16_t *dir,bool *fire)
       return;
     }
     rld=*(plp++);
-    while (plp<plp_end && *plp>='0' && *plp<='9')
-      rlleft=rlleft*10+((*(plp++))-'0');
+    {
+      int ndigits=0;
+      while (plp<plp_end && *plp>='0' && *plp<='9') {
+        if (ndigits>=9) {
+          escape=true;
+          return;
+        }
+        rlleft=rlleft*10+((*(plp++))-'0');
+        ndigits++;
+      }
+    }
     makedir(dir,fire,rld);
     if (rlleft>0)
       rlleft--;

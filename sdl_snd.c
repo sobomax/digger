@@ -132,6 +132,8 @@ static bool wave_device_paused = false;
 
 void pausesounddevice(bool p) {
 
+  if (!sud)
+    return;
   if (wave_device_paused == p)
     return;
   SDL_PauseAudioDevice(sud->dev, p ? 1 : 0);
