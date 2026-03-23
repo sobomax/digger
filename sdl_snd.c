@@ -124,4 +124,3 @@ void pausesounddevice(bool p)
 	SDL_PauseAudioDevice(sud->dev, p ? 1 : 0);
 	wave_device_paused = p;
 }
-

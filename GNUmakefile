@@ -79,7 +79,7 @@ RCFLAGS += -DLINUX
 LIBS    += --emrun -lm
 ESUFFIX = .html
 SSUFFIX = .wasm
-STRIP   = emstrip
+STRIP   = llvm-strip
 endif
 
 ifeq ($(ARCH),FooOS)

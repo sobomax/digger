@@ -12,6 +12,10 @@ on:
   schedule:
     - cron: "0 0 * * *"
 
+env:
+  EM_VERSION: 5.0.3
+  EM_SYSTEM_CACHE_FOLDER: emscripten-cache
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   # This workflow contains a single job called "build"
@@ -26,24 +30,32 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
           submodules: 'recursive'
 
       - name: before_install
         run: sudo -H DEBIAN_FRONTEND=noninteractive apt-get update
 
-      - name: Setup cache
-        uses: actions/cache@v3
-        with:
-          path: emsdk-cache
-          key: ${{ matrix.os }}-emsdk-v11
-
-      # Install Emscripten
-      - uses: mymindstorm/setup-emsdk@v11
+      - uses: mymindstorm/setup-emsdk@v14
         id: install-emscripten
         with:
+          version: ${{env.EM_VERSION}}
           actions-cache-folder: 'emsdk-cache'
+
+      - name: Setup Emscripten system cache
+        uses: actions/cache@v5
+        with:
+          path: ${{ env.EM_SYSTEM_CACHE_FOLDER }}
+          key: ${{ runner.os }}-${{ env.EM_VERSION }}-system-cache
+
+      - name: Configure Emscripten cache
+        run: |
+          mkdir -p "$EM_SYSTEM_CACHE_FOLDER"
+          echo "EM_CACHE=$GITHUB_WORKSPACE/$EM_SYSTEM_CACHE_FOLDER" >> "$GITHUB_ENV"
+
+      - name: Add LLVM tools to PATH
+        run: echo "$EMSDK/upstream/bin" >> "$GITHUB_PATH"
 
       - name: build
         run: |
@@ -51,7 +63,7 @@ jobs:
           make ARCH=WASM BUILD_TYPE=production clean all
 
       - name: Create artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digger-wasm
           path: |
@@ -60,14 +72,21 @@ jobs:
             digger.js
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v6
+        if: github.event_name != 'pull_request'
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
 
       - name: Upload to AWS
+        if: github.event_name != 'pull_request'
         run: |
-          aws s3 cp digger.wasm s3://digger-build-artefacts/
-          aws s3 cp digger.html s3://digger-build-artefacts/
-          aws s3 cp digger.js s3://digger-build-artefacts/
+          if [ "${GITHUB_REF_NAME}" = "master" ]; then
+            s3_prefix="s3://digger-build-artefacts"
+          else
+            s3_prefix="s3://digger-build-artefacts/${GITHUB_REF_NAME}"
+          fi
+          aws s3 cp digger.wasm "${s3_prefix}/"
+          aws s3 cp digger.html "${s3_prefix}/"
+          aws s3 cp digger.js "${s3_prefix}/"
