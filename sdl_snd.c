@@ -103,7 +103,12 @@ static void fill_audio(void *udata, uint8_t *stream, int len)
 #if !defined(NO_SND_FILTER)
 		sample = getsample();
 		sample = bqd_apply(sud->hp_fltr, (sample - 127.0) * 128.0);
-                sud->buf[i] = round(bqd_apply(sud->lp_fltr, sample));
+		double out = round(bqd_apply(sud->lp_fltr, sample));
+		if (out > INT16_MAX)
+			out = INT16_MAX;
+		else if (out < INT16_MIN)
+			out = INT16_MIN;
+		sud->buf[i] = (int16_t)out;
 #else
 		sud->buf[i] = getsample();
 #endif
