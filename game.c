@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "def.h"
 #include "game.h"
 
 /* Game state that is shared by multiple modules */

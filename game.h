@@ -7,7 +7,7 @@ struct gamestate {
   char levfname[132];
   char pldispbuf[14];
   int32_t randv;
-  int8_t leveldat[8][10][15];
+  int8_t leveldat[8][MHEIGHT][MWIDTH + 1];
   int gtime;
   bool gauntlet, timeout, unlimlives;
   uint32_t ftime, cgtime;
