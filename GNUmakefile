@@ -21,7 +21,7 @@ ARCH	?= LINUX
 #ARCH	?= FREEBSD
 #ARCH	?= WASM
 #ARCH	?= FooOS
-SDL_VER ?= 2.0.9
+SDL_VER ?= 2.32.10
 ZLIB_VER ?= 1.2.11
 MGW_PREF ?= i686-w64-mingw32
 MINGW_DEPS_ROOT ?= ../
@@ -34,8 +34,8 @@ endif
 
 ifeq ($(ARCH),MINGW)
 CC	=  ${MGW_PREF}-gcc
-WINDRES	?=  ${MGW_PREF}-windres
-STRIP   ?= ${MGW_PREF}-strip
+WINDRES	?=  windres
+STRIP   ?= strip
 RCFLAGS	+= -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW_PREF}/include/SDL2
 LIBS	+= -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -lz -lm
 ifeq (${BUILD_TYPE},debug)
@@ -48,8 +48,8 @@ endif
 
 ifeq ($(ARCH),MINGW64)
 CC      =  ${MGW64_PREF}-gcc
-WINDRES ?=  ${MGW64_PREF}-windres
-STRIP   ?=  ${MGW64_PREF}-strip
+WINDRES ?=  windres
+STRIP   ?=  strip
 RCFLAGS += -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW64_PREF}/include/SDL2
 LIBS    += -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW64_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm \
             -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER}/${MGW64_PREF} -lz -lm
