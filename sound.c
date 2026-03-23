@@ -160,7 +160,7 @@ void soundlevdone(void)
 		soundlevdoneflag=false;
 #endif
 #if defined _SDL || defined _SDL_SOUND
-    gethrt(true);	/* Let some CPU time go away */
+    gethrt(true, 1);	/* Let some CPU time go away */
 #endif
     if (timerclock==timer)
       continue;

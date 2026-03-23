@@ -138,6 +138,7 @@ static void drawfield(void)
         if (y<9)
           if ((field[(y+1)*MWIDTH+x]&0xfdf)!=0xfdf)
             drawbottomblob(xp,yp);
+        gethrt(false, 3);
       }
 }
 

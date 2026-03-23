@@ -12,6 +12,7 @@
 #include "digger.h"
 #include "scores.h"
 #include "game.h"
+#include "hardware.h"
 
 static struct bag {
   int16_t x,y,h,v,xr,yr,dir,wt,gt,fallh;
@@ -66,8 +67,10 @@ void drawbags(void)
       memcpy(&bagdat[bag],&bagdat1[bag],sizeof(struct bag));
     else
       memcpy(&bagdat[bag],&bagdat2[bag],sizeof(struct bag));
-    if (bagdat[bag].exist)
+    if (bagdat[bag].exist) {
       movedrawspr(bag+FIRSTBAG,bagdat[bag].x,bagdat[bag].y);
+      gethrt(false, 3);
+    }
   }
 }
 

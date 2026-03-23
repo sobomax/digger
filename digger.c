@@ -94,7 +94,7 @@ getframe(void)
 void newframe(void)
 {
 
-  gethrt(sounddiedone ? false : true);
+  gethrt(sounddiedone ? false : true, 1);
   checkkeyb();
 
 #if defined(INTDRF) || 1
@@ -702,8 +702,10 @@ void drawemeralds(void)
   emmask=1<<dgstate.curplayer;
   for (x=0;x<MWIDTH;x++)
     for (y=0;y<MHEIGHT;y++)
-      if (emfield[y*MWIDTH+x]&emmask)
+      if (emfield[y*MWIDTH+x]&emmask) {
         drawemerald(x*20+12,y*18+21);
+        gethrt(false, 3);
+      }
 }
 
 static const int16_t embox[8]={8,12,12,9,16,12,6,9};

@@ -567,7 +567,7 @@ void testpause(void)
     for (i=0;i<dgstate.diggers;i++)
       addscore(ddap, i,0);
     drawlives(ddap);
-    gethrt(true);
+    gethrt(true, 1);
     pausef=false;
   }
   else

@@ -38,7 +38,7 @@ void inittimer(void)
 }
 
 void
-gethrt(bool minsleep)
+gethrt(bool minsleep, int mult)
 {
     uint32_t add_delay;
     double eval, clk_rl, tfreq, add_delay_d, filterval;
@@ -50,7 +50,7 @@ gethrt(bool minsleep)
             SDL_Delay(10);
         return;
     }
-    tfreq = 1000000.0 / dgstate.ftime;
+    tfreq = mult * 1000000.0 / dgstate.ftime;
     clk_rl = (double)SDL_GetTicks() * tfreq / 1000.0;
     eval = PFD_get_error(&phase_detector, clk_rl);
     if (eval != 0) {

@@ -47,7 +47,7 @@ getdtime(void)
 }
 
 void
-gethrt(void)
+gethrt(bool mindelay, int mult)
 {
 	uint32_t add_delay;
 	double eval, clk_rl, tfreq, filterval;
@@ -55,7 +55,7 @@ gethrt(void)
 	VGLCheckSwitch();
 
 	/* Speed controlling stuff */
-	tfreq = 1000000.0 / dgstate.ftime;
+	tfreq = mult * 1000000.0 / dgstate.ftime;
 	clk_rl = getdtime() * tfreq;
 	eval = PFD_get_error(&phase_detector, clk_rl);
 	if (eval != 0.0) {
