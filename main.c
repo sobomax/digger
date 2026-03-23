@@ -640,7 +640,11 @@ getarg(char argch, const char *allargs, bool *hasopt)
 }
 
 #define BASE_OPTS "OUH?QM2CKVL:R:P:S:E:G:I:"
+#if defined(HAVE_SDL_X11_WINDOW)
 #define X11_OPTS "X:"
+#else
+#define X11_OPTS ""
+#endif
 #define SDL_OPTS  "F"
 
 static void parsecmd(int argc,char *argv[])
@@ -675,7 +679,7 @@ static void parsecmd(int argc,char *argv[])
         dgstate.levfname[j]=word[i];
         dgstate.levfflag=true;
       }
-#if defined(UNIX) && defined(_SDL) && !defined(__EMSCRIPTEN__) && !defined(__APPLE__)
+#if defined(HAVE_SDL_X11_WINDOW)
       if (argch == 'X') {
         unsigned int x11_parent;
 

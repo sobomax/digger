@@ -62,7 +62,7 @@ static const SDL_Color *npalettes[] = {vga16_pal1, vga16_pal2};
 static const SDL_Color *ipalettes[] = {vga16_pal1i, vga16_pal2i};
 static int16_t	currpal=0;
 
-#if defined(UNIX) && !defined(__EMSCRIPTEN__) && !defined(__APPLE__)
+#if defined(HAVE_SDL_X11_WINDOW)
 static Window x11_parent = 0;
 #endif
 
@@ -106,11 +106,31 @@ void graphicsoff(void)
 {
 }
 
+#if defined(HAVE_SDL_X11_WINDOW)
+static void
+x11_set_parent(Window parent)
+{
+	SDL_SysWMinfo sdl_info;
+
+	SDL_VERSION(&sdl_info.version);
+	if (SDL_GetWindowWMInfo(window, &sdl_info) != SDL_TRUE) {
+		fprintf(stderr, "SDL_GetWindowWMInfo() failed: %s\n", SDL_GetError());
+		return;
+	}
+	if (sdl_info.subsystem != SDL_SYSWM_X11) {
+		fprintf(stderr, "SDL window manager is not X11\n");
+		return;
+	}
+	XReparentWindow(sdl_info.info.x11.display, sdl_info.info.x11.window, parent, 0, 0);
+	XSync(sdl_info.info.x11.display, False);
+}
+#endif
+
 static bool
 setmode(void)
 {
 #if defined(SDL_OLD)
-#if defined(UNIX) && !defined(__EMSCRIPTEN__) && !defined(__APPLE__)
+#if defined(HAVE_SDL_X11_WINDOW)
         static int x11_parent_inited = 0;
 
         if (x11_parent && x11_parent_inited == 0) {
@@ -121,7 +141,7 @@ setmode(void)
           SDL_DOUBLEBUF | addflag);
         if (screen == NULL)
 		return(false);
-#if defined(UNIX) && !defined(__EMSCRIPTEN__) && !defined(__APPLE__)
+#if defined(HAVE_SDL_X11_WINDOW)
         if (x11_parent && x11_parent_inited == 0) {
                 x11_set_parent(x11_parent);
         }
@@ -160,6 +180,7 @@ void switchmode(void)
 void vgainit(void)
 {
 	SDL_Surface *wm_icon;
+	uint32_t window_flags = 0;
 	
 	if ( SDL_Init(SDL_INIT_VIDEO) < 0 ) {
 		fprintf(stderr, "Couldn't initialize SDL: %s\n",
@@ -167,13 +188,23 @@ void vgainit(void)
 		exit(1);
 	}
 
+#if defined(HAVE_SDL_X11_WINDOW)
+	if (x11_parent != 0) {
+		window_flags |= SDL_WINDOW_BORDERLESS;
+	}
+#endif
         window = SDL_CreateWindow("D I G G E R", SDL_WINDOWPOS_UNDEFINED,
-            SDL_WINDOWPOS_UNDEFINED, 640, 400, 0);
+            SDL_WINDOWPOS_UNDEFINED, 640, 400, window_flags);
         if (window == NULL) {
                 fprintf(stderr, "SDL_CreateWindow() failed: %s\n",
                     SDL_GetError());
                 exit(1);
         }
+#if defined(HAVE_SDL_X11_WINDOW)
+	if (x11_parent != 0) {
+		x11_set_parent(x11_parent);
+	}
+#endif
 
         wm_icon = SDL_CreateRGBSurfaceFrom(Icon, 64, 64, 32, 64 * 4,
             0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
@@ -422,7 +453,7 @@ sdl_enable_fullscreen(void)
   addflag |= SDL_FULLSCREEN;
 }
 
-#if defined(UNIX) && !defined(__EMSCRIPTEN__) && !defined(__APPLE__)
+#if defined(HAVE_SDL_X11_WINDOW)
 void
 sdl_set_x11_parent(unsigned int xp)
 {
