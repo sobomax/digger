@@ -31,7 +31,7 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: 'recursive'
 
@@ -43,7 +43,7 @@ jobs:
 
       # Cache the apt-get packages
       - name: Cache apt-get packages
-        uses: actions/cache@v3
+        uses: actions/cache@v5
         with:
           path: /var/cache/apt/archives
           key: ${{ matrix.os }}-apt-get-${{ hashFiles('**/apt-get-requirement.txt') }}
@@ -94,24 +94,24 @@ jobs:
       GHCR_REPO: ghcr.io/${{ github.repository_owner }}/digger
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         submodules: 'recursive'
 
     - name: Set up QEMU
       id: qemu
-      uses: docker/setup-qemu-action@v3
+      uses: docker/setup-qemu-action@v4
 
     - name: Login to GitHub Container Registry
       if: ${{ env.DOCKER_RW == 'true' }}
-      uses: docker/login-action@v3
+      uses: docker/login-action@v4
       with:
         registry: ghcr.io
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v4
 
     - name: Set environments
       run: |
@@ -131,11 +131,16 @@ jobs:
         echo "GIT_BRANCH=${GIT_BRANCH}" >> $GITHUB_ENV
         OS_TAG="`echo ${BASE_IMAGE} | sed 's|:|_|g'`"
         echo "OS_TAG=${OS_TAG}" >> $GITHUB_ENV
+        if [ "${DOCKER_RW}" = 'true' ]; \
+        then \
+          CACHE_SPEC="type=registry,ref=${{ env.GHCR_REPO }}:${GIT_BRANCH}-${OS_TAG}-buildcache"; \
+        else \
+          CACHE_SPEC="gha"; \
+        fi
+        echo "CACHE_SPEC=${CACHE_SPEC}" >> $GITHUB_ENV
 
     - name: Build Docker image
       uses: docker/build-push-action@v6
-      env:
-        CACHE_SPEC: "type=registry,ref=${{ env.GHCR_REPO }}:${{ env.GIT_BRANCH }}-${{ env.OS_TAG}}-buildcache"
       with:
         context: .
         file: ./docker/Dockerfile.build
