@@ -15,6 +15,7 @@ on:
 env:
   EM_VERSION: 5.0.3
   EM_SYSTEM_CACHE_FOLDER: emscripten-cache
+  WEB_DIST_DIR: web-dist
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -66,10 +67,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: digger-wasm
-          path: |
-            digger.wasm
-            digger.html
-            digger.js
+          path: ${{ env.WEB_DIST_DIR }}
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v6
@@ -87,6 +85,4 @@ jobs:
           else
             s3_prefix="s3://digger-build-artefacts/${GITHUB_REF_NAME}"
           fi
-          aws s3 cp digger.wasm "${s3_prefix}/"
-          aws s3 cp digger.html "${s3_prefix}/"
-          aws s3 cp digger.js "${s3_prefix}/"
+          aws s3 cp "$WEB_DIST_DIR" "${s3_prefix}/" --recursive

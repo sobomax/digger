@@ -11,6 +11,10 @@ OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o sound.o \
 		title_gz.o icon.o sdl_kbd.o sdl_vid.o sdl_timer.o sdl_snd.o \
 		digger_math.o monster_obj.o digger_obj.o bullet_obj.o \
 		cgagrafx.o keyboard.o soundgen.o spinlock.o game.o
+DIGGER_EXTRA_DEPS =
+WASM_BUILD_INFO =
+WASM_DIST_DIR =
+WASM_DIST_ARTIFACTS =
 
 ARCH	?= LINUX
 #ARCH	?= MINGW
@@ -76,6 +80,10 @@ CC      = emcc
 CFLAGS  += -flto=full -DUNIX -s USE_SDL=2 -s USE_ZLIB=1 -s ASYNCIFY
 OBJS    += ems_vid.o
 OBJS    += fbsd_sup.o
+WASM_BUILD_INFO = digger-build-info.js
+WASM_DIST_DIR = web-dist
+WASM_DIST_ARTIFACTS = digger.html digger.js digger.wasm $(WASM_BUILD_INFO)
+DIGGER_EXTRA_DEPS += $(WASM_BUILD_INFO)
 RCFLAGS += -DLINUX
 LIBS    += --emrun -lm --shell-file shell.html
 ESUFFIX = .html
@@ -95,20 +103,30 @@ SSUFFIX ?= ${ESUFFIX}
 
 all: digger$(ESUFFIX)
 
-digger$(ESUFFIX): $(OBJS)
+digger$(ESUFFIX): $(OBJS) $(DIGGER_EXTRA_DEPS)
 	$(CC) $(CFLAGS) -o digger$(ESUFFIX) $(OBJS) $(LIBS)
 ifeq (${BUILD_TYPE},production)
 	$(STRIP) --strip-unneeded digger$(SSUFFIX)
+endif
+ifneq ($(WASM_DIST_DIR),)
+	mkdir -p $(WASM_DIST_DIR)
+	cp $(WASM_DIST_ARTIFACTS) $(WASM_DIST_DIR)/
 endif
 
 %.o : %.c
 	$(CC) -c $(RCFLAGS) $(CFLAGS) $< -o $@
 
+ifneq ($(WASM_BUILD_INFO),)
+$(WASM_BUILD_INFO):
+	sh ./scripts/gen-wasm-build-info.sh $@
+endif
+
 %.res : %.rc
 	$(WINDRES) $< -O coff -o $@
 
 clean:
-	rm -f $(OBJS) digger$(ESUFFIX) *.gcov *.gcda *.gcno
+	rm -f $(OBJS) digger$(ESUFFIX) $(WASM_BUILD_INFO) *.gcov *.gcda *.gcno
+	rm -rf $(WASM_DIST_DIR)
 
 ifdef TEST_TYPE
 TT_VAR=	TEST_TYPES=$(TEST_TYPE)

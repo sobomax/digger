@@ -231,10 +231,12 @@
   </div>
 
   <div class="footer">
-    <a href="https://github.com/sobomax/digger">github</a>
+    <a id="build-link" href="https://github.com/sobomax/digger">github</a>
   </div>
 
+  <script src="digger-build-info.js"></script>
   <script>
+    var buildLinkElement = document.getElementById('build-link');
     var statusElement = document.getElementById('status');
     var progressFill = document.getElementById('progress-fill');
     var gameWrapElement = document.getElementById('game-wrap');
@@ -242,6 +244,27 @@
     var canvasElement = document.getElementById('canvas');
     var windowedCanvasWidth = 640;
     var windowedCanvasHeight = 400;
+
+    var configureBuildLink = function() {
+      var buildInfo;
+      var linkText;
+
+      if (typeof window.getDiggerBuildInfo !== 'function') {
+        return;
+      }
+      buildInfo = window.getDiggerBuildInfo();
+      if (!buildInfo || !buildInfo.revision) {
+        return;
+      }
+      linkText = 'github @ ' + (buildInfo.shortRevision || buildInfo.revision);
+      if (buildInfo.dirty) {
+        linkText += ' dirty';
+      }
+      buildLinkElement.href = buildInfo.revisionUrl || buildLinkElement.href;
+      buildLinkElement.textContent = linkText;
+    };
+
+    configureBuildLink();
 
     var restoreWindowedCanvasSize = function() {
       canvasElement.style.removeProperty('width');
