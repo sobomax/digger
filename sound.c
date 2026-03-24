@@ -21,6 +21,7 @@
 static int16_t wavetype=0,musvol=0;
 static uint16_t t2val=0,t0val=0;
 int16_t spkrmode=0,pulsewidth=1,volume=0;
+static bool restore_musicflag_after_death=false;
 
 static int8_t timerclock=0;
 
@@ -650,6 +651,10 @@ void music(int16_t tune, double dfac)
       musicdfac = 6.0 * dfac;
       break;
     case 2:
+      if (!musicflag) {
+        musicflag=true;
+        restore_musicflag_after_death=true;
+      }
       musicmaxvol=50;
       musicattackrate=50;
       musicsustainlevel=25;
@@ -672,6 +677,10 @@ void musicoff(void)
 {
   musicplaying=false;
   musicp=0;
+  if (restore_musicflag_after_death) {
+    musicflag=false;
+    restore_musicflag_after_death=false;
+  }
 }
 
 static const int16_t bonusjingle[321]={
@@ -753,8 +762,13 @@ static void musicupdate(void)
         noteduration=dirge[musicp+1]*musicdfac;
         musicnotewidth=noteduration-musicdfac;
         notevalue=dirge[musicp];
-	if (musicp > 0 && notevalue==0x7d00)
+	if (musicp > 0 && notevalue==0x7d00) {
 	  sounddiedone = true;
+	  if (restore_musicflag_after_death) {
+	    musicflag=false;
+	    restore_musicflag_after_death=false;
+	  }
+	}
         musicp+=2;
         if (dirge[musicp]==0x7d64)
           musicp=0;
