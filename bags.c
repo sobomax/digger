@@ -32,8 +32,7 @@ void initbags(void)
   int16_t bag,x,y;
   pushcount=0;
   goldtime=150-levof10()*10;
-  for (bag=0;bag<BAGS;bag++)
-    bagdat[bag].exist=false;
+  memset(bagdat, '\0', sizeof(bagdat));
   bag=0;
   for (x=0;x<MWIDTH;x++)
     for (y=0;y<MHEIGHT;y++)

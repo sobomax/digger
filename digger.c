@@ -2,6 +2,7 @@
    Copyright (c) Andrew Jenner 1998-2004 */
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "def.h"
 #include "digger_types.h"
@@ -50,6 +51,8 @@ void initdigger(void)
   int dig;
   int16_t dir, x, y;
 
+  startbonustimeleft=0;
+  bonustimeleft=0;
   for (dig=dgstate.curplayer;dig<dgstate.diggers+dgstate.curplayer;dig++) {
     if (digdat[dig].lives==0)
       continue;
@@ -70,7 +73,7 @@ void initdigger(void)
     CALL_METHOD(&digdat[dig].dob, put);
     digdat[dig].notfiring=true;
     digdat[dig].emocttime=0;
-    digdat[dig].bob.expsn=0;
+    memset(&digdat[dig].bob, '\0', sizeof(digdat[dig].bob));
     digdat[dig].firepressed=false;
     digdat[dig].rechargetime=0;
     digdat[dig].emn=0;
@@ -806,6 +809,8 @@ void addlife(int pl)
 void initlives(void)
 {
   int i;
+
+  memset(digdat, '\0', sizeof(digdat));
   for (i=0;i<dgstate.diggers+dgstate.nplayers-1;i++)
     digdat[i].lives=3;
 }

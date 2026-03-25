@@ -2,6 +2,7 @@
    Copyright (c) Andrew Jenner 1998-2004 */
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "def.h"
 #include "digger_types.h"
@@ -42,9 +43,15 @@ static int16_t nmononscr(void);
 void initmonsters(void)
 {
   int16_t i;
-  for (i=0;i<MONSTERS;i++)
-    mondat[i].flag=false;
+  for (i=0;i<MONSTERS;i++) {
+    if (mondat[i].mop != NULL) {
+      CALL_METHOD(mondat[i].mop, dtor);
+      mondat[i].mop = NULL;
+    }
+  }
+  memset(mondat, '\0', sizeof(mondat));
   nextmonster=0;
+  chase=0;
   mongaptime=45-(levof10()<<1);
   totalmonsters=levof10()+5;
   switch (levof10()) {
