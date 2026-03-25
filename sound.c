@@ -8,6 +8,7 @@
 #include "main.h"
 #include "digger.h"
 #include "input.h"
+#include "game.h"
 
 #if defined _SDL || defined _SDL_SOUND
 #include <SDL.h>
@@ -148,8 +149,33 @@ static int16_t nljpointer=0,nljnoteduration=0;
 
 void soundlevdone(void)
 {
+  bool local_freeze;
+  bool sent_unfreeze;
+  bool remote_freeze;
   int16_t timer=0;
+
   soundstop();
+  if (dgstate.netsim) {
+    if (sndflag) {
+      nljpointer=0;
+      nljnoteduration=20;
+      soundlevdoneflag=soundpausedflag=true;
+    } else
+      soundlevdoneflag=false;
+    sent_unfreeze = !soundlevdoneflag;
+    do {
+      local_freeze = soundlevdoneflag;
+      if (!freezeframe(local_freeze, &remote_freeze)) {
+        soundlevdoneoff();
+        return;
+      }
+      if (!local_freeze)
+        sent_unfreeze = true;
+    } while ((soundlevdoneflag || remote_freeze || !sent_unfreeze) && !escape);
+    if (sndflag)
+      soundlevdoneoff();
+    return;
+  }
   if (!sndflag)
     return;
   nljpointer=0;
@@ -810,6 +836,8 @@ static void musicupdate(void)
 
 void soundpause(void)
 {
+  if (soundpausedflag)
+    return;
   soundpausedflag=true;
 #if defined _SDL || defined _SDL_SOUND
   pausesounddevice(true);
@@ -818,6 +846,8 @@ void soundpause(void)
 
 void soundpauseoff(void)
 {
+  if (!soundpausedflag)
+    return;
   soundpausedflag=false;
 #if defined _SDL || defined _SDL_SOUND
   pausesounddevice(false);

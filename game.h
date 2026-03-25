@@ -9,7 +9,7 @@ struct gamestate {
   int32_t randv;
   int8_t leveldat[8][MHEIGHT][MWIDTH + 1];
   int gtime;
-  bool gauntlet, timeout, unlimlives;
+  bool gauntlet, netsim, timeout, unlimlives;
   uint32_t ftime, cgtime;
 };
 

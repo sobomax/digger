@@ -11,7 +11,7 @@
 struct gamestate dgstate = {
   .nplayers = 1, .diggers = 1, .curplayer = 0, .startlev = 1,
   .levfflag = false, .randv = 0, .gtime = 0, .gauntlet = false,
-  .timeout = false, .unlimlives = false,
+  .netsim = false, .timeout = false, .unlimlives = false,
   .leveldat = {{"S   B     HHHHS",
                 "V  CC  C  V B  ",
                 "VB CC  C  V    ",

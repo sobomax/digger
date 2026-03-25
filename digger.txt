@@ -77,6 +77,7 @@ and plays just like the original. It also has many new features, including:
 * Keyboard redefinition
 * Gauntlet mode
 * Two player simultaneous mode
+* Two player UDP NetSim mode
 
 
 Controls
@@ -100,8 +101,11 @@ In two player mode the default keys for the second player are:
 (Apologies to users of non-QWERTY keyboards - I know this is a terrible choice
 for you - you'll just have to redefine the keys.)
 
+In Two-Player NetSim mode, each machine uses the player 1 controls locally and
+receives the other digger's controls over UDP.
+
 On the title screen press:
-* N to toggle one or two player mode.
+* N to toggle through the available game modes.
 * F8 to save the last game if you didn't put a name on the command line.
 * F10 to exit the program.
 
@@ -404,6 +408,11 @@ The command line options are:
   /K      = Redefine keyboard. To redefine all the redefinable keys, use /KA.
   /G:time = Gauntlet mode.
   /2      = Put two diggers on screen at once.
+  /N:[[localip:]localport-]peer:port
+          = Enable the Two-Player NetSim title-screen mode and use UDP peer
+            address "peer:port". Without the local part, the socket binds to
+            INADDR_ANY:port. You can also force the local bind endpoint, for
+            example "/N:[192.0.2.10:3456]-198.51.100.20:3453".
   /?      = Display this list.
   /V      = Synchronize timing to screen refresh.
   /U      = Allow unlimited lives.
@@ -448,6 +457,13 @@ works, but games recorded with this version might not play back with future
 versions. When one digger dies the other can continue, and after a while the
 digger that died will be reincarnated (if he has any lives left). He will flash
 for a short time after being reincarnated. During this time, he is invincible.
+
+/N enables the Two-Player NetSim title-screen mode. This mode keeps the game
+simulation deterministic and exchanges only frame number and player controls
+over UDP. Once enabled, select "Two-Player NetSim" on the title screen and
+start the game on both machines. The local player always uses the player 1 key
+bindings on that machine, regardless of whether the network handshake assigns
+that peer to player 1 or player 2 in the simulation.
 
 /U gives you the ability to save up as many lives as you like. See the FAQ
 section for more information about this.

@@ -17,6 +17,7 @@
 #include "digger.h"
 #include "record.h"
 #include "game.h"
+#include "netsim.h"
 
 static struct scdat
 {
@@ -208,11 +209,17 @@ void addscore(struct digger_draw_api *ddap, int n,int16_t score)
 void endofgame(struct digger_draw_api *ddap)
 {
   int16_t i;
+  int16_t start, end;
+  int16_t local_player = 0;
   bool initflag=false;
   for (i=0;i<dgstate.diggers;i++)
     addscore(ddap, i,0);
   if (playing || !drfvalid)
     return;
+  if (dgstate.netsim)
+    local_player = netsim_local_player();
+  if (dgstate.netsim && netsim_session_active() && !netsim_peer_exited())
+    netsim_stop_session(true);
   if (dgstate.gauntlet) {
     cleartopline();
     outtext(ddap, "TIME UP",120,0,3);
@@ -220,7 +227,14 @@ void endofgame(struct digger_draw_api *ddap)
       newframe();
     erasetext(ddap, 7, 120,0,3);
   }
-  for (i=dgstate.curplayer;i<dgstate.curplayer+dgstate.diggers;i++) {
+  if (dgstate.netsim) {
+    start = local_player;
+    end = start + 1;
+  } else {
+    start = dgstate.curplayer;
+    end = dgstate.curplayer + dgstate.diggers;
+  }
+  for (i=start;i<end;i++) {
     scoret=scdat[i].score;
     if (scoret>scorehigh[11]) {
       ddap->gclear();

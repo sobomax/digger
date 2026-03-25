@@ -13,6 +13,7 @@
 #include "scores.h"
 #include "game.h"
 #include "hardware.h"
+#include "netsim_debug.h"
 
 static struct bag {
   int16_t x,y,h,v,xr,yr,dir,wt,gt,fallh;
@@ -68,7 +69,7 @@ void drawbags(void)
       memcpy(&bagdat[bag],&bagdat2[bag],sizeof(struct bag));
     if (bagdat[bag].exist) {
       movedrawspr(bag+FIRSTBAG,bagdat[bag].x,bagdat[bag].y);
-      gethrt(false, 3);
+      redrawdelay();
     }
   }
 }
@@ -89,6 +90,31 @@ void cleanupbags(void)
     else
       memcpy(&bagdat2[bag],&bagdat[bag],sizeof(struct bag));
   }
+}
+
+uint32_t
+bags_debug_hash_append(uint32_t h)
+{
+  int i;
+
+  h = debug_hash_mix(h, (uint32_t)(uint16_t)pushcount);
+  h = debug_hash_mix(h, (uint32_t)(uint16_t)goldtime);
+  for (i = 0; i < BAGS; i++) {
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)bagdat[i].x);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)bagdat[i].y);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)bagdat[i].h);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)bagdat[i].v);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)bagdat[i].xr);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)bagdat[i].yr);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)bagdat[i].dir);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)bagdat[i].wt);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)bagdat[i].gt);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)bagdat[i].fallh);
+    h = debug_hash_mix(h, bagdat[i].wobbling ? 1U : 0U);
+    h = debug_hash_mix(h, bagdat[i].unfallen ? 1U : 0U);
+    h = debug_hash_mix(h, bagdat[i].exist ? 1U : 0U);
+  }
+  return (h);
 }
 
 void dobags(struct digger_draw_api *ddap)

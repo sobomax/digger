@@ -20,6 +20,8 @@
 #include "bags.h"
 #include "bullet_obj.h"
 #include "game.h"
+#include "netsim.h"
+#include "netsim_debug.h"
 
 static struct digger
 {
@@ -86,6 +88,9 @@ void initdigger(void)
 #if defined(INTDRF) || 1
 static uint32_t frame;
 #endif
+static bool remote_pause_active = false;
+static bool syncframe(bool local_freeze, bool local_pause,
+  bool use_pause_latch, bool *remote_freezep, bool *remote_pausep);
 
 uint32_t
 getframe(void)
@@ -94,16 +99,155 @@ getframe(void)
   return (frame);
 }
 
+void
+resetframe(void)
+{
+
+  frame = 0;
+}
+
+uint32_t
+digger_debug_hash_append(uint32_t h)
+{
+  int i;
+
+  h = debug_hash_mix(h, (uint32_t)(uint16_t)startbonustimeleft);
+  h = debug_hash_mix(h, (uint32_t)(uint16_t)bonustimeleft);
+  h = debug_hash_mix(h, (uint32_t)(uint16_t)emmask);
+  h = debug_hash_mix(h, bonusvisible ? 1U : 0U);
+  h = debug_hash_mix(h, bonusmode ? 1U : 0U);
+  h = debug_hash_mix(h, digvisible ? 1U : 0U);
+  for (i = 0; i < MSIZE; i++)
+    h = debug_hash_mix(h, (uint32_t)(uint8_t)emfield[i]);
+  for (i = 0; i < DIGGERS; i++) {
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].h);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].v);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].rx);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].ry);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].mdir);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].bagtime);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].rechargetime);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].deathstage);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].deathbag);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].deathani);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].deathtime);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].emocttime);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].emn);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].msc);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].lives);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].ivt);
+    h = debug_hash_mix(h, digdat[i].notfiring ? 1U : 0U);
+    h = debug_hash_mix(h, digdat[i].firepressed ? 1U : 0U);
+    h = debug_hash_mix(h, digdat[i].dead ? 1U : 0U);
+    h = debug_hash_mix(h, digdat[i].levdone ? 1U : 0U);
+    h = debug_hash_mix(h, digdat[i].invin ? 1U : 0U);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].dob.x);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].dob.y);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].dob.dir);
+    h = debug_hash_mix(h, digdat[i].dob.alive ? 1U : 0U);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].bob.x);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].bob.y);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].bob.dir);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].bob.expsn);
+  }
+  return (h);
+}
+
 void newframe(void)
 {
 
-  gethrt(sounddiedone ? false : true, 1);
+  (void)syncframe(false, false, true, NULL, NULL);
+}
+
+bool
+netsim_remote_pause_active(void)
+{
+
+  return (remote_pause_active);
+}
+
+static bool
+syncframe(bool local_freeze, bool local_pause, bool use_pause_latch,
+  bool *remote_freezep,
+  bool *remote_pausep)
+{
+  uint8_t local_bits;
+  uint8_t remote_bits;
+  bool remote_freeze = false;
+  bool remote_pause = false;
+  int local_player;
+  int remote_player;
+
+  if (!local_freeze)
+    gethrt(sounddiedone ? false : true, 1);
   checkkeyb();
 
 #if defined(INTDRF) || 1
   frame++;
 #endif
+  input_advance_fire_state();
+  if (!dgstate.netsim || !netsim_session_active() || escape) {
+    remote_pause_active = false;
+    if (remote_freezep != NULL)
+      *remote_freezep = false;
+    if (remote_pausep != NULL)
+      *remote_pausep = false;
+    return (true);
+  }
+  local_player=netsim_local_player();
+  remote_player=1-local_player;
+  local_bits=input_snapshot_primary_controls();
+  if (local_pause || (use_pause_latch && pausef && getlives(local_player) > 0))
+    local_bits |= NETSIM_CTRL_PAUSE;
+  if (!netsim_sync_frame(frame, local_bits, local_freeze, &remote_bits,
+        &remote_freeze)) {
+    escape=true;
+    input_set_network_controls(local_player, 0);
+    input_set_network_controls(remote_player, 0);
+    remote_pause_active = false;
+    if (remote_freezep != NULL)
+      *remote_freezep = false;
+    if (remote_pausep != NULL)
+      *remote_pausep = false;
+    return (false);
+  }
+  remote_pause = (remote_bits & NETSIM_CTRL_PAUSE) != 0;
+  input_set_network_controls(local_player,
+    local_bits & ~(NETSIM_CTRL_PAUSE | NETSIM_CTRL_FREEZE));
+  input_set_network_controls(remote_player,
+    remote_bits & ~(NETSIM_CTRL_PAUSE | NETSIM_CTRL_FREEZE));
+  remote_pause_active = remote_pause;
+  if (remote_freezep != NULL)
+    *remote_freezep = remote_freeze;
+  if (remote_pausep != NULL)
+    *remote_pausep = remote_pause;
+  return (true);
+}
 
+bool
+pauseframe(bool local_pause, bool *remote_pausep)
+{
+
+  return (syncframe(true, local_pause, false, NULL, remote_pausep));
+}
+
+bool
+freezeframe(bool local_freeze, bool *remote_freezep)
+{
+
+  return (syncframe(local_freeze, false, false, remote_freezep, NULL));
+}
+
+void
+redrawdelay(void)
+{
+  bool remote_freeze;
+
+  gethrt(false, 3);
+  if (dgstate.netsim && netsim_session_active() && !escape) {
+    (void)freezeframe(true, &remote_freeze);
+    return;
+  }
 }
 
 void drawdig(int n)
@@ -125,7 +269,8 @@ dodigger(struct digger_draw_api *ddap)
   int n;
   int16_t tdir;
 
-  newframe();
+  if (escape || dgstate.timeout)
+    return;
   if (dgstate.gauntlet) {
     drawlives(ddap);
     if (dgstate.cgtime<dgstate.ftime)
@@ -133,6 +278,7 @@ dodigger(struct digger_draw_api *ddap)
     dgstate.cgtime-=dgstate.ftime;
   }
   for (n=dgstate.curplayer;n<dgstate.diggers+dgstate.curplayer;n++) {
+    readdirect(n-dgstate.curplayer);
     if (digdat[n].bob.expsn!=0)
       drawexplosion(n);
     else
@@ -377,7 +523,6 @@ updatedigger(struct digger_draw_api *ddap, int n)
   int16_t dir,ddir,diggerox,diggeroy,nmon;
   bool push=true,bagf;
   int clfirst[TYPES],clcoll[SPRITES],i;
-  readdirect(n-dgstate.curplayer);
   dir=getdirect(n-dgstate.curplayer);
   if (dir==DIR_RIGHT || dir==DIR_UP || dir==DIR_LEFT || dir==DIR_DOWN)
     ddir=dir;
@@ -720,7 +865,7 @@ void drawemeralds(void)
     for (y=0;y<MHEIGHT;y++)
       if (emfield[y*MWIDTH+x]&emmask) {
         drawemerald(x*20+12,y*18+21);
-        gethrt(false, 3);
+        redrawdelay();
       }
 }
 
@@ -776,7 +921,7 @@ void killemerald(int16_t x,int16_t y)
 static bool
 getfirepflag(int n)
 {
-  return n==0 ? firepflag : fire2pflag;
+  return (input_get_fire_active(n));
 }
 
 int diggerx(int n)
