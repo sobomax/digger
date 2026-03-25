@@ -19,6 +19,10 @@ void killdigger(int n,int16_t bp6,int16_t bp8);
 bool checkdiggerunderbag(int16_t h,int16_t v);
 void killemerald(int16_t bpa,int16_t bpc);
 void newframe(void);
+bool pauseframe(bool local_pause, bool *remote_pause);
+bool freezeframe(bool local_freeze, bool *remote_freeze);
+void redrawdelay(void);
+bool netsim_remote_pause_active(void);
 int diggerx(int n);
 int diggery(int n);
 void digresettime(int n);
@@ -37,3 +41,4 @@ extern bool bonusvisible,digonscr,bonusmode;
 extern uint32_t frame;
 #endif
 uint32_t getframe(void);
+void resetframe(void);

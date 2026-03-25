@@ -57,6 +57,7 @@ gethrt(bool mindelay, int mult)
 	/* Speed controlling stuff */
 	tfreq = mult * 1000000.0 / dgstate.ftime;
 	clk_rl = getdtime() * tfreq;
+	clk_rl += (double)dgstate.netsim_remote_lead_ms * tfreq / 1000.0;
 	eval = PFD_get_error(&phase_detector, clk_rl);
 	if (eval != 0.0) {
 		filterval = recfilter_apply(loop_error, sigmoid(eval));
@@ -109,4 +110,3 @@ void s0soundkillglob(void)
 {
 /* No-op */
 }
-

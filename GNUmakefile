@@ -10,7 +10,8 @@ OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o sound.o \
 		newsnd.o ini.o input.o monster.o bags.o alpha.o vgagrafx.o \
 		title_gz.o icon.o sdl_kbd.o sdl_vid.o sdl_timer.o sdl_snd.o \
 		digger_math.o monster_obj.o digger_obj.o bullet_obj.o \
-		cgagrafx.o keyboard.o soundgen.o spinlock.o game.o digger_log.o
+		cgagrafx.o keyboard.o soundgen.o spinlock.o game.o digger_log.o \
+		netsim.o netsim_platform.o netsim_debug.o
 DIGGER_EXTRA_DEPS =
 WASM_BUILD_INFO =
 WASM_DIST_DIR =
@@ -37,7 +38,7 @@ CC	=  ${MGW_PREF}-gcc
 WINDRES	?=  windres
 STRIP   ?= strip
 RCFLAGS	+= -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW_PREF}/include/SDL2
-LIBS	+= -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -lz -lm
+LIBS	+= -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -lws2_32 -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -lz -lm
 ifeq (${BUILD_TYPE},debug)
 LIBS    += -mconsole
 endif
@@ -51,7 +52,7 @@ CC      =  ${MGW64_PREF}-gcc
 WINDRES ?=  windres
 STRIP   ?=  strip
 RCFLAGS += -DMINGW -Dmain=SDL_main -I${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER} -I${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW64_PREF}/include/SDL2
-LIBS    += -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW64_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm \
+LIBS    += -mwindows -lmingw32 -L${MINGW_DEPS_ROOT}/SDL2-${SDL_VER}/${MGW64_PREF}/lib -lSDL2main -lSDL2 -luser32 -lgdi32 -lwinmm -lws2_32 \
             -L${MINGW_DEPS_ROOT}/zlib-${ZLIB_VER}/${MGW64_PREF} -lz -lm
 ifeq (${BUILD_TYPE},debug)
 LIBS    += -mconsole
@@ -64,14 +65,14 @@ endif
 ifeq ($(ARCH),FREEBSD)
 OBJS	+= fbsd_sup.o	# strup()
 RCFLAGS	+= -DFREEBSD $(shell pkg-config sdl2 --cflags)
-LIBS	+= $(shell pkg-config sdl2 --libs) -lz -lm -lX11
+LIBS	+= $(shell pkg-config sdl2 --libs) -lz -lm -lX11 -lpthread
 ESUFFIX	=
 endif
 
 ifeq ($(ARCH),LINUX)
 OBJS	+= fbsd_sup.o	# strup()
 RCFLAGS	+= -DLINUX $(shell pkg-config sdl2 --cflags)
-LIBS	+= $(shell pkg-config sdl2 --libs) -lz -lm -lX11
+LIBS	+= $(shell pkg-config sdl2 --libs) -lz -lm -lX11 -lpthread
 ESUFFIX	=
 endif
 

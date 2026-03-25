@@ -17,6 +17,7 @@
 #include "scores.h"
 #include "record.h"
 #include "game.h"
+#include "netsim_debug.h"
 
 static struct monster
 {
@@ -118,6 +119,45 @@ void domonsters(struct digger_draw_api *ddap)
       else
         mondie(ddap, i);
     }
+}
+
+uint32_t
+monster_debug_hash_append(uint32_t h)
+{
+  int i;
+  struct obj_position pos;
+
+  h = debug_hash_mix(h, (uint32_t)(uint16_t)nextmonster);
+  h = debug_hash_mix(h, (uint32_t)(uint16_t)totalmonsters);
+  h = debug_hash_mix(h, (uint32_t)(uint16_t)maxmononscr);
+  h = debug_hash_mix(h, (uint32_t)(uint16_t)nextmontime);
+  h = debug_hash_mix(h, (uint32_t)(uint16_t)mongaptime);
+  h = debug_hash_mix(h, (uint32_t)(uint16_t)chase);
+  h = debug_hash_mix(h, unbonusflag ? 1U : 0U);
+  for (i = 0; i < MONSTERS; i++) {
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].h);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].v);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].xr);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].yr);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].dir);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].t);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].hnt);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].death);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].bag);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].dtime);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].stime);
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].chase);
+    h = debug_hash_mix(h, mondat[i].flag ? 1U : 0U);
+    if (mondat[i].mop != NULL) {
+      CALL_METHOD(mondat[i].mop, getpos, &pos);
+      h = debug_hash_mix(h, (uint32_t)(uint16_t)pos.x);
+      h = debug_hash_mix(h, (uint32_t)(uint16_t)pos.y);
+      h = debug_hash_mix(h, (uint32_t)(uint16_t)pos.dir);
+      h = debug_hash_mix(h, CALL_METHOD(mondat[i].mop, isalive) ? 1U : 0U);
+      h = debug_hash_mix(h, ISNOB(mondat[i].mop) ? 1U : 0U);
+    }
+  }
+  return (h);
 }
 
 static void

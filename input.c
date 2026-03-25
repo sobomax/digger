@@ -19,15 +19,25 @@
 bool escape=false,firepflag=false,fire2pflag=false,pausef=false,mode_change=false;
 bool krdf[NKEYS]={false,false,false,false,false,false,false,false,false,false,
                false,false,false,false,false,false,false,false};
+static bool firepactive=false,fire2pactive=false;
 
 static bool aleftpressed=false,arightpressed=false,
      auppressed=false,adownpressed=false,start=false,af1pressed=false;
 static bool aleft2pressed=false,aright2pressed=false,
      aup2pressed=false,adown2pressed=false,af12pressed=false;
+static bool anykeyf=false;
+
+enum input_source {
+  INPUT_SOURCE_PRIMARY = 0,
+  INPUT_SOURCE_SECONDARY,
+  INPUT_SOURCE_NETWORK
+};
 
 int16_t akeypressed;
 
 static int16_t dynamicdir=-1,dynamicdir2=-1,staticdir=-1,staticdir2=-1,joyx=0,joyy=0;
+static int16_t dynamicdirn[DIGGERS]={DIR_NONE,DIR_NONE},
+      staticdirn[DIGGERS]={DIR_NONE,DIR_NONE};
 
 static bool joybut1=false;
 
@@ -35,8 +45,14 @@ static int16_t keydir=0,keydir2=0,jleftthresh=0,jupthresh=0,jrightthresh=0,
       jdownthresh=0,joyanax=0,joyanay=0;
 
 static bool joyflag=false;
+static enum input_source slot_sources[DIGGERS]={INPUT_SOURCE_PRIMARY,
+                                                INPUT_SOURCE_SECONDARY};
+static uint8_t network_bits[DIGGERS]={0,0};
+static bool ounpressed[DIGGERS]={false,false},odnpressed[DIGGERS]={false,false},
+     olnpressed[DIGGERS]={false,false},ornpressed[DIGGERS]={false,false};
 
 void readjoy(void);
+static void apply_network_controls(int n);
 
 /* The standard ASCII keyboard is also checked so that very short keypresses
    are not overlooked. The functions kbhit() (returns bool denoting whether or
@@ -75,6 +91,7 @@ void checkkeyb(void)
 
   while (kbhit()) {
     akeypressed=getkey(true);
+    anykeyf=true;
     for (i=0;i<10;i++)
       for (j=2;j<5;j++)
         if (akeypressed==keycodes[i][j])
@@ -143,6 +160,67 @@ void flushkeybuf(void)
   aleft2pressed=aright2pressed=aup2pressed=adown2pressed=af12pressed=false;
 }
 
+uint8_t
+input_snapshot_primary_controls(void)
+{
+  uint8_t bits = 0;
+
+  if (auppressed || uppressed)
+    bits |= INPUT_CTRL_UP;
+  if (adownpressed || downpressed)
+    bits |= INPUT_CTRL_DOWN;
+  if (arightpressed || rightpressed)
+    bits |= INPUT_CTRL_RIGHT;
+  if (aleftpressed || leftpressed)
+    bits |= INPUT_CTRL_LEFT;
+  if (af1pressed || f1pressed)
+    bits |= INPUT_CTRL_FIRE;
+  aleftpressed=arightpressed=auppressed=adownpressed=af1pressed=false;
+  return (bits);
+}
+
+bool
+input_consume_anykey(void)
+{
+  bool anykey;
+
+  anykey = anykeyf;
+  anykeyf = false;
+  return (anykey);
+}
+
+void
+input_reset_network(void)
+{
+  int i;
+
+  for (i = 0; i < DIGGERS; i++) {
+    slot_sources[i] = (i == 0) ? INPUT_SOURCE_PRIMARY : INPUT_SOURCE_SECONDARY;
+    network_bits[i] = 0;
+    ounpressed[i] = odnpressed[i] = olnpressed[i] = ornpressed[i] = false;
+    dynamicdirn[i] = staticdirn[i] = DIR_NONE;
+  }
+}
+
+void
+input_enable_network_mode(void)
+{
+  int i;
+
+  input_reset_network();
+  for (i = 0; i < DIGGERS; i++)
+    slot_sources[i] = INPUT_SOURCE_NETWORK;
+}
+
+void
+input_set_network_controls(int slot, uint8_t bits)
+{
+
+  if (slot < 0 || slot >= DIGGERS)
+    return;
+  network_bits[slot] = bits;
+}
+
 void clearfire(int n)
 {
   if (n==0)
@@ -154,23 +232,122 @@ void clearfire(int n)
 bool oupressed=false,odpressed=false,olpressed=false,orpressed=false;
 bool ou2pressed=false,od2pressed=false,ol2pressed=false,or2pressed=false;
 
+void
+input_reset_directions(void)
+{
+  int i;
+
+  firepflag=false;
+  fire2pflag=false;
+  firepactive=false;
+  fire2pactive=false;
+  dynamicdir=dynamicdir2=DIR_NONE;
+  staticdir=staticdir2=DIR_NONE;
+  keydir=keydir2=DIR_NONE;
+  oupressed=odpressed=olpressed=orpressed=false;
+  ou2pressed=od2pressed=ol2pressed=or2pressed=false;
+  for (i=0; i<DIGGERS; i++) {
+    dynamicdirn[i]=DIR_NONE;
+    staticdirn[i]=DIR_NONE;
+    ounpressed[i]=odnpressed[i]=olnpressed[i]=ornpressed[i]=false;
+  }
+}
+
+void
+input_advance_fire_state(void)
+{
+
+  firepactive=firepflag;
+  fire2pactive=fire2pflag;
+}
+
+bool
+input_get_fire_active(int n)
+{
+
+  return (n == 0) ? firepactive : fire2pactive;
+}
+
+static void
+apply_network_controls(int n)
+{
+  bool un=false,dn=false,ln=false,rn=false;
+
+  if ((network_bits[n] & INPUT_CTRL_UP) != 0)
+    un=true;
+  if ((network_bits[n] & INPUT_CTRL_DOWN) != 0)
+    dn=true;
+  if ((network_bits[n] & INPUT_CTRL_LEFT) != 0)
+    ln=true;
+  if ((network_bits[n] & INPUT_CTRL_RIGHT) != 0)
+    rn=true;
+  if ((network_bits[n] & INPUT_CTRL_FIRE) != 0) {
+    if (n==0)
+      firepflag=true;
+    else
+      fire2pflag=true;
+  }
+  else if (n==0)
+    firepflag=false;
+  else
+    fire2pflag=false;
+  if (un && !ounpressed[n])
+    staticdirn[n]=dynamicdirn[n]=DIR_UP;
+  if (dn && !odnpressed[n])
+    staticdirn[n]=dynamicdirn[n]=DIR_DOWN;
+  if (ln && !olnpressed[n])
+    staticdirn[n]=dynamicdirn[n]=DIR_LEFT;
+  if (rn && !ornpressed[n])
+    staticdirn[n]=dynamicdirn[n]=DIR_RIGHT;
+  if ((ounpressed[n] && !un && dynamicdirn[n]==DIR_UP) ||
+      (odnpressed[n] && !dn && dynamicdirn[n]==DIR_DOWN) ||
+      (olnpressed[n] && !ln && dynamicdirn[n]==DIR_LEFT) ||
+      (ornpressed[n] && !rn && dynamicdirn[n]==DIR_RIGHT)) {
+    dynamicdirn[n]=DIR_NONE;
+    if (un) dynamicdirn[n]=staticdirn[n]=DIR_UP;
+    if (dn) dynamicdirn[n]=staticdirn[n]=DIR_DOWN;
+    if (ln) dynamicdirn[n]=staticdirn[n]=DIR_LEFT;
+    if (rn) dynamicdirn[n]=staticdirn[n]=DIR_RIGHT;
+  }
+  ounpressed[n]=un;
+  odnpressed[n]=dn;
+  olnpressed[n]=ln;
+  ornpressed[n]=rn;
+  if (n==0) {
+    keydir=staticdirn[n];
+    if (dynamicdirn[n]!=DIR_NONE)
+      keydir=dynamicdirn[n];
+  }
+  else {
+    keydir2=staticdirn[n];
+    if (dynamicdirn[n]!=DIR_NONE)
+      keydir2=dynamicdirn[n];
+  }
+  staticdirn[n]=DIR_NONE;
+}
+
 void readdirect(int n)
 {
   int16_t j;
   bool u=false,d=false,l=false,r=false;
   bool u2=false,d2=false,l2=false,r2=false;
 
-  if (n==0) {
+  if (slot_sources[n]==INPUT_SOURCE_PRIMARY) {
     if (auppressed || uppressed) { u=true; auppressed=false; }
     if (adownpressed || downpressed) { d=true; adownpressed=false; }
     if (aleftpressed || leftpressed) { l=true; aleftpressed=false; }
     if (arightpressed || rightpressed) { r=true; arightpressed=false; }
     if (f1pressed || af1pressed) {
-      firepflag=true;
+      if (n == 0)
+        firepflag=true;
+      else
+        fire2pflag=true;
       af1pressed=false;
     }
-    else
+    else if (n == 0)
       firepflag=false;
+    else
+      fire2pflag=false;
     if (u && !oupressed)
       staticdir=dynamicdir=DIR_UP;
     if (d && !odpressed)
@@ -193,20 +370,32 @@ void readdirect(int n)
     odpressed=d;
     olpressed=l;
     orpressed=r;
-    keydir=staticdir;
-    if (dynamicdir!=DIR_NONE)
-      keydir=dynamicdir;
+    if (n == 0) {
+      keydir=staticdir;
+      if (dynamicdir!=DIR_NONE)
+        keydir=dynamicdir;
+    }
+    else {
+      keydir2=staticdir;
+      if (dynamicdir!=DIR_NONE)
+        keydir2=dynamicdir;
+    }
     staticdir=DIR_NONE;
   }
-  else {
+  else if (slot_sources[n]==INPUT_SOURCE_SECONDARY) {
     if (aup2pressed || up2pressed) { u2=true; aup2pressed=false; }
     if (adown2pressed || down2pressed) { d2=true; adown2pressed=false; }
     if (aleft2pressed || left2pressed) { l2=true; aleft2pressed=false; }
     if (aright2pressed || right2pressed) { r2=true; aright2pressed=false; }
     if (f12pressed || af12pressed) {
-      fire2pflag=true;
+      if (n == 0)
+        firepflag=true;
+      else
+        fire2pflag=true;
       af12pressed=false;
     }
+    else if (n == 0)
+      firepflag=false;
     else
       fire2pflag=false;
     if (u2 && !ou2pressed)
@@ -231,10 +420,20 @@ void readdirect(int n)
     od2pressed=d2;
     ol2pressed=l2;
     or2pressed=r2;
-    keydir2=staticdir2;
-    if (dynamicdir2!=DIR_NONE)
-      keydir2=dynamicdir2;
+    if (n == 0) {
+      keydir=staticdir2;
+      if (dynamicdir2!=DIR_NONE)
+        keydir=dynamicdir2;
+    }
+    else {
+      keydir2=staticdir2;
+      if (dynamicdir2!=DIR_NONE)
+        keydir2=dynamicdir2;
+    }
     staticdir2=DIR_NONE;
+  }
+  else {
+    apply_network_controls(n);
   }
 
   if (joyflag) {

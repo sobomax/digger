@@ -41,7 +41,7 @@ void
 gethrt(bool minsleep, int mult)
 {
     uint32_t add_delay;
-    double eval, clk_rl, tfreq, add_delay_d, filterval;
+    double eval, clk_rl, tfreq, add_delay_d, filterval, remote_lead_rl;
 
     if (dgstate.ftime <= 1) {
         doscreenupdate();
@@ -51,6 +51,8 @@ gethrt(bool minsleep, int mult)
     }
     tfreq = mult * 1000000.0 / dgstate.ftime;
     clk_rl = (double)SDL_GetTicks() * tfreq / 1000.0;
+    remote_lead_rl = (double)dgstate.netsim_remote_lead_ms * tfreq / 1000.0;
+    clk_rl += remote_lead_rl;
     eval = PFD_get_error(&phase_detector, clk_rl);
     if (eval != 0) {
         filterval = recfilter_apply(loop_error, sigmoid(eval));
@@ -60,7 +62,8 @@ gethrt(bool minsleep, int mult)
     add_delay_d = (freqoff_to_period(tfreq, 1.0, filterval) * 1000.0);
     add_delay = round(add_delay_d);
 #if defined(DIGGER_DEBUG) 
-    digger_log_printf("clk_rl = %f, add_delay = %d, eval = %f, filterval = %f\n",
+    digger_log_printf("gethrt: minsleep=%d mult=%d lead_ms=%d lead_rl=%f clk_rl=%f add_delay=%d eval=%f filterval=%f\n",
+      minsleep ? 1 : 0, mult, dgstate.netsim_remote_lead_ms, remote_lead_rl,
       clk_rl, add_delay, eval, filterval);
 #endif
 
