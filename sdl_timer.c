@@ -42,7 +42,6 @@ gethrt(bool minsleep, int mult)
 {
     uint32_t add_delay;
     double eval, clk_rl, tfreq, add_delay_d, filterval;
-    static double cum_error = 0.0;
 
     if (dgstate.ftime <= 1) {
         doscreenupdate();
@@ -58,12 +57,11 @@ gethrt(bool minsleep, int mult)
     } else {
         filterval = recfilter_getlast(loop_error);
     }
-    add_delay_d = (freqoff_to_period(tfreq, 1.0, filterval) * 1000.0) + cum_error;
+    add_delay_d = (freqoff_to_period(tfreq, 1.0, filterval) * 1000.0);
     add_delay = round(add_delay_d);
-    cum_error = add_delay_d - (double)add_delay;
 #if defined(DIGGER_DEBUG) 
-    fprintf(digger_log, "clk_rl = %f, add_delay = %d, eval = %f, filterval = %f, cum_error = %f\n",
-      clk_rl, add_delay, eval, filterval, cum_error);
+    fprintf(digger_log, "clk_rl = %f, add_delay = %d, eval = %f, filterval = %f\n",
+      clk_rl, add_delay, eval, filterval);
 #endif
 
     doscreenupdate();
