@@ -6,3 +6,4 @@
 bool setsounddevice(uint16_t samprate,uint16_t bufsize);
 bool initsounddevice(void);
 void pausesounddevice(bool p);
+void wakesounddevice(void);

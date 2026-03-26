@@ -1,12 +1,17 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
+#include <stdatomic.h>
+
 void initsound(void);
+void soundpreinit(void);
 void soundstop(void);
+uint16_t musicwithack(int16_t tune, double dfac);
 void music(int16_t tune, double dfac);
 void musicoff(void);
 void soundlevdone(void);
 void sound1up(void);
+void soundwakeup(void);
 void soundpause(void);
 void soundpauseoff(void);
 void setsoundt2(void);
@@ -25,6 +30,8 @@ void soundfall(void);
 void soundfalloff(void);
 void soundbreak(void);
 void soundgold(void);
+void togglesound(void);
+void togglemusic(void);
 
 void soundint(void);
 
@@ -33,9 +40,9 @@ void soundoff(void);
 void timer2(uint16_t t2v);
 */
 
-extern bool soundflag,musicflag;
+extern _Atomic bool soundflag,musicflag;
 extern int16_t volume,timerrate,spkrmode,pulsewidth;
-extern bool sounddiedone;
+bool soundackready(uint16_t ack_id);
 
 extern void (*setupsound)(void);
 extern void (*killsound)(void);
@@ -44,4 +51,3 @@ extern void (*setspkrt2)(void);
 extern void (*timer0)(uint16_t t0v);
 extern void (*timer2)(uint16_t t2v, bool mode);
 extern void (*soundkillglob)(void);
-

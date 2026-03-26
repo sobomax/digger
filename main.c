@@ -366,6 +366,7 @@ int mainprog(void)
       input_set_network_controls(1-netsim_local_player(), 0);
     }
     recinit();
+    soundwakeup();
     game();
     if (dgstate.netsim)
       netsim_stop_session(escape && !netsim_peer_exited());
@@ -987,6 +988,7 @@ static void inir(void)
   musicflag=GetINIBool(INI_SOUND_SETTINGS,"MusicOn",true,ININAME);
   sound_rate=(int)GetINIInt(INI_SOUND_SETTINGS,"Rate",44100,ININAME);
   sound_length=(int)GetINIInt(INI_SOUND_SETTINGS,"BufferSize",DEFAULT_BUFFER,ININAME);
+  soundpreinit();
 
 #if !defined(UNIX) && !defined(_SDL)
   if (sound_device==1) {

@@ -22,12 +22,14 @@
 #include "game.h"
 #include "netsim.h"
 #include "netsim_debug.h"
+#include "record.h"
 
 static struct digger
 {
   int16_t h,v,rx,ry,mdir,bagtime,rechargetime,
         deathstage,deathbag,deathani,deathtime,emocttime,emn,msc,lives,ivt;
   bool notfiring,firepressed,dead,levdone,invin;
+  uint16_t deathmusicdone;
   struct digger_obj dob;
   struct bullet_obj bob;
 } digdat[DIGGERS];
@@ -70,6 +72,7 @@ void initdigger(void)
     digdat[dig].invin=false;
     digdat[dig].ivt=0;
     digdat[dig].deathstage=1;
+    digdat[dig].deathmusicdone=0;
     y = digdat[dig].v * 18 + 18;
     digger_obj_init(&digdat[dig].dob, dig - dgstate.curplayer, dir, x, y);
     CALL_METHOD(&digdat[dig].dob, put);
@@ -91,6 +94,8 @@ static uint32_t frame;
 static bool remote_pause_active = false;
 static bool syncframe(bool local_freeze, bool local_pause,
   bool use_pause_latch, bool *remote_freezep, bool *remote_pausep);
+static bool digger_deathmusic_pending(int n);
+static bool any_digger_deathmusic_pending(void);
 
 uint32_t
 getframe(void)
@@ -167,6 +172,35 @@ netsim_remote_pause_active(void)
 }
 
 static bool
+digger_deathmusic_pending(int n)
+{
+
+  if (playing)
+    return (false);
+  if (digdat[n].deathmusicdone == 0)
+    return (false);
+  if (soundackready(digdat[n].deathmusicdone)) {
+    digdat[n].deathmusicdone = 0;
+    return (false);
+  }
+  return (true);
+}
+
+static bool
+any_digger_deathmusic_pending(void)
+{
+  int dig;
+
+  if (dgstate.diggers != 1 || playing)
+    return (false);
+  for (dig=dgstate.curplayer;dig<dgstate.diggers+dgstate.curplayer;dig++) {
+    if (digger_deathmusic_pending(dig))
+      return (true);
+  }
+  return (false);
+}
+
+static bool
 syncframe(bool local_freeze, bool local_pause, bool use_pause_latch,
   bool *remote_freezep,
   bool *remote_pausep)
@@ -180,9 +214,17 @@ syncframe(bool local_freeze, bool local_pause, bool use_pause_latch,
   int remote_player;
 
   if (!local_freeze)
-    gethrt(sounddiedone ? false : true, 1);
+    gethrt(false, 1);
   checkkeyb();
   dgstate.netsim_remote_lead_ms = 0;
+  if (!local_freeze && any_digger_deathmusic_pending()) {
+    remote_pause_active = false;
+    if (remote_freezep != NULL)
+      *remote_freezep = false;
+    if (remote_pausep != NULL)
+      *remote_pausep = false;
+    return (true);
+  }
 
 #if defined(INTDRF) || 1
   frame++;
@@ -669,8 +711,14 @@ diggerdie(struct digger_draw_api *ddap, int n)
         digdat[n].deathtime--;
         break;
       }
-      if (digdat[n].deathani==0)
-        music(2, (dgstate.diggers > 1) ? 0.7 : 1.0);
+      if (digdat[n].deathani==0) {
+        if (dgstate.diggers == 1)
+          digdat[n].deathmusicdone = musicwithack(2, 1.0);
+        else {
+          music(2, 0.7);
+          digdat[n].deathmusicdone = 0;
+        }
+      }
       drawdigger(n-dgstate.curplayer,14-digdat[n].deathani,digdat[n].dob.x,digdat[n].dob.y,
                  false);
       for (i=0;i<TYPES;i++)
@@ -718,10 +766,9 @@ diggerdie(struct digger_draw_api *ddap, int n)
       if (digdat[n].deathtime!=0)
         digdat[n].deathtime--;
       else {
-	if (dgstate.diggers == 1 && !sounddiedone) {
-	    frame -= 1;
-	    break;
-	}
+        if (dgstate.diggers == 1 && digger_deathmusic_pending(n))
+          break;
+        digdat[n].deathmusicdone=0;
         digdat[n].dead=true;
         alldead=true;
         for (i=0;i<dgstate.diggers;i++)

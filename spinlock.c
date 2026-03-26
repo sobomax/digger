@@ -28,6 +28,9 @@
 #include <assert.h>
 #include <stdbool.h>
 #endif
+#if defined(__EMSCRIPTEN__)
+#include <SDL.h>
+#endif
 #include <stdatomic.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -76,6 +79,9 @@ spinlock_lock(struct spinlock *sp)
   while (atomic_flag_test_and_set_explicit(&sp->flag, memory_order_acquire)) {
 #if defined(spinlock_test)
     nspins++;
+#endif
+#if defined(__EMSCRIPTEN__)
+    SDL_Delay(0);
 #endif
     continue;
   }
