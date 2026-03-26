@@ -115,10 +115,10 @@ void checkkeyb(void)
         dgstate.ftime+=10000l;
         break;
       case DKEY_MTG: /* Toggle music */
-        musicflag=!musicflag;
+        togglemusic();
         break;
       case DKEY_STG: /* Toggle sound */
-        soundflag=!soundflag;
+        togglesound();
         break;
       case DKEY_EXT: /* Exit */
         escape=true;

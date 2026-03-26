@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <math.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <SDL.h>
@@ -14,7 +15,7 @@
 
 static void fill_audio(void *udata, uint8_t *stream, int len);
 
-bool wave_device_available = false;
+_Atomic bool wave_device_available = false;
 
 bool initsounddevice(void)
 {
@@ -44,6 +45,7 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
 
                 return (false);
         }
+        wave_device_available = false;
         memset(sud, '\0', sizeof(*sud));
         SDL_zero(wanted);
         SDL_zero(sud->obtained);
@@ -62,6 +64,7 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
 	if (result == false) {
 		fprintf(digger_log, "Couldn't open audio: %s\n", SDL_GetError());
                 free(sud);
+                sud = NULL;
                 return (false);
         }
 #if defined(DIGGER_DEBUG)
@@ -72,8 +75,9 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
 	sud->buf = (int16_t*)malloc(sud->bsize);
         if (sud->buf == NULL) {
                 fprintf(digger_log, "setsounddevice: malloc(3) failed\n");
-                SDL_CloseAudio();
+                SDL_CloseAudioDevice(sud->dev);
                 free(sud);
+                sud = NULL;
                 return (false);
         }
         sud->lp_fltr = bqd_lp_init(sud->obtained.freq, 4000);

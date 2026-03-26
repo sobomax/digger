@@ -1,6 +1,8 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
+#include <time.h>
+
 #include "def.h"
 #include "sound.h"
 #include "device.h"
@@ -9,6 +11,7 @@
 #include "digger.h"
 #include "input.h"
 #include "game.h"
+#include "spinlock.h"
 
 #if defined _SDL || defined _SDL_SOUND
 #include <SDL.h>
@@ -24,9 +27,9 @@ static uint16_t t2val=0,t0val=0;
 int16_t spkrmode=0,pulsewidth=1,volume=0;
 static bool restore_musicflag_after_death=false;
 
-static int8_t timerclock=0;
+static _Atomic int8_t timerclock=0;
 
-bool soundflag=true,musicflag=true;
+_Atomic bool soundflag=true,musicflag=true;
 
 static void soundlevdoneoff(void);
 static void soundlevdoneupdate(void);
@@ -51,6 +54,30 @@ static void soundddieupdate(void);
 static void sound1upoff(void);
 static void sound1upupdate(void);
 static void musicupdate(void);
+static void soundwait(void);
+static void soundstop_apply(void);
+static void soundlevdone_start_apply(void);
+static void soundfall_apply(void);
+static void soundfalloff_apply(void);
+static void soundbreak_apply(void);
+static void soundwobble_apply(void);
+static void soundwobbleoff_apply(void);
+static void soundfire_apply(int n);
+static void soundfireoff_apply(int n);
+static void soundexplode_apply(int n);
+static void soundbonus_apply(void);
+static void soundbonusoff_apply(void);
+static void soundem_apply(void);
+static void soundemerald_apply(int n);
+static void soundgold_apply(void);
+static void soundeatm_apply(void);
+static void soundddie_apply(void);
+static void sound1up_apply(void);
+static void music_apply(int16_t tune, double dfac);
+static void musicoff_apply(void);
+static void togglesound_apply(void);
+static void togglemusic_apply(void);
+static void soundpause_apply(bool paused);
 static void sett0(bool);
 static void setsoundmode(void);
 static void s0setupsound(void);
@@ -65,7 +92,191 @@ void (*timer0)(uint16_t t0v)=s0timer0;
 void (*timer2)(uint16_t t2v, bool mod)=s0timer2;
 void (*soundkillglob)(void)=s0soundkillglob;
 
-static bool sndflag=false,soundpausedflag=false;
+static _Atomic bool sndflag=false;
+static _Atomic bool soundpausedflag=false;
+
+#define SOUND_CMD_QUEUE_LEN 4096
+#define SOUND_CMD_DRAIN_MAX 64
+
+enum sound_cmd_type {
+  SOUND_CMD_STOP = 0,
+  SOUND_CMD_LEVDONE_START,
+  SOUND_CMD_LEVDONE_OFF,
+  SOUND_CMD_FALL_ON,
+  SOUND_CMD_FALL_OFF,
+  SOUND_CMD_BREAK,
+  SOUND_CMD_WOBBLE_ON,
+  SOUND_CMD_WOBBLE_OFF,
+  SOUND_CMD_FIRE_ON,
+  SOUND_CMD_FIRE_OFF,
+  SOUND_CMD_EXPLODE,
+  SOUND_CMD_BONUS_ON,
+  SOUND_CMD_BONUS_OFF,
+  SOUND_CMD_EM,
+  SOUND_CMD_EMERALD,
+  SOUND_CMD_GOLD,
+  SOUND_CMD_EATM,
+  SOUND_CMD_DDIE,
+  SOUND_CMD_1UP,
+  SOUND_CMD_MUSIC,
+  SOUND_CMD_MUSIC_OFF,
+  SOUND_CMD_SOUND_TOGGLE,
+  SOUND_CMD_MUSIC_TOGGLE,
+  SOUND_CMD_PAUSE_ON,
+  SOUND_CMD_PAUSE_OFF
+};
+
+struct sound_cmd {
+  enum sound_cmd_type type;
+  int argi;
+  double argd;
+};
+
+struct sound_cmd_queue {
+  struct spinlock *lock;
+  unsigned int head;
+  unsigned int tail;
+  unsigned int len;
+  struct sound_cmd items[SOUND_CMD_QUEUE_LEN];
+};
+
+static struct sound_cmd_queue sound_cmdq = {0};
+
+static void
+sound_queue_init(void)
+{
+
+  if (sound_cmdq.lock != NULL)
+    return;
+  sound_cmdq.lock = spinlock_ctor();
+}
+
+static void
+sound_queue_push(enum sound_cmd_type type, int argi, double argd)
+{
+  struct sound_cmd_queue *qp;
+
+  sound_queue_init();
+  qp = &sound_cmdq;
+  if (qp->lock == NULL)
+    return;
+  spinlock_lock(qp->lock);
+  if (qp->len < SOUND_CMD_QUEUE_LEN) {
+    qp->items[qp->tail].type = type;
+    qp->items[qp->tail].argi = argi;
+    qp->items[qp->tail].argd = argd;
+    qp->tail = (qp->tail + 1) % SOUND_CMD_QUEUE_LEN;
+    qp->len++;
+  }
+  spinlock_unlock(qp->lock);
+}
+
+static void
+sound_queue_apply(const struct sound_cmd *cmdp)
+{
+
+  switch (cmdp->type) {
+    case SOUND_CMD_STOP:
+      soundstop_apply();
+      break;
+    case SOUND_CMD_LEVDONE_START:
+      soundlevdone_start_apply();
+      break;
+    case SOUND_CMD_LEVDONE_OFF:
+      soundlevdoneoff();
+      break;
+    case SOUND_CMD_FALL_ON:
+      soundfall_apply();
+      break;
+    case SOUND_CMD_FALL_OFF:
+      soundfalloff_apply();
+      break;
+    case SOUND_CMD_BREAK:
+      soundbreak_apply();
+      break;
+    case SOUND_CMD_WOBBLE_ON:
+      soundwobble_apply();
+      break;
+    case SOUND_CMD_WOBBLE_OFF:
+      soundwobbleoff_apply();
+      break;
+    case SOUND_CMD_FIRE_ON:
+      soundfire_apply(cmdp->argi);
+      break;
+    case SOUND_CMD_FIRE_OFF:
+      soundfireoff_apply(cmdp->argi);
+      break;
+    case SOUND_CMD_EXPLODE:
+      soundexplode_apply(cmdp->argi);
+      break;
+    case SOUND_CMD_BONUS_ON:
+      soundbonus_apply();
+      break;
+    case SOUND_CMD_BONUS_OFF:
+      soundbonusoff_apply();
+      break;
+    case SOUND_CMD_EM:
+      soundem_apply();
+      break;
+    case SOUND_CMD_EMERALD:
+      soundemerald_apply(cmdp->argi);
+      break;
+    case SOUND_CMD_GOLD:
+      soundgold_apply();
+      break;
+    case SOUND_CMD_EATM:
+      soundeatm_apply();
+      break;
+    case SOUND_CMD_DDIE:
+      soundddie_apply();
+      break;
+    case SOUND_CMD_1UP:
+      sound1up_apply();
+      break;
+    case SOUND_CMD_MUSIC:
+      music_apply(cmdp->argi, cmdp->argd);
+      break;
+    case SOUND_CMD_MUSIC_OFF:
+      musicoff_apply();
+      break;
+    case SOUND_CMD_SOUND_TOGGLE:
+      togglesound_apply();
+      break;
+    case SOUND_CMD_MUSIC_TOGGLE:
+      togglemusic_apply();
+      break;
+    case SOUND_CMD_PAUSE_ON:
+      soundpause_apply(true);
+      break;
+    case SOUND_CMD_PAUSE_OFF:
+      soundpause_apply(false);
+      break;
+  }
+}
+
+static void
+sound_queue_drain(void)
+{
+  struct sound_cmd local[SOUND_CMD_DRAIN_MAX];
+  struct sound_cmd_queue *qp;
+  unsigned int n, i;
+
+  qp = &sound_cmdq;
+  if (qp->lock == NULL)
+    return;
+  do {
+    spinlock_lock(qp->lock);
+    n = 0;
+    while (qp->len > 0 && n < SOUND_CMD_DRAIN_MAX) {
+      local[n++] = qp->items[qp->head];
+      qp->head = (qp->head + 1) % SOUND_CMD_QUEUE_LEN;
+      qp->len--;
+    }
+    spinlock_unlock(qp->lock);
+    for (i = 0; i < n; i++)
+      sound_queue_apply(&local[i]);
+  } while (n == SOUND_CMD_DRAIN_MAX);
+}
 
 static int32_t randvs;
 
@@ -81,10 +292,25 @@ static void sett2val(int16_t t2v, bool mode)
     timer2(t2v, mode);
 }
 
-static bool soundlevdoneflag=false;
+static _Atomic bool soundlevdoneflag=false;
+
+static void
+soundwait(void)
+{
+#if defined _SDL || defined _SDL_SOUND
+  SDL_Delay(10);
+#else
+  struct timespec ts;
+
+  ts.tv_sec = 0;
+  ts.tv_nsec = 10000000L;
+  nanosleep(&ts, NULL);
+#endif
+}
 
 void soundint(void)
 {
+  sound_queue_drain();
   timerclock++;
   if (soundflag && !sndflag)
     sndflag=musicflag=true;
@@ -127,13 +353,84 @@ void soundint(void)
 
 void soundstop(void)
 {
+  sound_queue_push(SOUND_CMD_STOP, 0, 0.0);
+}
+
+static int16_t nljpointer=0,nljnoteduration=0;
+
+void soundlevdone(void)
+{
+  bool local_freeze;
+  bool sent_unfreeze;
+  bool remote_freeze;
+  int16_t timer=0;
+#if defined _SDL || defined _SDL_SOUND
+  int8_t start_timer;
+#endif
+
+  soundstop();
+#if defined _SDL || defined _SDL_SOUND
+  start_timer = timerclock;
+#endif
+  if (dgstate.netsim) {
+    sound_queue_push(SOUND_CMD_LEVDONE_START, 0, 0.0);
+#if defined _SDL || defined _SDL_SOUND
+    while (wave_device_available && sndflag && !soundlevdoneflag &&
+      timerclock == start_timer && !escape)
+      soundwait();
+#endif
+    sent_unfreeze = !soundlevdoneflag;
+    do {
+      local_freeze = soundlevdoneflag;
+      if (!freezeframe(local_freeze, &remote_freeze)) {
+        sound_queue_push(SOUND_CMD_LEVDONE_OFF, 0, 0.0);
+        return;
+      }
+      if (!local_freeze)
+        sent_unfreeze = true;
+    } while ((soundlevdoneflag || remote_freeze || !sent_unfreeze) && !escape);
+    if (sndflag)
+      sound_queue_push(SOUND_CMD_LEVDONE_OFF, 0, 0.0);
+    return;
+  }
+  if (!sndflag)
+    return;
+  sound_queue_push(SOUND_CMD_LEVDONE_START, 0, 0.0);
+#if defined _SDL || defined _SDL_SOUND
+  while (wave_device_available && !soundlevdoneflag &&
+    timerclock == start_timer && !escape)
+    soundwait();
+#endif
+  while (soundlevdoneflag && !escape) {
+#if defined _SDL || defined _VGL
+	if (!wave_device_available)
+		sound_queue_push(SOUND_CMD_LEVDONE_OFF, 0, 0.0);
+#endif
+    soundwait();
+    if (timerclock==timer)
+      continue;
+    checkkeyb();
+    timer=timerclock;
+  }
+  sound_queue_push(SOUND_CMD_LEVDONE_OFF, 0, 0.0);
+}
+
+static void soundlevdoneoff(void)
+{
+  soundlevdoneflag=soundpausedflag=false;
+}
+
+static void
+soundstop_apply(void)
+{
   int i;
-  soundfalloff();
-  soundwobbleoff();
+
+  soundfalloff_apply();
+  soundwobbleoff_apply();
   for (i=0;i<FIREBALLS;i++)
-    soundfireoff(i);
-  musicoff();
-  soundbonusoff();
+    soundfireoff_apply(i);
+  musicoff_apply();
+  soundbonusoff_apply();
   for (i=0;i<FIREBALLS;i++)
     soundexplodeoff(i);
   soundbreakoff();
@@ -145,61 +442,16 @@ void soundstop(void)
   sound1upoff();
 }
 
-static int16_t nljpointer=0,nljnoteduration=0;
-
-void soundlevdone(void)
+static void
+soundlevdone_start_apply(void)
 {
-  bool local_freeze;
-  bool sent_unfreeze;
-  bool remote_freeze;
-  int16_t timer=0;
 
-  soundstop();
-  if (dgstate.netsim) {
-    if (sndflag) {
-      nljpointer=0;
-      nljnoteduration=20;
-      soundlevdoneflag=soundpausedflag=true;
-    } else
-      soundlevdoneflag=false;
-    sent_unfreeze = !soundlevdoneflag;
-    do {
-      local_freeze = soundlevdoneflag;
-      if (!freezeframe(local_freeze, &remote_freeze)) {
-        soundlevdoneoff();
-        return;
-      }
-      if (!local_freeze)
-        sent_unfreeze = true;
-    } while ((soundlevdoneflag || remote_freeze || !sent_unfreeze) && !escape);
-    if (sndflag)
-      soundlevdoneoff();
-    return;
-  }
-  if (!sndflag)
-    return;
-  nljpointer=0;
-  nljnoteduration=20;
-  soundlevdoneflag=soundpausedflag=true;
-  while (soundlevdoneflag && !escape) {
-#if defined _SDL || defined _VGL
-	if (!wave_device_available)
-		soundlevdoneflag=false;
-#endif
-#if defined _SDL || defined _SDL_SOUND
-    gethrt(true, 1);	/* Let some CPU time go away */
-#endif
-    if (timerclock==timer)
-      continue;
-    checkkeyb();
-    timer=timerclock;
-  }
-  soundlevdoneoff();
-}
-
-static void soundlevdoneoff(void)
-{
-  soundlevdoneflag=soundpausedflag=false;
+  if (sndflag) {
+    nljpointer=0;
+    nljnoteduration=20;
+    soundlevdoneflag=soundpausedflag=true;
+  } else
+    soundlevdoneflag=false;
 }
 
 static const int16_t newlevjingle[11]={0x8e8,0x712,0x5f2,0x7f0,0x6ac,0x54c,
@@ -233,16 +485,28 @@ static void soundlevdoneupdate(void)
 static bool soundfallflag=false,soundfallf=false;
 static int16_t soundfallvalue,soundfalln=0;
 
-void soundfall(void)
+static void
+soundfall_apply(void)
 {
   soundfallvalue=1000;
   soundfallflag=true;
 }
 
-void soundfalloff(void)
+void soundfall(void)
+{
+  sound_queue_push(SOUND_CMD_FALL_ON, 0, 0.0);
+}
+
+static void
+soundfalloff_apply(void)
 {
   soundfallflag=false;
   soundfalln=0;
+}
+
+void soundfalloff(void)
+{
+  sound_queue_push(SOUND_CMD_FALL_OFF, 0, 0.0);
 }
 
 static void soundfallupdate(void)
@@ -269,12 +533,18 @@ static void soundfallupdate(void)
 static bool soundbreakflag=false;
 static int16_t soundbreakduration=0,soundbreakvalue=0;
 
-void soundbreak(void)
+static void
+soundbreak_apply(void)
 {
   soundbreakduration=3;
   if (soundbreakvalue<15000)
     soundbreakvalue=15000;
   soundbreakflag=true;
+}
+
+void soundbreak(void)
+{
+  sound_queue_push(SOUND_CMD_BREAK, 0, 0.0);
 }
 
 static void soundbreakoff(void)
@@ -298,15 +568,27 @@ static void soundbreakupdate(void)
 static bool soundwobbleflag=false;
 static int16_t soundwobblen=0;
 
-void soundwobble(void)
+static void
+soundwobble_apply(void)
 {
   soundwobbleflag=true;
 }
 
-void soundwobbleoff(void)
+void soundwobble(void)
+{
+  sound_queue_push(SOUND_CMD_WOBBLE_ON, 0, 0.0);
+}
+
+static void
+soundwobbleoff_apply(void)
 {
   soundwobbleflag=false;
   soundwobblen=0;
+}
+
+void soundwobbleoff(void)
+{
+  sound_queue_push(SOUND_CMD_WOBBLE_OFF, 0, 0.0);
 }
 
 static void soundwobbleupdate(void)
@@ -335,16 +617,28 @@ static bool soundfireflag[FIREBALLS]={false,false},sff[FIREBALLS];
 static int16_t soundfirevalue[FIREBALLS],soundfiren[FIREBALLS]={0,0};
 static int soundfirew=0;
 
-void soundfire(int n)
+static void
+soundfire_apply(int n)
 {
   soundfirevalue[n]=500;
   soundfireflag[n]=true;
 }
 
-void soundfireoff(int n)
+void soundfire(int n)
+{
+  sound_queue_push(SOUND_CMD_FIRE_ON, n, 0.0);
+}
+
+static void
+soundfireoff_apply(int n)
 {
   soundfireflag[n]=false;
   soundfiren[n]=0;
+}
+
+void soundfireoff(int n)
+{
+  sound_queue_push(SOUND_CMD_FIRE_OFF, n, 0.0);
 }
 
 static void soundfireupdate(void)
@@ -360,7 +654,7 @@ static void soundfireupdate(void)
         sff[n]=true;
         f=true;
         if (soundfirevalue[n]>30000)
-          soundfireoff(n);
+          soundfireoff_apply(n);
       }
       else
         soundfiren[n]++;
@@ -381,12 +675,18 @@ static bool soundexplodeflag[FIREBALLS]={false,false},sef[FIREBALLS];
 static int16_t soundexplodevalue[FIREBALLS],soundexplodeduration[FIREBALLS];
 static int soundexplodew=0;
 
-void soundexplode(int n)
+static void
+soundexplode_apply(int n)
 {
   soundexplodevalue[n]=1500;
   soundexplodeduration[n]=10;
   soundexplodeflag[n]=true;
-  soundfireoff(n);
+  soundfireoff_apply(n);
+}
+
+void soundexplode(int n)
+{
+  sound_queue_push(SOUND_CMD_EXPLODE, n, 0.0);
 }
 
 static void soundexplodeoff(int n)
@@ -425,15 +725,27 @@ static void soundexplodeupdate(void)
 static bool soundbonusflag=false;
 static int16_t soundbonusn=0;
 
-void soundbonus(void)
+static void
+soundbonus_apply(void)
 {
   soundbonusflag=true;
 }
 
-void soundbonusoff(void)
+void soundbonus(void)
+{
+  sound_queue_push(SOUND_CMD_BONUS_ON, 0, 0.0);
+}
+
+static void
+soundbonusoff_apply(void)
 {
   soundbonusflag=false;
   soundbonusn=0;
+}
+
+void soundbonusoff(void)
+{
+  sound_queue_push(SOUND_CMD_BONUS_OFF, 0, 0.0);
 }
 
 static void soundbonusupdate(void)
@@ -452,9 +764,15 @@ static void soundbonusupdate(void)
 
 static bool soundemflag=false;
 
-void soundem(void)
+static void
+soundem_apply(void)
 {
   soundemflag=true;
+}
+
+void soundem(void)
+{
+  sound_queue_push(SOUND_CMD_EM, 0, 0.0);
 }
 
 static void soundemoff(void)
@@ -476,12 +794,18 @@ static int16_t soundemeraldduration,emerfreq,soundemeraldn;
 
 static const int16_t emfreqs[8]={0x8e8,0x7f0,0x712,0x6ac,0x5f2,0x54c,0x4b8,0x474};
 
-void soundemerald(int n)
+static void
+soundemerald_apply(int n)
 {
   emerfreq=emfreqs[n];
   soundemeraldduration=7;
   soundemeraldn=0;
   soundemeraldflag=true;
+}
+
+void soundemerald(int n)
+{
+  sound_queue_push(SOUND_CMD_EMERALD, n, 0.0);
 }
 
 static void soundemeraldoff(void)
@@ -510,13 +834,19 @@ static void soundemeraldupdate(void)
 static bool soundgoldflag=false,soundgoldf=false;
 static int16_t soundgoldvalue1,soundgoldvalue2,soundgoldduration;
 
-void soundgold(void)
+static void
+soundgold_apply(void)
 {
   soundgoldvalue1=500;
   soundgoldvalue2=4000;
   soundgoldduration=30;
   soundgoldf=false;
   soundgoldflag=true;
+}
+
+void soundgold(void)
+{
+  sound_queue_push(SOUND_CMD_GOLD, 0, 0.0);
 }
 
 static void soundgoldoff(void)
@@ -549,12 +879,18 @@ static void soundgoldupdate(void)
 static bool soundeatmflag=false;
 static int16_t soundeatmvalue,soundeatmduration,soundeatmn;
 
-void soundeatm(void)
+static void
+soundeatm_apply(void)
 {
   soundeatmduration=20;
   soundeatmn=3;
   soundeatmvalue=2000;
   soundeatmflag=true;
+}
+
+void soundeatm(void)
+{
+  sound_queue_push(SOUND_CMD_EATM, 0, 0.0);
 }
 
 static void soundeatmoff(void)
@@ -589,11 +925,17 @@ static void soundeatmupdate(void)
 static bool soundddieflag=false;
 static int16_t soundddien,soundddievalue;
 
-void soundddie(void)
+static void
+soundddie_apply(void)
 {
   soundddien=0;
   soundddievalue=20000;
   soundddieflag=true;
+}
+
+void soundddie(void)
+{
+  sound_queue_push(SOUND_CMD_DDIE, 0, 0.0);
 }
 
 static void soundddieoff(void)
@@ -606,7 +948,7 @@ static void soundddieupdate(void)
   if (soundddieflag) {
     soundddien++;
     if (soundddien==1)
-      musicoff();
+      musicoff_apply();
     if (soundddien>=1 && soundddien<=10)
       soundddievalue=20000-soundddien*1000;
     if (soundddien>10)
@@ -621,10 +963,16 @@ static void soundddieupdate(void)
 static bool sound1upflag=false;
 static int16_t sound1upduration=0;
 
-void sound1up(void)
+static void
+sound1up_apply(void)
 {
   sound1upduration=96;
   sound1upflag=true;
+}
+
+void sound1up(void)
+{
+  sound_queue_push(SOUND_CMD_1UP, 0, 0.0);
 }
 
 static void sound1upoff(void)
@@ -649,9 +997,10 @@ static int16_t musicp=0,tuneno=0,noteduration=0,notevalue=0,musicmaxvol=0,
       musicattackrate=0,musicsustainlevel=0,musicdecayrate=0,musicnotewidth=0,
       musicreleaserate=0,musicstage=0,musicn=0,musicdfac=0;
 
-bool sounddiedone = true;
+_Atomic bool sounddiedone = true;
 
-void music(int16_t tune, double dfac)
+static void
+music_apply(int16_t tune, double dfac)
 {
   tuneno=tune;
   musicp=0;
@@ -699,7 +1048,13 @@ void music(int16_t tune, double dfac)
   }
 }
 
-void musicoff(void)
+void music(int16_t tune, double dfac)
+{
+  sound_queue_push(SOUND_CMD_MUSIC, tune, dfac);
+}
+
+static void
+musicoff_apply(void)
 {
   musicplaying=false;
   musicp=0;
@@ -707,6 +1062,11 @@ void musicoff(void)
     musicflag=false;
     restore_musicflag_after_death=false;
   }
+}
+
+void musicoff(void)
+{
+  sound_queue_push(SOUND_CMD_MUSIC_OFF, 0, 0.0);
 }
 
 static const int16_t bonusjingle[321]={
@@ -838,20 +1198,56 @@ void soundpause(void)
 {
   if (soundpausedflag)
     return;
-  soundpausedflag=true;
-#if defined _SDL || defined _SDL_SOUND
-  pausesounddevice(true);
-#endif
+  sound_queue_push(SOUND_CMD_PAUSE_ON, 0, 0.0);
 }
 
 void soundpauseoff(void)
 {
   if (!soundpausedflag)
     return;
-  soundpausedflag=false;
-#if defined _SDL || defined _SDL_SOUND
-  pausesounddevice(false);
-#endif
+  sound_queue_push(SOUND_CMD_PAUSE_OFF, 0, 0.0);
+}
+
+static void
+soundpause_apply(bool paused)
+{
+
+  if (soundpausedflag == paused)
+    return;
+  soundpausedflag = paused;
+  if (paused && sndflag) {
+    timer2(40, false);
+    setsoundt2();
+    soundoff();
+  }
+}
+
+static void
+togglesound_apply(void)
+{
+
+  soundflag = !soundflag;
+}
+
+void
+togglesound(void)
+{
+
+  sound_queue_push(SOUND_CMD_SOUND_TOGGLE, 0, 0.0);
+}
+
+static void
+togglemusic_apply(void)
+{
+
+  musicflag = !musicflag;
+}
+
+void
+togglemusic(void)
+{
+
+  sound_queue_push(SOUND_CMD_MUSIC_TOGGLE, 0, 0.0);
 }
 
 static void sett0(bool mode)
@@ -893,6 +1289,7 @@ void setsoundmode(void)
 
 void initsound(void)
 {
+  sound_queue_init();
   timer2(40, false);
   setspkrt2();
   timer0(0);
@@ -904,7 +1301,7 @@ void initsound(void)
   sndflag=true;
   spkrmode=0;
   setsoundt2();
-  soundstop();
+  soundstop_apply();
   setupsound();
   timer0(0x4000);
   randvs=0;
