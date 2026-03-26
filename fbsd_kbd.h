@@ -25,16 +25,15 @@
  *
  */
 
-bool GetAsyncKeyState(int);
+bool kbd_async_key_state(int);
 
-#define rightpressed  (GetAsyncKeyState(keycodes[0][0]))
-#define uppressed     (GetAsyncKeyState(keycodes[1][0]))
-#define leftpressed   (GetAsyncKeyState(keycodes[2][0]))
-#define downpressed   (GetAsyncKeyState(keycodes[3][0]))
-#define f1pressed     (GetAsyncKeyState(keycodes[4][0]))
-#define right2pressed (GetAsyncKeyState(keycodes[5][0]))
-#define up2pressed    (GetAsyncKeyState(keycodes[6][0]))
-#define left2pressed  (GetAsyncKeyState(keycodes[7][0]))
-#define down2pressed  (GetAsyncKeyState(keycodes[8][0]))
-#define f12pressed    (GetAsyncKeyState(keycodes[9][0]))
-
+#define rightpressed  (kbd_async_key_state(keycodes[0][0]))
+#define uppressed     (kbd_async_key_state(keycodes[1][0]))
+#define leftpressed   (kbd_async_key_state(keycodes[2][0]))
+#define downpressed   (kbd_async_key_state(keycodes[3][0]))
+#define f1pressed     (kbd_async_key_state(keycodes[4][0]))
+#define right2pressed (kbd_async_key_state(keycodes[5][0]))
+#define up2pressed    (kbd_async_key_state(keycodes[6][0]))
+#define left2pressed  (kbd_async_key_state(keycodes[7][0]))
+#define down2pressed  (kbd_async_key_state(keycodes[8][0]))
+#define f12pressed    (kbd_async_key_state(keycodes[9][0]))
