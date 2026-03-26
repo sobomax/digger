@@ -25,6 +25,7 @@ void digresettime(int n);
 void sceatm(struct digger_draw_api *, int n);
 bool isalive(void);
 bool digalive(int n);
+bool diginvincible(int n);
 int getlives(int pl);
 void addlife(int pl);
 void initlives(void);

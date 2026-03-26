@@ -444,9 +444,15 @@ updatedigger(struct digger_draw_api *ddap, int n)
   i=clfirst[1];
   bagf=false;
   while (i!=-1) {
-    if (bagexist(i-FIRSTBAG)) {
-      bagf=true;
-      break;
+    int bagno;
+
+    bagno = i - FIRSTBAG;
+    if (bagexist(bagno)) {
+      /* Grace-mode diggers ignore being struck by falling bags. */
+      if (!(digdat[n].invin && getbagdir(bagno) == DIR_DOWN)) {
+        bagf=true;
+        break;
+      }
     }
     i=clcoll[i];
   }
@@ -612,8 +618,15 @@ diggerdie(struct digger_draw_api *ddap, int n)
               music(0, 1.0);
             else
               music(1, 1.0);
+          } else {
+            erasespr(n+FIRSTDIGGER-dgstate.curplayer);
+            digdat[n].deathstage=6;
+            clearfire(n);
           }
       }
+      break;
+    case 6:
+      break;
   }
 }
 
@@ -668,7 +681,7 @@ bool checkdiggerunderbag(int16_t h,int16_t v)
 {
   int n;
   for (n=dgstate.curplayer;n<dgstate.diggers+dgstate.curplayer;n++)
-    if (digdat[n].dob.alive)
+    if (digdat[n].dob.alive && !digdat[n].invin)
       if (digdat[n].mdir==DIR_UP || digdat[n].mdir==DIR_DOWN)
         if ((digdat[n].dob.x-12)/20==h)
           if ((digdat[n].dob.y-18)/18==v || (digdat[n].dob.y-18)/18+1==v)
@@ -779,6 +792,13 @@ int diggery(int n)
 bool digalive(int n)
 {
   return digdat[n].dob.alive;
+}
+
+bool
+diginvincible(int n)
+{
+
+  return digdat[n].invin;
 }
 
 void digresettime(int n)
