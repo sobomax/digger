@@ -10,7 +10,7 @@ build_script:
 
     set WINDRES=windres
 
-    set SDL_VER=2.0.9
+    set SDL_VER=2.32.10
 
     set ZLIB_VER=1.3.1
 

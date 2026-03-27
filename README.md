@@ -54,7 +54,7 @@ Some plans for the future releases include:
             ARM specific code is useless)
       - [ ] remove DIGGER_VERSION and give Digger a regular version number
   - [ ] headless (VNC?) mode
-  - [ ] network play for 2 players
+  - [x] network play for 2 players
   - [ ] screen update framerate that is independent of game perceived speed,
         "sub-pixel" updates
 

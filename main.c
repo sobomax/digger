@@ -20,8 +20,6 @@ static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.
 #include "digger.h"
 #include "keyboard.h"
 #include "monster.h"
-#include "monster_obj.h"
-#include "digger_obj.h"
 #include "bags.h"
 #include "record.h"
 #include "main.h"
@@ -29,6 +27,10 @@ static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.
 #include "ini.h"
 #include "draw_api.h"
 #include "game.h"
+#include "netsim.h"
+#include "netsim_debug.h"
+#include "digger_log.h"
+#include "title_anim.h"
 
 static struct game
 {
@@ -53,6 +55,8 @@ static void parsecmd(int argc,char *argv[]);
 static void initlevel(void);
 static void inir(void);
 static int getalllives(void);
+static void run_pause(bool allow_local_pause, int remote_player);
+static void sync_netsim_waiter(void);
 
 int16_t getlevch(int16_t x,int16_t y,int16_t l)
 {
@@ -79,6 +83,8 @@ void game(void)
 {
   int16_t t,c,i;
   bool flashplayer=false;
+
+  resetframe();
   if (dgstate.gauntlet) {
     dgstate.cgtime=dgstate.gtime*1193181l;
     dgstate.timeout=false;
@@ -143,17 +149,31 @@ void game(void)
       music(1, 1.0);
 
       flushkeybuf();
-      for (i=0;i<dgstate.diggers;i++)
-        readdirect(i);
+      input_reset_directions();
       while (!alldead && !gamedat[dgstate.curplayer].levdone && !escape && !dgstate.timeout) {
         penalty=0;
+        newframe();
+        if (escape || dgstate.timeout)
+          break;
+        netsim_trace_state("pre", gamedat[dgstate.curplayer].levdone, alldead,
+          penalty);
         dodigger(ddap);
+        netsim_trace_state("post_digger",
+          gamedat[dgstate.curplayer].levdone, alldead, penalty);
         domonsters(ddap);
+        netsim_trace_state("post_monsters",
+          gamedat[dgstate.curplayer].levdone, alldead, penalty);
         dobags(ddap);
+        netsim_trace_state("post_bags",
+          gamedat[dgstate.curplayer].levdone, alldead, penalty);
         if (penalty>8)
           incmont(penalty-8);
-        testpause();
         checklevdone();
+        netsim_trace_state("post_tick",
+          gamedat[dgstate.curplayer].levdone, alldead, penalty);
+        testpause();
+        if (escape || dgstate.timeout)
+          break;
       }
       erasediggers();
       musicoff();
@@ -162,11 +182,24 @@ void game(void)
         if (t!=0)
           t--;
         penalty=0;
+        newframe();
+        if (escape || dgstate.timeout)
+          break;
+        netsim_trace_state("cleanup_pre",
+          gamedat[dgstate.curplayer].levdone, alldead, penalty);
         dobags(ddap);
+        netsim_trace_state("cleanup_post_bags",
+          gamedat[dgstate.curplayer].levdone, alldead, penalty);
         dodigger(ddap);
+        netsim_trace_state("cleanup_post_digger",
+          gamedat[dgstate.curplayer].levdone, alldead, penalty);
         domonsters(ddap);
+        netsim_trace_state("cleanup_post_monsters",
+          gamedat[dgstate.curplayer].levdone, alldead, penalty);
         if (penalty<8)
           t=0;
+        netsim_trace_state("cleanup_post_tick",
+          gamedat[dgstate.curplayer].levdone, alldead, penalty);
       }
       soundstop();
       for (i=0;i<dgstate.diggers;i++)
@@ -175,6 +208,7 @@ void game(void)
       cleanupbags();
       savefield();
       erasemonsters();
+      ddap->gflush();
       recputeol();
       if (playing)
         playskipeol();
@@ -266,126 +300,46 @@ int main(int argc,char *argv[])
 int mainprog(void)
 {
   int16_t frame,t;
-  struct monster_obj *nobbin, *hobbin;
-  struct digger_obj odigger;
-  struct obj_position newpos;
+  struct title_anim title_anim;
+  bool started_by_remote;
   loadscores();
   escape=false;
-  nobbin = NULL;
-  hobbin = NULL;
+  title_anim_init(&title_anim);
   do {
     soundstop();
+    title_anim_cleanup(&title_anim);
     creatembspr();
     detectjoy();
     ddap->gclear();
     ddap->gtitle();
     outtext(ddap, "D I G G E R",100,0,3);
     shownplayers();
+    sync_netsim_waiter();
     showtable(ddap);
     started=false;
+    started_by_remote=false;
     frame=0;
     newframe();
     teststart();
     while (!started) {
       started=teststart();
+      if (!started && dgstate.netsim && netsim_remote_start_requested()) {
+        started=true;
+        started_by_remote=true;
+      }
       if (mode_change) {
         switchnplayers();
         shownplayers();
+        sync_netsim_waiter();
         mode_change=false;
       }
-      if (frame==0)
-        for (t=54;t<174;t+=12)
-          erasetext(ddap, 12, 164,t,0);
-      if (frame==50) {
-        if (nobbin != NULL) {
-          CALL_METHOD(nobbin, dtor);
-        }
-        nobbin = monster_obj_ctor(0, MON_NOBBIN, DIR_LEFT, 292, 63);
-        CALL_METHOD(nobbin, put);
-      }
-      if (frame>50 && frame<=77) {
-        CALL_METHOD(nobbin, getpos, &newpos);
-        newpos.x -= 4;
-        if (frame == 77) {
-          newpos.dir = DIR_RIGHT;
-        }
-        CALL_METHOD(nobbin, setpos, &newpos);
-      }
-      if (frame > 50) {
-        CALL_METHOD(nobbin, animate);
-      }
-
-      if (frame==83)
-        outtext(ddap, "NOBBIN",216,64,2);
-      if (frame==90) {
-        if (hobbin != NULL) {
-          CALL_METHOD(hobbin, dtor);
-        }
-        hobbin = monster_obj_ctor(1, MON_NOBBIN, DIR_LEFT, 292, 82);
-        CALL_METHOD(hobbin, put);
-      }
-      if (frame>90 && frame<=117) {
-        CALL_METHOD(hobbin, getpos, &newpos);
-        newpos.x -= 4;
-        if (frame == 117) { 
-          newpos.dir = DIR_RIGHT;
-        }
-        CALL_METHOD(hobbin, setpos, &newpos);
-      }
-      if (frame == 100) {
-        CALL_METHOD(hobbin, mutate);
-      }
-      if (frame > 90) {
-        CALL_METHOD(hobbin, animate);
-      }
-      if (frame==123)
-        outtext(ddap, "HOBBIN",216,83,2);
-      if (frame==130) {
-        digger_obj_init(&odigger, 0, DIR_LEFT, 292, 101);
-        CALL_METHOD(&odigger, put);
-      }
-      if (frame>130 && frame<=157) {
-        odigger.x -= 4;
-      }
-      if (frame>157) {
-        odigger.dir = DIR_RIGHT;
-      }
-      if (frame >= 130) {
-        CALL_METHOD(&odigger, animate);
-      }
-      if (frame==163)
-        outtext(ddap, "DIGGER",216,102,2);
-      if (frame==178) {
-        movedrawspr(FIRSTBAG,184,120);
-        drawgold(0,0,184,120);
-      }
-      if (frame==183)
-        outtext(ddap, "GOLD",216,121,2);
-      if (frame==198)
-        drawemerald(184,141);
-      if (frame==203)
-        outtext(ddap, "EMERALD",216,140,2);
-      if (frame==218)
-        drawbonus(184,158);
-      if (frame==223)
-        outtext(ddap, "BONUS",216,159,2);
-      if (frame == 235) {
-          CALL_METHOD(nobbin, damage);
-      }
-      if (frame == 239) {
-          CALL_METHOD(nobbin, kill);
-      }
-      if (frame == 242) {
-          CALL_METHOD(hobbin, damage);
-      }
-      if (frame == 246) {
-          CALL_METHOD(hobbin, kill);
-      }
+      title_anim_step(&title_anim, ddap, frame);
       newframe();
       frame++;
-      if (frame>250)
+      if (frame>title_anim_last_frame())
         frame=0;
     }
+    title_anim_cleanup(&title_anim);
     if (savedrf) {
       if (gotgame) {
         recsavedrf();
@@ -396,8 +350,27 @@ int mainprog(void)
     }
     if (escape)
       break;
+    input_reset_network();
+    if (dgstate.netsim) {
+      cleartopline();
+      outtext(ddap, "WAITING FOR PEER",68,0,3);
+      ddap->gflush();
+      if (!netsim_start_session(!started_by_remote)) {
+        soundstop();
+        soundddie();
+        for (t=0;t<15 && !escape;t++)
+          newframe();
+        continue;
+      }
+      input_enable_network_mode();
+      input_set_network_controls(1-netsim_local_player(), 0);
+    }
     recinit();
+    soundwakeup();
     game();
+    if (dgstate.netsim)
+      netsim_stop_session(escape && !netsim_peer_exited());
+    input_reset_network();
     gotgame=true;
     if (gotname) {
       recsavedrf();
@@ -406,6 +379,8 @@ int mainprog(void)
     savedrf=false;
     escape=false;
   } while (!escape);
+  title_anim_cleanup(&title_anim);
+  netsim_shutdown();
   finish();
   return 0;
 }
@@ -426,24 +401,39 @@ struct label {
 
 static const struct game_mode {
   bool gauntlet;
+  bool netsim;
   int nplayers;
   int diggers;
   bool last;
   const struct label title[2];
 } possible_modes[] = {
-  {false, 1, 1, false, {{"ONE", 220}, {" PLAYER ", 192}}},
-  {false, 2, 1, false, {{"TWO", 220}, {" PLAYERS", 184}}},
-  {false, 2, 2, false, {{"TWO PLAYER", 180}, {"SIMULTANEOUS", 170}}},
-  {true,  1, 1, false, {{"GAUNTLET", 192}, {"MODE", 216}}},
-  {true,  1, 2, true,  {{"TWO PLAYER", 180}, {"GAUNTLET", 192}}}
+  {false, false, 1, 1, false, {{"ONE", 220}, {" PLAYER ", 192}}},
+  {false, false, 2, 1, false, {{"TWO", 220}, {" PLAYERS", 184}}},
+  {false, false, 2, 2, false, {{"TWO PLAYER", 180}, {"SIMULTANEOUS", 170}}},
+  {false, true,  1, 2, false, {{"TWO-PLAYER", 180}, {"NETSIM", 206}}},
+  {true,  false, 1, 1, false, {{"GAUNTLET", 192}, {"MODE", 216}}},
+  {true,  false, 1, 2, true,  {{"TWO PLAYER", 180}, {"GAUNTLET", 192}}}
 };
+
+static bool
+mode_available(const struct game_mode *gmp)
+{
+
+  if (gmp->netsim && !netsim_configured())
+    return (false);
+  return (true);
+}
 
 static int getnmode(void)
 {
   int i;
 
   for (i = 0; !possible_modes[i].last;i++) {
+    if (!mode_available(&possible_modes[i]))
+      continue;
     if (possible_modes[i].gauntlet != dgstate.gauntlet)
+      continue;
+    if (possible_modes[i].netsim != dgstate.netsim)
       continue;
     if (possible_modes[i].nplayers != dgstate.nplayers)
       continue;
@@ -478,10 +468,27 @@ static void switchnplayers(void)
   int i, j;
 
   i = getnmode();
-  j = possible_modes[i].last ? 0 : i + 1;
+  j = i;
+  do {
+    j = possible_modes[j].last ? 0 : j + 1;
+  } while (!mode_available(&possible_modes[j]));
   dgstate.gauntlet = possible_modes[j].gauntlet;
+  dgstate.netsim = possible_modes[j].netsim;
   dgstate.nplayers = possible_modes[j].nplayers;
   dgstate.diggers = possible_modes[j].diggers;
+}
+
+static void
+sync_netsim_waiter(void)
+{
+
+  if (dgstate.netsim) {
+    if (!netsim_begin_wait()) {
+      escape=true;
+    }
+    return;
+  }
+  netsim_stop_session(false);
 }
 
 static void initlevel(void)
@@ -556,22 +563,65 @@ void setdead(bool df)
 
 void testpause(void)
 {
-  int i;
-  if (pausef) {
-    soundpause();
-    cleartopline();
-    outtext(ddap, "PRESS ANY KEY",80,0,1);
-    getkey(true);
-    cleartopline();
-    drawscores(ddap);
-    for (i=0;i<dgstate.diggers;i++)
-      addscore(ddap, i,0);
-    drawlives(ddap);
-    gethrt(true, 1);
+  int remote_player;
+  bool allow_local_pause;
+
+  remote_player = dgstate.netsim ? (1 - netsim_local_player()) : 0;
+  allow_local_pause = !dgstate.netsim || getlives(netsim_local_player()) > 0;
+  if (!allow_local_pause)
     pausef=false;
-  }
+  if (pausef || (dgstate.netsim && netsim_remote_pause_active()))
+    run_pause(allow_local_pause, remote_player);
   else
     soundpauseoff();
+}
+
+static void
+run_pause(bool allow_local_pause, int remote_player)
+{
+  int i;
+  bool local_pause, remote_pause;
+  bool peer_joined;
+  bool sent_unpause;
+
+  soundpause();
+  cleartopline();
+  if (dgstate.netsim && !allow_local_pause)
+    outtext(ddap, remote_player == 0 ? "PLAYER 1 AWAY" : "PLAYER 2 AWAY",
+      80,0,1);
+  else
+    outtext(ddap, "PRESS ANY KEY",80,0,1);
+  ddap->gflush();
+  if (!dgstate.netsim)
+    getkey(true);
+  else {
+    local_pause=allow_local_pause;
+    remote_pause=netsim_remote_pause_active();
+    peer_joined=remote_pause;
+    sent_unpause=false;
+    pausef=false;
+    (void)input_consume_anykey();
+    do {
+      if (!pauseframe(local_pause, &remote_pause))
+        break;
+      if (!local_pause)
+        sent_unpause=true;
+      if (remote_pause)
+        peer_joined=true;
+      if (input_consume_anykey()) {
+        local_pause=false;
+      } else if (peer_joined && !remote_pause)
+        local_pause=false;
+    } while ((local_pause || remote_pause || !sent_unpause) && !escape);
+  }
+  cleartopline();
+  drawscores(ddap);
+  for (i=0;i<dgstate.diggers;i++)
+    addscore(ddap, i,0);
+  drawlives(ddap);
+  gethrt(true, 1);
+  pausef=false;
+  soundpauseoff();
 }
 
 static void calibrate(void)
@@ -581,8 +631,9 @@ static void calibrate(void)
     volume=1;
 }
 
-#define read_levf_fail(s, p) fprintf(digger_log, "read_levf: %s: levels file %s error%s: %s\n", \
-  levfname, (s), (p), strerror(errno))
+#define read_levf_fail(s, p) \
+  digger_log_printf("read_levf: %s: levels file %s error%s: %s\n", \
+    levfname, (s), (p), strerror(errno))
 
 static int
 read_levf(char *levfname)
@@ -639,7 +690,7 @@ getarg(char argch, const char *allargs, bool *hasopt)
   return (-1);
 }
 
-#define BASE_OPTS "OUH?QM2CKVL:R:P:S:E:G:I:"
+#define BASE_OPTS "OUH?QM2CKVL:R:P:S:E:G:I:N:"
 #if defined(HAVE_SDL_X11_WINDOW)
 #define X11_OPTS "X:"
 #else
@@ -727,6 +778,16 @@ static void parsecmd(int argc,char *argv[])
       }
       if (argch == 'I')
         sscanf(word+i,"%hi",&dgstate.startlev);
+      if (argch == 'N') {
+        if (!netsim_configure(word+i)) {
+          fprintf(stderr, "Invalid /N argument \"%s\"\n", word+i);
+          exit(1);
+        }
+        dgstate.gauntlet=false;
+        dgstate.netsim=true;
+        dgstate.nplayers=1;
+        dgstate.diggers=2;
+      }
       if (argch == 'U')
         dgstate.unlimlives=true;
       if (argch == '?' || argch == 'H' || argch == -1) {
@@ -746,6 +807,7 @@ static void parsecmd(int argc,char *argv[])
                "         [/E:playback file] [/R:record file] [/O] [/K[A]] "
                                                            "[/G[:time]] [/2]\n"
                "         [/U] [/I:level] "
+               "[/N:[[localip:]localport-]host:port] "
 
 #if defined(UNIX) && defined(_SDL)
                          "[/X:xid] "
@@ -766,6 +828,7 @@ static void parsecmd(int argc,char *argv[])
                "/K = Redefine keyboard\n"
                "/G = Gauntlet mode\n"
                "/2 = Two player simultaneous mode\n"
+               "/N = Enable two-player UDP NetSim mode\n"
 #if defined(UNIX) && defined(_SDL)
                "/X = Embed in window\n"
 #endif
@@ -780,8 +843,10 @@ static void parsecmd(int argc,char *argv[])
         soundflag=false;
       if (argch == 'M')
         musicflag=false;
-      if (argch == '2')
+      if (argch == '2') {
         dgstate.diggers=2;
+        dgstate.netsim=false;
+      }
       if (argch == 'B' || argch == 'C') {
         ddap->ginit=cgainit;
         ddap->gpal=cgapal;
@@ -813,6 +878,7 @@ static void parsecmd(int argc,char *argv[])
         if (dgstate.gtime==0)
           dgstate.gtime=120;
         dgstate.gauntlet=true;
+        dgstate.netsim=false;
       }
     }
     else {
@@ -853,7 +919,7 @@ static void parsecmd(int argc,char *argv[])
   if (dgstate.levfflag) {
     if (read_levf(dgstate.levfname) != 0) {
 #if defined(DIGGER_DEBUG)
-      fprintf(digger_log, "levels load error\n");
+      digger_log_printf("levels load error\n");
       exit(1);
 #endif
       dgstate.levfflag = false;
@@ -909,10 +975,12 @@ static void inir(void)
   if (vbuf[0]=='2' && vbuf[1]=='S') {
     dgstate.diggers=2;
     dgstate.nplayers=1;
+    dgstate.netsim=false;
   }
   else {
     dgstate.diggers=1;
     dgstate.nplayers=atoi(vbuf);
+    dgstate.netsim=false;
     if (dgstate.nplayers<1 || dgstate.nplayers>2)
       dgstate.nplayers=1;
   }

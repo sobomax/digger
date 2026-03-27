@@ -1,0 +1,81 @@
+name: Windows Build
+
+# Controls when the action will run.
+on:
+  # Triggers the workflow on all push or pull request events
+  push:
+  pull_request:
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+  schedule:
+    - cron: "0 0 * * *"
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  build:
+    # Run on a Windows host so the produced binaries are native Windows PE files
+    runs-on: windows-latest
+
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    env:
+      SDL_VER: "2.32.10"
+      ZLIB_VER: "1.3.1"
+
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Set up MSYS2 with MinGW-w64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: >-
+            make
+            zip
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-binutils
+
+      - name: Cache Windows deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            deps/SDL2-${{ env.SDL_VER }}
+            deps/zlib-${{ env.ZLIB_VER }}
+          key: windows-deps-${{ env.SDL_VER }}-${{ env.ZLIB_VER }}-${{ hashFiles('scripts/do-build-windows.sh') }}
+
+      - name: Build
+        run: |
+          SDL_VER=${{ env.SDL_VER }} ZLIB_VER=${{ env.ZLIB_VER }} \
+            sh -x ./scripts/do-build-windows.sh
+
+      - name: Upload distribution ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: digger-win64
+          path: digger-win64.zip
+
+      - name: Create installer
+        run: |
+          # Create empty writable runtime files so the installer can bundle
+          # them and set the correct filesystem permissions on installation.
+          touch digger.sco digger.ini digger.log
+          APPVEYOR_BUILD_VERSION="${{ github.run_number }}" \
+            "/c/Program Files (x86)/Inno Setup 6/iscc.exe" \
+            pkg/windows/digger.iss
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: digger-win64-installer
+          path: pkg/windows/DiggerRemastered-Setup.exe

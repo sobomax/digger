@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <math.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <SDL.h>
@@ -14,7 +15,7 @@
 
 static void fill_audio(void *udata, uint8_t *stream, int len);
 
-bool wave_device_available = false;
+_Atomic bool wave_device_available = false;
 
 bool initsounddevice(void)
 {
@@ -40,10 +41,11 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
 	assert(sud == NULL);
         sud = (struct sudata*)malloc(sizeof(*sud));
         if (sud == NULL) {
-                fprintf(digger_log, "setsounddevice: malloc(3) failed\n");
+                digger_log_printf("setsounddevice: malloc(3) failed\n");
 
                 return (false);
         }
+        wave_device_available = false;
         memset(sud, '\0', sizeof(*sud));
         SDL_zero(wanted);
         SDL_zero(sud->obtained);
@@ -60,20 +62,22 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
 			result = true;
 	}
 	if (result == false) {
-		fprintf(digger_log, "Couldn't open audio: %s\n", SDL_GetError());
+		digger_log_printf("Couldn't open audio: %s\n", SDL_GetError());
                 free(sud);
+                sud = NULL;
                 return (false);
         }
 #if defined(DIGGER_DEBUG)
-	fprintf(digger_log, "setsounddevice: wanted.samples=%d obtained.samples=%d\n",
+	digger_log_printf("setsounddevice: wanted.samples=%d obtained.samples=%d\n",
 	    wanted.samples, sud->obtained.samples);
 #endif
         sud->bsize = sud->obtained.size;
 	sud->buf = (int16_t*)malloc(sud->bsize);
         if (sud->buf == NULL) {
-                fprintf(digger_log, "setsounddevice: malloc(3) failed\n");
-                SDL_CloseAudio();
+                digger_log_printf("setsounddevice: malloc(3) failed\n");
+                SDL_CloseAudioDevice(sud->dev);
                 free(sud);
+                sud = NULL;
                 return (false);
         }
         sud->lp_fltr = bqd_lp_init(sud->obtained.freq, 4000);
@@ -96,7 +100,7 @@ static void fill_audio(void *udata, uint8_t *stream, int len)
 	sud = (struct sudata *)udata;
         SDL_memset(stream, sud->obtained.silence, len);
 	if (len > sud->bsize) {
-                fprintf(digger_log, "fill_audio: OUCH, len > bsize!\n");
+                digger_log_printf("fill_audio: OUCH, len > bsize!\n");
 		len = sud->bsize;
         }
 	for (i = 0; i < len / sizeof(int16_t); i++) {
@@ -128,4 +132,21 @@ void pausesounddevice(bool p)
 		return;
 	SDL_PauseAudioDevice(sud->dev, p ? 1 : 0);
 	wave_device_paused = p;
+}
+
+void wakesounddevice(void)
+{
+	SDL_AudioStatus st;
+
+	if (sud == NULL || sud->dev == 0)
+		return;
+	st = SDL_GetAudioDeviceStatus(sud->dev);
+	if (st == SDL_AUDIO_PLAYING)
+		return;
+	wave_device_available = false;
+	SDL_PauseAudioDevice(sud->dev, 0);
+	wave_device_paused = false;
+#if defined(DIGGER_DEBUG)
+	digger_log_printf("wakesounddevice: status=%d -> PLAYING\n", (int)st);
+#endif
 }

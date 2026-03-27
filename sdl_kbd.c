@@ -82,7 +82,7 @@ out:
 	return(1);
 }
 
-bool GetAsyncKeyState(int key)
+bool kbd_async_key_state(int key)
 {
 	const uint8_t *keys;
 	

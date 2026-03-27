@@ -3,11 +3,14 @@ PROJECT(DIGGER)
 SET( VERSION "20110912" )
 SET( PACKAGE "digger" )
 SET( CMAKE_MODULE_PATH ${DIGGER_SOURCE_DIR}/cmake/modules )
+SET( CMAKE_C_STANDARD 11 )
+SET( CMAKE_C_STANDARD_REQUIRED ON )
+SET( CMAKE_C_EXTENSIONS OFF )
 
 IF( NOT MSVC )
   SET( WARN_FLAGS "-Wall -Wformat=2" )
   SET( WARN_FLAGS_DEBUG "-Wextra -pedantic" )
-  SET( C_FLAGS "-std=c99 -DLINUX -D_REENTRANT -pipe -Wall" )
+  SET( C_FLAGS "-DLINUX -D_REENTRANT -pipe -Wall" )
   SET( CMAKE_C_FLAGS "${C_FLAGS} ${WARN_FLAGS} ${CMAKE_C_FLAGS}" )
   SET( CMAKE_C_FLAGS_DEBUG "${CFLAGS} ${WARN_FLAGS} ${WARN_FLAGS_DEBUG} -g3 -O0 ${CMAKE_C_FLAGS_DEBUG} -DDIGGER_DEBUG" )
 ENDIF( NOT MSVC )
@@ -47,6 +50,7 @@ endfunction(check_working_cxx_atomics)
 
 IF( NOT MSVC )
   check_working_cxx_atomics(HAVE_CXX_ATOMICS_WITHOUT_LIB)
+  find_package(Threads REQUIRED)
 
   IF (NOT HAVE_CXX_ATOMICS_WITHOUT_LIB)
     check_library_exists(atomic __atomic_fetch_add_4 "" HAVE_LIBATOMIC)
@@ -142,11 +146,16 @@ SET( DIGGER_SOURCE
      monster_obj.c
      digger_obj.c
      bullet_obj.c
+     title_anim.c
      cgagrafx.c
      keyboard.c
      soundgen.c
      spinlock.c
+     digger_log.c
      game.c
+     netsim.c
+     netsim_platform.c
+     netsim_debug.c
 )
 
 IF ( NOT MSVC )
@@ -177,10 +186,14 @@ ADD_EXECUTABLE( digger ${DIGGER_SOURCE})
 IF ( SDL2_FOUND )
   TARGET_LINK_LIBRARIES( digger PUBLIC SDL2::SDL2 )
 ENDIF( SDL2_FOUND )
+IF ( WIN32 )
+  TARGET_LINK_LIBRARIES( digger PUBLIC ws2_32 )
+ENDIF()
 IF (HAVE_SDL_X11_WINDOW)
   TARGET_LINK_LIBRARIES( digger PUBLIC ${X11_LIBRARIES} )
 ENDIF()
 IF ( NOT MSVC )
+  TARGET_LINK_LIBRARIES( digger PUBLIC Threads::Threads )
   IF (NOT HAVE_CXX_ATOMICS_WITHOUT_LIB )
     TARGET_LINK_LIBRARIES( digger PUBLIC -latomic )
   ENDIF ( NOT HAVE_CXX_ATOMICS_WITHOUT_LIB )

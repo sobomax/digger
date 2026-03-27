@@ -9,10 +9,24 @@ void checkkeyb(void);
 void flushkeybuf(void);
 void findkey(int kn);
 void clearfire(int n);
+void input_reset_directions(void);
+void input_advance_fire_state(void);
+bool input_get_fire_active(int n);
+uint8_t input_snapshot_primary_controls(void);
+bool input_consume_anykey(void);
+void input_reset_network(void);
+void input_enable_network_mode(void);
+void input_set_network_controls(int slot, uint8_t bits);
 
 extern bool firepflag,fire2pflag,escape;
 extern int8_t keypressed;
 extern int16_t akeypressed;
+
+#define INPUT_CTRL_UP    0x01
+#define INPUT_CTRL_DOWN  0x02
+#define INPUT_CTRL_RIGHT 0x04
+#define INPUT_CTRL_LEFT  0x08
+#define INPUT_CTRL_FIRE  0x10
 
 #define NKEYS 19
 

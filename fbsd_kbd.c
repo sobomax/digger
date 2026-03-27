@@ -187,7 +187,7 @@ void ProcessKbd(void)
 	}
 }
 
-bool GetAsyncKeyState(int key)
+bool kbd_async_key_state(int key)
 {
 	ProcessKbd();
 	return(states[key]);
@@ -214,4 +214,3 @@ bool kbhit(void)
 	else
 		return(false);
 }
-

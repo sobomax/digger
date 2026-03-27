@@ -14,4 +14,3 @@ int16_t bagy(int16_t bag);
 int16_t getbagdir(int16_t bag);
 void removebags(int *clfirst,int *clcoll);
 bool bagexist(int bag);
-

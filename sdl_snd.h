@@ -1,2 +1,3 @@
-extern bool wave_device_available;
+#include <stdatomic.h>
 
+extern _Atomic bool wave_device_available;
