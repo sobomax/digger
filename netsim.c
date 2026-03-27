@@ -16,6 +16,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "digger_log.h"
+
 #define NETSIM_MAGIC 0x4e53494dU
 #define NETSIM_VERSION 1U
 #define NETSIM_QUEUE_LEN 32
@@ -152,8 +154,6 @@ static struct netsim_session g_session = {.running = false,
 static bool g_debug_ready = false, g_debug_enabled = false;
 static atomic_uint_fast64_t g_nonce_seq = 1;
 
-extern FILE *digger_log;
-
 static void netsim_log(const char *fmt, ...)
   __attribute__((format(printf, 1, 2)));
 static void netsim_err(const char *fmt, ...)
@@ -236,33 +236,27 @@ static void
 netsim_log(const char *fmt, ...)
 {
   va_list ap;
-  FILE *fp;
+  char buf[1024];
 
   netsim_debug_init();
   if (!g_debug_enabled)
     return;
-  fp = digger_log != NULL ? digger_log : stderr;
-  fprintf(fp, "netsim: ");
   va_start(ap, fmt);
-  vfprintf(fp, fmt, ap);
+  vsnprintf(buf, sizeof(buf), fmt, ap);
   va_end(ap);
-  fputc('\n', fp);
-  fflush(fp);
+  digger_log_printf("netsim: %s\n", buf);
 }
 
 static void
 netsim_err(const char *fmt, ...)
 {
   va_list ap;
-  FILE *fp;
+  char buf[1024];
 
-  fp = digger_log != NULL ? digger_log : stderr;
-  fprintf(fp, "netsim: ");
   va_start(ap, fmt);
-  vfprintf(fp, fmt, ap);
+  vsnprintf(buf, sizeof(buf), fmt, ap);
   va_end(ap);
-  fputc('\n', fp);
-  fflush(fp);
+  digger_log_printf("netsim: %s\n", buf);
 }
 
 static bool

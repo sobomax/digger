@@ -54,7 +54,6 @@ void
 netsim_trace_state(const char *phase, bool levdone, bool alldead, int penalty)
 {
   uint32_t field_hash, dig_hash, mon_hash, bag_hash;
-  FILE *fp;
   int i;
 
   if (!dgstate.netsim)
@@ -71,12 +70,10 @@ netsim_trace_state(const char *phase, bool levdone, bool alldead, int penalty)
   dig_hash = digger_debug_hash();
   mon_hash = monster_debug_hash();
   bag_hash = bags_debug_hash();
-  fp = digger_log != NULL ? digger_log : stderr;
-  fprintf(fp,
+  digger_log_printf(
     "netsim-trace: lp=%d frame=%u phase=%s rand=%08x field=%08x dig=%08x mon=%08x bag=%08x levdone=%d alldead=%d timeout=%d cur=%d penalty=%d\n",
     netsim_local_player() + 1, (unsigned int)getframe(), phase,
     (unsigned int)dgstate.randv, (unsigned int)field_hash, (unsigned int)dig_hash,
     (unsigned int)mon_hash, (unsigned int)bag_hash, levdone ? 1 : 0,
     alldead ? 1 : 0, dgstate.timeout ? 1 : 0, dgstate.curplayer, penalty);
-  fflush(fp);
 }
