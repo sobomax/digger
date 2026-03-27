@@ -146,6 +146,7 @@ SET( DIGGER_SOURCE
      keyboard.c
      soundgen.c
      spinlock.c
+     digger_log.c
      game.c
 )
 

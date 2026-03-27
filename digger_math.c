@@ -113,7 +113,7 @@ recfilter_init(double Fs, double Fc)
     struct recfilter *f;
 
     if (Fs < Fc * 2.0) {
-        fprintf(digger_log, "recfilter_init: cutoff frequency (%f) should be less "
+        digger_log_printf("recfilter_init: cutoff frequency (%f) should be less "
           "than half of the sampling rate (%f)\n", Fc, Fs);
         abort();
     }
@@ -169,7 +169,7 @@ bqd_lp_init(double Fs, double Fc)
         fp = (struct bqd_filter*)malloc(sizeof(*fp));
         memset(fp, '\0', sizeof(*fp));
         if (Fs < Fc * 2.0) {
-                fprintf(digger_log, "fo_init: cutoff frequency (%f) should be less "
+                digger_log_printf("fo_init: cutoff frequency (%f) should be less "
                     "than half of the sampling rate (%f)\n", Fc, Fs);
                 abort();
         }
@@ -190,7 +190,7 @@ bqd_hp_init(double Fs, double Fc)
         fp = (struct bqd_filter*)malloc(sizeof(*fp));
         memset(fp, '\0', sizeof(*fp));
         if (Fs < Fc * 2.0) {
-                fprintf(digger_log, "fo_init: cutoff frequency (%f) should be less "
+                digger_log_printf("fo_init: cutoff frequency (%f) should be less "
                     "than half of the sampling rate (%f)\n", Fc, Fs);
                 abort();
         }

@@ -33,7 +33,7 @@ void inittimer(void)
     loop_error = recfilter_init(tfreq, 0.1);
     PFD_init(&phase_detector, 0.0);
 #if defined(DIGGER_DEBUG)
-    fprintf(digger_log, "inittimer: ftime = %u\n", dgstate.ftime);
+    digger_log_printf("inittimer: ftime = %u\n", dgstate.ftime);
 #endif
 }
 
@@ -60,7 +60,7 @@ gethrt(bool minsleep, int mult)
     add_delay_d = (freqoff_to_period(tfreq, 1.0, filterval) * 1000.0);
     add_delay = round(add_delay_d);
 #if defined(DIGGER_DEBUG) 
-    fprintf(digger_log, "clk_rl = %f, add_delay = %d, eval = %f, filterval = %f\n",
+    digger_log_printf("clk_rl = %f, add_delay = %d, eval = %f, filterval = %f\n",
       clk_rl, add_delay, eval, filterval);
 #endif
 
@@ -101,4 +101,3 @@ void s0timer2(uint16_t t0v, bool mode)
 void s0soundkillglob(void)
 {
 }
-

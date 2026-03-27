@@ -40,7 +40,7 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
 	assert(sud == NULL);
         sud = (struct sudata*)malloc(sizeof(*sud));
         if (sud == NULL) {
-                fprintf(digger_log, "setsounddevice: malloc(3) failed\n");
+                digger_log_printf("setsounddevice: malloc(3) failed\n");
 
                 return (false);
         }
@@ -60,18 +60,18 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
 			result = true;
 	}
 	if (result == false) {
-		fprintf(digger_log, "Couldn't open audio: %s\n", SDL_GetError());
+		digger_log_printf("Couldn't open audio: %s\n", SDL_GetError());
                 free(sud);
                 return (false);
         }
 #if defined(DIGGER_DEBUG)
-	fprintf(digger_log, "setsounddevice: wanted.samples=%d obtained.samples=%d\n",
+	digger_log_printf("setsounddevice: wanted.samples=%d obtained.samples=%d\n",
 	    wanted.samples, sud->obtained.samples);
 #endif
         sud->bsize = sud->obtained.size;
 	sud->buf = (int16_t*)malloc(sud->bsize);
         if (sud->buf == NULL) {
-                fprintf(digger_log, "setsounddevice: malloc(3) failed\n");
+                digger_log_printf("setsounddevice: malloc(3) failed\n");
                 SDL_CloseAudio();
                 free(sud);
                 return (false);
@@ -96,7 +96,7 @@ static void fill_audio(void *udata, uint8_t *stream, int len)
 	sud = (struct sudata *)udata;
         SDL_memset(stream, sud->obtained.silence, len);
 	if (len > sud->bsize) {
-                fprintf(digger_log, "fill_audio: OUCH, len > bsize!\n");
+                digger_log_printf("fill_audio: OUCH, len > bsize!\n");
 		len = sud->bsize;
         }
 	for (i = 0; i < len / sizeof(int16_t); i++) {

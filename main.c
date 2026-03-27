@@ -29,6 +29,7 @@ static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.
 #include "ini.h"
 #include "draw_api.h"
 #include "game.h"
+#include "digger_log.h"
 
 static struct game
 {
@@ -581,8 +582,9 @@ static void calibrate(void)
     volume=1;
 }
 
-#define read_levf_fail(s, p) fprintf(digger_log, "read_levf: %s: levels file %s error%s: %s\n", \
-  levfname, (s), (p), strerror(errno))
+#define read_levf_fail(s, p) \
+  digger_log_printf("read_levf: %s: levels file %s error%s: %s\n", \
+    levfname, (s), (p), strerror(errno))
 
 static int
 read_levf(char *levfname)
@@ -853,7 +855,7 @@ static void parsecmd(int argc,char *argv[])
   if (dgstate.levfflag) {
     if (read_levf(dgstate.levfname) != 0) {
 #if defined(DIGGER_DEBUG)
-      fprintf(digger_log, "levels load error\n");
+      digger_log_printf("levels load error\n");
       exit(1);
 #endif
       dgstate.levfflag = false;
