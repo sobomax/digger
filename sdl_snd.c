@@ -133,3 +133,20 @@ void pausesounddevice(bool p)
 	SDL_PauseAudioDevice(sud->dev, p ? 1 : 0);
 	wave_device_paused = p;
 }
+
+void wakesounddevice(void)
+{
+	SDL_AudioStatus st;
+
+	if (sud == NULL || sud->dev == 0)
+		return;
+	st = SDL_GetAudioDeviceStatus(sud->dev);
+	if (st == SDL_AUDIO_PLAYING)
+		return;
+	wave_device_available = false;
+	SDL_PauseAudioDevice(sud->dev, 0);
+	wave_device_paused = false;
+#if defined(DIGGER_DEBUG)
+	digger_log_printf("wakesounddevice: status=%d -> PLAYING\n", (int)st);
+#endif
+}

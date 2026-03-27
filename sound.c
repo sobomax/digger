@@ -169,6 +169,7 @@ sound_queue_push(enum sound_cmd_type type, int argi, double argd)
     qp->len++;
   }
   spinlock_unlock(qp->lock);
+  wakesounddevice();
 }
 
 static void
@@ -425,6 +426,9 @@ soundstop_apply(void)
 {
   int i;
 
+  soundlevdoneflag = false;
+  soundpausedflag = false;
+  sounddiedone = true;
   soundfalloff_apply();
   soundwobbleoff_apply();
   for (i=0;i<FIREBALLS;i++)

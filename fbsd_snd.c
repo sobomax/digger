@@ -17,3 +17,6 @@ void killsounddevice(void)
 	FIXME("killsounddevice called");
 }
 
+void wakesounddevice(void)
+{
+}
