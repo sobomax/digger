@@ -20,8 +20,6 @@ static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.
 #include "digger.h"
 #include "keyboard.h"
 #include "monster.h"
-#include "monster_obj.h"
-#include "digger_obj.h"
 #include "bags.h"
 #include "record.h"
 #include "main.h"
@@ -32,6 +30,7 @@ static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.
 #include "digger_log.h"
 #include "netsim.h"
 #include "netsim_debug.h"
+#include "title_anim.h"
 
 static struct game
 {
@@ -301,16 +300,14 @@ int main(int argc,char *argv[])
 int mainprog(void)
 {
   int16_t frame,t;
-  struct monster_obj *nobbin, *hobbin;
-  struct digger_obj odigger;
-  struct obj_position newpos;
+  struct title_anim title_anim;
   bool started_by_remote;
   loadscores();
   escape=false;
-  nobbin = NULL;
-  hobbin = NULL;
+  title_anim_init(&title_anim);
   do {
     soundstop();
+    title_anim_cleanup(&title_anim);
     creatembspr();
     detectjoy();
     ddap->gclear();
@@ -336,99 +333,13 @@ int mainprog(void)
         sync_netsim_waiter();
         mode_change=false;
       }
-      if (frame==0)
-        for (t=54;t<174;t+=12)
-          erasetext(ddap, 12, 164,t,0);
-      if (frame==50) {
-        if (nobbin != NULL) {
-          CALL_METHOD(nobbin, dtor);
-        }
-        nobbin = monster_obj_ctor(0, MON_NOBBIN, DIR_LEFT, 292, 63);
-        CALL_METHOD(nobbin, put);
-      }
-      if (frame>50 && frame<=77) {
-        CALL_METHOD(nobbin, getpos, &newpos);
-        newpos.x -= 4;
-        if (frame == 77) {
-          newpos.dir = DIR_RIGHT;
-        }
-        CALL_METHOD(nobbin, setpos, &newpos);
-      }
-      if (frame > 50) {
-        CALL_METHOD(nobbin, animate);
-      }
-
-      if (frame==83)
-        outtext(ddap, "NOBBIN",216,64,2);
-      if (frame==90) {
-        if (hobbin != NULL) {
-          CALL_METHOD(hobbin, dtor);
-        }
-        hobbin = monster_obj_ctor(1, MON_NOBBIN, DIR_LEFT, 292, 82);
-        CALL_METHOD(hobbin, put);
-      }
-      if (frame>90 && frame<=117) {
-        CALL_METHOD(hobbin, getpos, &newpos);
-        newpos.x -= 4;
-        if (frame == 117) { 
-          newpos.dir = DIR_RIGHT;
-        }
-        CALL_METHOD(hobbin, setpos, &newpos);
-      }
-      if (frame == 100) {
-        CALL_METHOD(hobbin, mutate);
-      }
-      if (frame > 90) {
-        CALL_METHOD(hobbin, animate);
-      }
-      if (frame==123)
-        outtext(ddap, "HOBBIN",216,83,2);
-      if (frame==130) {
-        digger_obj_init(&odigger, 0, DIR_LEFT, 292, 101);
-        CALL_METHOD(&odigger, put);
-      }
-      if (frame>130 && frame<=157) {
-        odigger.x -= 4;
-      }
-      if (frame>157) {
-        odigger.dir = DIR_RIGHT;
-      }
-      if (frame >= 130) {
-        CALL_METHOD(&odigger, animate);
-      }
-      if (frame==163)
-        outtext(ddap, "DIGGER",216,102,2);
-      if (frame==178) {
-        movedrawspr(FIRSTBAG,184,120);
-        drawgold(0,0,184,120);
-      }
-      if (frame==183)
-        outtext(ddap, "GOLD",216,121,2);
-      if (frame==198)
-        drawemerald(184,141);
-      if (frame==203)
-        outtext(ddap, "EMERALD",216,140,2);
-      if (frame==218)
-        drawbonus(184,158);
-      if (frame==223)
-        outtext(ddap, "BONUS",216,159,2);
-      if (frame == 235) {
-          CALL_METHOD(nobbin, damage);
-      }
-      if (frame == 239) {
-          CALL_METHOD(nobbin, kill);
-      }
-      if (frame == 242) {
-          CALL_METHOD(hobbin, damage);
-      }
-      if (frame == 246) {
-          CALL_METHOD(hobbin, kill);
-      }
+      title_anim_step(&title_anim, ddap, frame);
       newframe();
       frame++;
-      if (frame>250)
+      if (frame>title_anim_last_frame())
         frame=0;
     }
+    title_anim_cleanup(&title_anim);
     if (savedrf) {
       if (gotgame) {
         recsavedrf();
@@ -467,6 +378,7 @@ int mainprog(void)
     savedrf=false;
     escape=false;
   } while (!escape);
+  title_anim_cleanup(&title_anim);
   netsim_shutdown();
   finish();
   return 0;
