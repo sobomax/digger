@@ -27,8 +27,6 @@ static uint16_t t2val=0,t0val=0;
 int16_t spkrmode=0,pulsewidth=1,volume=0;
 static bool restore_musicflag_after_death=false;
 
-static _Atomic int8_t timerclock=0;
-
 _Atomic bool soundflag=true,musicflag=true;
 
 static void soundlevdoneoff(void);
@@ -100,6 +98,7 @@ static _Atomic bool soundpausedflag=false;
 
 enum sound_cmd_type {
   SOUND_CMD_STOP = 0,
+  SOUND_CMD_WAKEUP,
   SOUND_CMD_LEVDONE_START,
   SOUND_CMD_LEVDONE_OFF,
   SOUND_CMD_FALL_ON,
@@ -169,7 +168,8 @@ sound_queue_push(enum sound_cmd_type type, int argi, double argd)
     qp->len++;
   }
   spinlock_unlock(qp->lock);
-  wakesounddevice();
+  if (type == SOUND_CMD_WAKEUP)
+    wakesounddevice();
 }
 
 static void
@@ -179,6 +179,8 @@ sound_queue_apply(const struct sound_cmd *cmdp)
   switch (cmdp->type) {
     case SOUND_CMD_STOP:
       soundstop_apply();
+      break;
+    case SOUND_CMD_WAKEUP:
       break;
     case SOUND_CMD_LEVDONE_START:
       soundlevdone_start_apply();
@@ -298,6 +300,8 @@ static _Atomic bool soundlevdoneflag=false;
 static void
 soundwait(void)
 {
+  gethrt(false, 1);
+#if 0
 #if defined _SDL || defined _SDL_SOUND
   SDL_Delay(10);
 #else
@@ -307,12 +311,12 @@ soundwait(void)
   ts.tv_nsec = 10000000L;
   nanosleep(&ts, NULL);
 #endif
+#endif
 }
 
 void soundint(void)
 {
   sound_queue_drain();
-  timerclock++;
   if (soundflag && !sndflag)
     sndflag=musicflag=true;
   if (!soundflag && sndflag) {
@@ -357,6 +361,11 @@ void soundstop(void)
   sound_queue_push(SOUND_CMD_STOP, 0, 0.0);
 }
 
+void soundwakeup(void)
+{
+  sound_queue_push(SOUND_CMD_WAKEUP, 0, 0.0);
+}
+
 static int16_t nljpointer=0,nljnoteduration=0;
 
 void soundlevdone(void)
@@ -364,20 +373,12 @@ void soundlevdone(void)
   bool local_freeze;
   bool sent_unfreeze;
   bool remote_freeze;
-  int16_t timer=0;
-#if defined _SDL || defined _SDL_SOUND
-  int8_t start_timer;
-#endif
 
   soundstop();
-#if defined _SDL || defined _SDL_SOUND
-  start_timer = timerclock;
-#endif
   if (dgstate.netsim) {
     sound_queue_push(SOUND_CMD_LEVDONE_START, 0, 0.0);
 #if defined _SDL || defined _SDL_SOUND
-    while (wave_device_available && sndflag && !soundlevdoneflag &&
-      timerclock == start_timer && !escape)
+    while (wave_device_available && sndflag && !soundlevdoneflag && !escape)
       soundwait();
 #endif
     sent_unfreeze = !soundlevdoneflag;
@@ -398,8 +399,7 @@ void soundlevdone(void)
     return;
   sound_queue_push(SOUND_CMD_LEVDONE_START, 0, 0.0);
 #if defined _SDL || defined _SDL_SOUND
-  while (wave_device_available && !soundlevdoneflag &&
-    timerclock == start_timer && !escape)
+  while (wave_device_available && !soundlevdoneflag && !escape)
     soundwait();
 #endif
   while (soundlevdoneflag && !escape) {
@@ -408,10 +408,7 @@ void soundlevdone(void)
 		sound_queue_push(SOUND_CMD_LEVDONE_OFF, 0, 0.0);
 #endif
     soundwait();
-    if (timerclock==timer)
-      continue;
     checkkeyb();
-    timer=timerclock;
   }
   sound_queue_push(SOUND_CMD_LEVDONE_OFF, 0, 0.0);
 }
