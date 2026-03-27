@@ -9,6 +9,7 @@ void music(int16_t tune, double dfac);
 void musicoff(void);
 void soundlevdone(void);
 void sound1up(void);
+void soundwakeup(void);
 void soundpause(void);
 void soundpauseoff(void);
 void setsoundt2(void);

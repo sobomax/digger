@@ -455,6 +455,7 @@ int mainprog(void)
       input_set_network_controls(1-netsim_local_player(), 0);
     }
     recinit();
+    soundwakeup();
     game();
     if (dgstate.netsim)
       netsim_stop_session(escape && !netsim_peer_exited());
