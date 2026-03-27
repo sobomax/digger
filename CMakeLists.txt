@@ -146,6 +146,7 @@ SET( DIGGER_SOURCE
      monster_obj.c
      digger_obj.c
      bullet_obj.c
+     title_anim.c
      cgagrafx.c
      keyboard.c
      soundgen.c
