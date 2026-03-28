@@ -58,8 +58,23 @@ void initdigger(void)
   startbonustimeleft=0;
   bonustimeleft=0;
   for (dig=dgstate.curplayer;dig<dgstate.diggers+dgstate.curplayer;dig++) {
-    if (digdat[dig].lives==0)
+    if (digdat[dig].lives==0) {
+      digdat[dig].dead=true;
+      digdat[dig].invin=false;
+      digdat[dig].ivt=0;
+      digdat[dig].deathstage=6;
+      digdat[dig].deathmusicdone=0;
+      digdat[dig].dob.alive=false;
+      digdat[dig].bagtime=0;
+      digdat[dig].notfiring=true;
+      digdat[dig].firepressed=false;
+      digdat[dig].rechargetime=0;
+      digdat[dig].emocttime=0;
+      digdat[dig].bob.expsn=0;
+      erasespr(FIRSTDIGGER + dig - dgstate.curplayer);
+      erasespr(FIRSTFIREBALL + dig - dgstate.curplayer);
       continue;
+    }
     digdat[dig].v=9;
     digdat[dig].mdir=4;
     digdat[dig].h=(dgstate.diggers==1) ? 7 : (8-dig*2);
