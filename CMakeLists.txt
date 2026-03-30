@@ -129,6 +129,7 @@ SET( DIGGER_SOURCE
      scores.c
      record.c
      sound.c
+     sound_backend.c
      newsnd.c
      ini.c
      input.c
