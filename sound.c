@@ -11,6 +11,7 @@
 #include "digger.h"
 #include "input.h"
 #include "game.h"
+#include "netsim.h"
 #include "spinlock.h"
 
 int16_t spkrmode=0,pulsewidth=1,volume=0;
@@ -1125,29 +1126,25 @@ static void sound1upupdate(void)
 }
 
 
+enum internal_tune {
+  TUNE_BONUS = 0,
+  TUNE_MAIN = 1,
+  TUNE_DIRGE = 2,
+  TUNE_BATTLE = 3
+};
+
 static bool musicplaying=false;
-static int16_t musicp=0,tuneno=0,noteduration=0,notevalue=0,musicmaxvol=0,
-      musicattackrate=0,musicsustainlevel=0,musicdecayrate=0,musicnotewidth=0,
-      musicreleaserate=0,musicstage=0,musicn=0,musicdfac=0;
+static int16_t musicp=0,tuneno=TUNE_BONUS,noteduration=0,notevalue=0,
+      musicmaxvol=0,musicattackrate=0,musicsustainlevel=0,
+      musicdecayrate=0,musicnotewidth=0,musicreleaserate=0,musicstage=0,
+      musicn=0,musicdfac=0;
 
 static void
-music_apply(int16_t tune, double dfac, uint16_t done_ack_id)
+music_select_tune(int16_t internal_tune, double dfac)
 {
-  if (soundmusic_done_ack_id != 0) {
-    sound_ack_push(soundmusic_done_ack_id);
-    soundmusic_done_ack_id = 0;
-  }
-  tuneno=tune;
-  musicp=0;
-  noteduration=0;
-
-  if (!sndflag) {
-    if (done_ack_id != 0)
-      sound_ack_push(done_ack_id);
-    return;
-  }
-  switch (tune) {
-    case 0:
+  tuneno=internal_tune;
+  switch (internal_tune) {
+    case TUNE_BONUS:
       musicmaxvol=50;
       musicattackrate=20;
       musicsustainlevel=20;
@@ -1155,7 +1152,7 @@ music_apply(int16_t tune, double dfac, uint16_t done_ack_id)
       musicreleaserate=4;
       musicdfac = 3.0 * dfac;
       break;
-    case 1:
+    case TUNE_MAIN:
       musicmaxvol=50;
       musicattackrate=50;
       musicsustainlevel=8;
@@ -1163,7 +1160,7 @@ music_apply(int16_t tune, double dfac, uint16_t done_ack_id)
       musicreleaserate=1;
       musicdfac = 6.0 * dfac;
       break;
-    case 2:
+    case TUNE_DIRGE:
       if (!musicflag) {
         musicflag=true;
         restore_musicflag_after_death=true;
@@ -1174,9 +1171,55 @@ music_apply(int16_t tune, double dfac, uint16_t done_ack_id)
       musicdecayrate=5;
       musicreleaserate=1;
       musicdfac = 10.0 * dfac;
+      break;
+    case TUNE_BATTLE:
+      musicmaxvol=50;
+      musicattackrate=28;
+      musicsustainlevel=26;
+      musicdecayrate=8;
+      musicreleaserate=4;
+      musicdfac = 2.0 * dfac;
+      break;
   }
+}
+
+static int16_t
+music_request_to_tune(int16_t music)
+{
+  int local_player;
+
+  switch (music) {
+    case MUSIC_BONUS:
+      return (TUNE_BONUS);
+    case MUSIC_MAIN:
+      local_player = dgstate.netsim ? netsim_local_player() : dgstate.curplayer;
+      if (getlives(local_player) == 1)
+        return (TUNE_BATTLE);
+      return (TUNE_MAIN);
+    case MUSIC_DIRGE:
+      return (TUNE_DIRGE);
+  }
+  return (music);
+}
+
+static void
+music_apply(int16_t tune, double dfac, uint16_t done_ack_id)
+{
+  if (soundmusic_done_ack_id != 0) {
+    sound_ack_push(soundmusic_done_ack_id);
+    soundmusic_done_ack_id = 0;
+  }
+
+  if (!sndflag) {
+    if (done_ack_id != 0)
+      sound_ack_push(done_ack_id);
+    return;
+  }
+  musicp=0;
+  noteduration=0;
+  music_select_tune(tune, dfac);
   musicplaying=true;
-  if (tune==2) {
+  if (tune == TUNE_DIRGE) {
     soundddieoff();
     if (!wave_device_available) {
       if (done_ack_id != 0)
@@ -1189,21 +1232,26 @@ music_apply(int16_t tune, double dfac, uint16_t done_ack_id)
 }
 
 uint16_t
-musicwithack(int16_t tune, double dfac)
+musicwithack(int16_t music_request, double dfac)
 {
   uint16_t done_ack_id;
+  int16_t tune;
 
   if (!sound_local_sound_available()) {
-    music(tune, dfac);
+    music(music_request, dfac);
     return (0);
   }
+  tune = music_request_to_tune(music_request);
   done_ack_id = sound_ack_alloc();
   sound_queue_push_done(SOUND_CMD_MUSIC, tune, dfac, done_ack_id);
   return (done_ack_id);
 }
 
-void music(int16_t tune, double dfac)
+void music(int16_t music_request, double dfac)
 {
+  int16_t tune;
+
+  tune = music_request_to_tune(music_request);
   sound_queue_push_done(SOUND_CMD_MUSIC, tune, dfac, 0);
 }
 
@@ -1277,6 +1325,74 @@ static const int16_t dirge[]={
   0x7d00,16,0x7d00,16,0x7d00,16,0x7d00,16,0x7d00,16,0x7d00,16,0x7d00,16,
   0x7d00,16,0x7d00,16,0x7d00,16,0x7d64};
 
+/* "I vnov prodolzhaetsya boi" lead melody transcribed from 1 (55).pdf. */
+static const int16_t battlejingle[]={
+  0x11d1, 4, 0xfdf, 4, 0xefb,20, 0xfdf, 4, 0xefb, 6, 0xd59, 2, 0xbe4,24,
+   0xd59, 6, 0xefb, 2, 0xfdf, 8, 0xd59,16, 0xefb, 4, 0xfdf, 4,0x11d1,24,
+  0x11d1, 4, 0xfdf, 4, 0xefb,20, 0xfdf, 4, 0xefb, 6, 0xd59, 2, 0xbe4, 4,
+   0xb39, 4, 0xbe4,16, 0xbe4, 6, 0xa98, 2, 0xa00,20, 0xa98, 4, 0xbe4, 6,
+   0xc99, 2, 0xbe4,56, 0xbe4, 8, 0xb39, 8, 0xd59, 4, 0xefb, 4, 0xfdf, 6,
+  0x11d1, 6,0x12e0, 4,0x11d1,24, 0xbe4, 8, 0xb39, 8, 0xd59, 4, 0xefb, 4,
+   0xfdf, 6,0x11d1, 6,0x13ff, 4, 0xbe4,24, 0xefb, 8, 0x8e8, 8, 0x8e8,16,
+   0x7f0, 8, 0x77e, 8, 0x7f0, 4, 0x8e8, 4, 0xa00, 8, 0x8e8, 8, 0xb39, 4,
+   0xd59, 8, 0xefb, 4, 0xfdf, 8,0x11d1, 4,0x12e0, 4,0x11d1,24, 0xefb, 8,
+  0x8e8, 8, 0x8e8,16, 0x7f0, 8, 0x77e, 8, 0x7f0, 4, 0x8e8, 4, 0xa00, 8,
+  0x8e8, 8, 0xb39, 4, 0xd59, 8, 0xefb, 4, 0xfdf, 8,0x11d1, 4,0x12e0, 4,
+  0x11d1,56,0x11d1, 4, 0xfdf, 4, 0xefb,20, 0xfdf, 4, 0xefb, 6, 0xd59, 2,
+   0xbe4,24, 0xd59, 6, 0xefb, 2, 0xfdf, 8, 0xd59,16, 0xefb, 4, 0xfdf, 4,
+  0x11d1,24,0x11d1, 4, 0xfdf, 4, 0xefb,20, 0xfdf, 4, 0xefb, 6, 0xd59, 2,
+   0xbe4, 4, 0xb39, 4, 0xbe4,16, 0xbe4, 6, 0xa98, 2, 0xa00,20, 0xa98, 4,
+   0xbe4, 6, 0xc99, 2, 0xbe4,56, 0xbe4, 8, 0xb39, 8, 0xd59, 4, 0xefb, 4,
+   0xfdf, 6,0x11d1, 6,0x12e0, 4,0x11d1,24, 0xbe4, 8, 0xb39, 8, 0xd59, 4,
+   0xefb, 4, 0xfdf, 6,0x11d1, 6,0x13ff, 4, 0xbe4,24, 0xefb, 8, 0x8e8, 8,
+  0x8e8,16, 0x7f0, 8, 0x77e, 8, 0x7f0, 4, 0x8e8, 4, 0xa00, 8, 0x8e8, 8,
+   0xb39, 4, 0xd59, 8, 0xefb, 4, 0xfdf, 8,0x11d1, 4,0x12e0, 4,0x11d1,24,
+   0xefb, 8, 0x8e8, 8, 0x8e8,16, 0x7f0, 8, 0x77e, 8, 0x7f0, 4, 0x8e8, 4,
+   0xa00, 8, 0x8e8, 8, 0xb39, 4, 0xd59, 8, 0xefb, 4, 0xfdf, 8,0x11d1, 4,
+  0x12e0, 4,0x11d1,56,0x11d1, 4, 0xfdf, 4, 0xefb,20, 0xfdf, 4, 0xefb, 6,
+   0xd59, 2, 0xbe4,24, 0xd59, 6, 0xefb, 2, 0xfdf, 8, 0xd59,16, 0xefb, 4,
+   0xfdf, 4,0x11d1,24,0x11d1, 4, 0xfdf, 4, 0xefb,20, 0xfdf, 4, 0xefb, 6,
+   0xd59, 2, 0xbe4, 8, 0xbe4,16, 0xbe4, 6, 0xa98, 2, 0xa00,20, 0xa98, 4,
+   0xbe4, 6, 0xc99, 2, 0xbe4,56, 0xbe4, 8, 0xb39, 8, 0xd59, 4, 0xefb, 4,
+   0xfdf, 6,0x11d1, 6,0x12e0, 4,0x11d1,24, 0xbe4, 8, 0xb39, 8, 0xd59, 4,
+   0xefb, 4, 0xfdf, 6,0x11d1, 6,0x13ff, 4, 0xbe4,24, 0xefb, 8, 0x8e8, 8,
+  0x8e8,16, 0x7f0, 8, 0x77e, 8, 0x7f0, 4, 0x8e8, 4, 0xa00, 8, 0x8e8, 8,
+   0xb39, 4, 0xd59, 8, 0xefb, 4, 0xfdf, 8,0x11d1, 4,0x12e0, 4,0x11d1,24,
+   0xefb, 8, 0x8e8, 8, 0x8e8,16, 0x7f0, 8, 0x77e, 8, 0x7f0, 4, 0x8e8, 4,
+   0xa00, 8, 0x8e8, 8, 0xb39, 4, 0xd59, 8, 0xefb, 4, 0xfdf, 8,0x11d1, 4,
+  0x12e0, 4,0x11d1,56,0x11d1, 4, 0xfdf, 4, 0xefb,20, 0xfdf, 4, 0xefb, 6,
+   0xd59, 2, 0xbe4,24, 0xd59, 6, 0xefb, 2, 0xfdf, 8, 0xd59,16, 0xefb, 4,
+   0xfdf, 4,0x11d1,24,0x11d1, 4, 0xfdf, 4, 0xefb,20, 0xfdf, 4, 0xefb, 6,
+   0xd59, 2, 0xbe4, 8, 0xbe4,16, 0xbe4, 6, 0xa98, 2, 0xa00,20, 0xa98, 4,
+   0xbe4, 6, 0xc99, 2, 0xbe4,56, 0xbe4, 8, 0xb39, 8, 0xd59, 4, 0xefb, 4,
+   0xfdf, 6,0x11d1, 6,0x12e0, 4,0x11d1,24, 0xbe4, 8, 0xb39, 8, 0xd59, 4,
+   0xefb, 4, 0xfdf, 6,0x11d1, 6,0x13ff, 4, 0xbe4,24, 0xefb, 8, 0x8e8, 8,
+  0x8e8,16, 0x7f0, 8, 0x77e, 8, 0x7f0, 4, 0x8e8, 4, 0xa00, 8, 0x8e8, 8,
+   0xb39, 4, 0xd59, 8, 0xefb, 4, 0xfdf, 8,0x11d1, 4,0x12e0, 4,0x11d1,24,
+   0xefb, 8, 0x8e8, 8, 0x8e8,16, 0x7f0, 8, 0x77e, 8, 0x7f0, 4, 0x8e8, 4,
+   0xa00, 8, 0x8e8, 8, 0xb39, 4, 0xd59, 8, 0xefb, 4, 0xfdf, 8,0x11d1, 4,
+  0x12e0, 4,0x11d1,16,0x11d1,40, 0xfdf, 8, 0xefb, 8, 0xfdf, 8,0x11d1, 8,
+   0xbe4, 8, 0xb39, 8, 0xd59, 4, 0xefb, 4,
+   0xfdf, 6,0x11d1, 6,0x12e0, 4,0x11d1,24, 0xbe4, 8, 0xb39, 8, 0xd59, 4,
+   0xefb, 4, 0xfdf, 6,0x11d1, 6,0x13ff, 4, 0xbe4,24, 0xefb, 8, 0x8e8, 8,
+  0x8e8,16, 0x7f0, 8, 0x77e, 8, 0x7f0, 4, 0x8e8, 4, 0xa00, 8, 0x8e8, 8,
+   0xb39, 4, 0xd59, 8, 0xefb, 4, 0xfdf, 8,0x11d1, 4,0x12e0, 4,0x11d1,24,
+   0xefb, 8, 0x8e8, 8, 0x8e8,16, 0x7f0, 8, 0x77e, 8, 0x7f0, 4, 0x8e8, 4,
+  0xa00, 8, 0x8e8, 8, 0xb39, 4, 0xd59, 8, 0xefb, 4, 0xfdf, 8,0x11d1, 4,
+  0x12e0, 4,0x11d1, 6,0x7d00,16,0x7d64};
+
+static int16_t
+battlejingle_notevalue(int16_t notevalue)
+{
+  if (notevalue >= 0x7d00)
+    return (notevalue);
+  /*
+   * Shift the melody up by a major second to brighten the tune without
+   * rewriting the entire note table.
+   */
+  return ((int32_t)notevalue * 891 + 500) / 1000;
+}
+
 static void musicupdate(void)
 {
   if (!musicplaying)
@@ -1286,7 +1402,7 @@ static void musicupdate(void)
   else {
     musicstage=musicn=0;
     switch (tuneno) {
-      case 0:
+      case TUNE_BONUS:
         noteduration=bonusjingle[musicp+1]*musicdfac;
         musicnotewidth=noteduration-musicdfac;
         notevalue=bonusjingle[musicp];
@@ -1294,7 +1410,7 @@ static void musicupdate(void)
         if (bonusjingle[musicp]==0x7d64)
           musicp=0;
         break;
-      case 1:
+      case TUNE_MAIN:
         noteduration=backgjingle[musicp+1]*musicdfac;
         musicnotewidth=musicdfac * 2;
         notevalue=backgjingle[musicp];
@@ -1302,7 +1418,7 @@ static void musicupdate(void)
         if (backgjingle[musicp]==0x7d64)
           musicp=0;
         break;
-      case 2:
+      case TUNE_DIRGE:
         noteduration=dirge[musicp+1]*musicdfac;
         musicnotewidth=noteduration-musicdfac;
         notevalue=dirge[musicp];
@@ -1318,6 +1434,14 @@ static void musicupdate(void)
 	}
         musicp+=2;
         if (dirge[musicp]==0x7d64)
+          musicp=0;
+        break;
+      case TUNE_BATTLE:
+        noteduration=battlejingle[musicp+1]*musicdfac;
+        musicnotewidth=noteduration-musicdfac;
+        notevalue=battlejingle_notevalue(battlejingle[musicp]);
+        musicp+=2;
+        if (battlejingle[musicp]==0x7d64)
           musicp=0;
         break;
     }
