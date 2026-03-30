@@ -34,6 +34,15 @@ static struct digger
   struct bullet_obj bob;
 } digdat[DIGGERS];
 
+enum digger_death_stage {
+  DGR_DEATH_BAG = 1,
+  DGR_DEATH_ANIM = 2,
+  DGR_DEATH_MONSTER = 3,
+  DGR_DEATH_TOMBSTONE = 4,
+  DGR_DEATH_ARC = 5,
+  DGR_DEATH_DONE = 6
+};
+
 static int16_t startbonustimeleft=0,bonustimeleft;
 
 static int16_t emmask=0;
@@ -62,7 +71,7 @@ void initdigger(void)
       digdat[dig].dead=true;
       digdat[dig].invin=false;
       digdat[dig].ivt=0;
-      digdat[dig].deathstage=6;
+      digdat[dig].deathstage=DGR_DEATH_DONE;
       digdat[dig].deathmusicdone=0;
       digdat[dig].dob.alive=false;
       digdat[dig].bagtime=0;
@@ -86,7 +95,7 @@ void initdigger(void)
     digdat[dig].dead=false; /* alive !=> !dead but dead => !alive */
     digdat[dig].invin=false;
     digdat[dig].ivt=0;
-    digdat[dig].deathstage=1;
+    digdat[dig].deathstage=DGR_DEATH_BAG;
     digdat[dig].deathmusicdone=0;
     y = digdat[dig].v * 18 + 18;
     digger_obj_init(&digdat[dig].dob, dig - dgstate.curplayer, dir, x, y);
@@ -708,7 +717,7 @@ diggerdie(struct digger_draw_api *ddap, int n)
   int clfirst[TYPES],clcoll[SPRITES],i;
   bool alldead;
   switch (digdat[n].deathstage) {
-    case 1:
+    case DGR_DEATH_BAG:
       if (bagy(digdat[n].deathbag)+6>digdat[n].dob.y)
         digdat[n].dob.y=bagy(digdat[n].deathbag)+6;
       drawdigger(n-dgstate.curplayer,15,digdat[n].dob.x,digdat[n].dob.y,false);
@@ -716,12 +725,12 @@ diggerdie(struct digger_draw_api *ddap, int n)
       if (getbagdir(digdat[n].deathbag)+1==0) {
         soundddie();
         digdat[n].deathtime=5;
-        digdat[n].deathstage=2;
+        digdat[n].deathstage=DGR_DEATH_ANIM;
         digdat[n].deathani=0;
         digdat[n].dob.y-=6;
       }
       break;
-    case 2:
+    case DGR_DEATH_ANIM:
       if (digdat[n].deathtime!=0) {
         digdat[n].deathtime--;
         break;
@@ -748,19 +757,19 @@ diggerdie(struct digger_draw_api *ddap, int n)
         digdat[n].deathtime=2;
       }
       else {
-        digdat[n].deathstage=4;
+        digdat[n].deathstage=DGR_DEATH_TOMBSTONE;
         if (musicflag || dgstate.diggers>1)
           digdat[n].deathtime=60;
         else
           digdat[n].deathtime=10;
       }
       break;
-    case 3:
-      digdat[n].deathstage=5;
+    case DGR_DEATH_MONSTER:
+      digdat[n].deathstage=DGR_DEATH_ARC;
       digdat[n].deathani=0;
       digdat[n].deathtime=0;
       break;
-    case 5:
+    case DGR_DEATH_ARC:
       if (digdat[n].deathani>=0 && digdat[n].deathani<=6) {
         drawdigger(n-dgstate.curplayer,15,digdat[n].dob.x,
                    digdat[n].dob.y-deatharc[digdat[n].deathani],false);
@@ -773,11 +782,11 @@ diggerdie(struct digger_draw_api *ddap, int n)
         if (digdat[n].deathani==7) {
           digdat[n].deathtime=5;
           digdat[n].deathani=0;
-          digdat[n].deathstage=2;
+          digdat[n].deathstage=DGR_DEATH_ANIM;
         }
       }
       break;
-    case 4:
+    case DGR_DEATH_TOMBSTONE:
       if (digdat[n].deathtime!=0)
         digdat[n].deathtime--;
       else {
@@ -811,7 +820,7 @@ diggerdie(struct digger_draw_api *ddap, int n)
               digdat[n].dead=false;
               digdat[n].invin=true;
               digdat[n].ivt=50;
-              digdat[n].deathstage=1;
+              digdat[n].deathstage=DGR_DEATH_BAG;
               digdat[n].dob.y=digdat[n].v*18+18;
               erasespr(n+FIRSTDIGGER-dgstate.curplayer);
               CALL_METHOD(&digdat[n].dob, put);
@@ -830,12 +839,12 @@ diggerdie(struct digger_draw_api *ddap, int n)
               music(1, 1.0);
           } else {
             erasespr(n+FIRSTDIGGER-dgstate.curplayer);
-            digdat[n].deathstage=6;
+            digdat[n].deathstage=DGR_DEATH_DONE;
             clearfire(n);
           }
       }
       break;
-    case 6:
+    case DGR_DEATH_DONE:
       break;
   }
 }
@@ -903,7 +912,8 @@ void killdigger(int n,int16_t stage,int16_t bag)
 {
   if (digdat[n].invin)
     return;
-  if (digdat[n].deathstage<2 || digdat[n].deathstage>4) {
+  if (digdat[n].deathstage < DGR_DEATH_ANIM ||
+      digdat[n].deathstage > DGR_DEATH_TOMBSTONE) {
     digdat[n].dob.alive=false;
     digdat[n].deathstage=stage;
     digdat[n].deathbag=bag;

@@ -502,6 +502,7 @@ static void initlevel(void)
 
 static void drawscreen(struct digger_draw_api *ddap)
 {
+  ddap->gclear();
   creatembspr();
   drawstatics(ddap);
   drawbags();
