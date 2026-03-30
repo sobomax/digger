@@ -57,6 +57,7 @@ static void inir(void);
 static int getalllives(void);
 static void run_pause(bool allow_local_pause, int remote_player);
 static void sync_netsim_waiter(void);
+static bool title_escape_exits_program(void);
 
 int16_t getlevch(int16_t x,int16_t y,int16_t l)
 {
@@ -348,8 +349,12 @@ int mainprog(void)
       savedrf=false;
       continue;
     }
-    if (escape)
-      break;
+    if (escape) {
+      if (title_escape_exits_program())
+        break;
+      escape=false;
+      continue;
+    }
     input_reset_network();
     if (dgstate.netsim) {
       cleartopline();
@@ -392,6 +397,16 @@ void finish(void)
   soundkillglob();
   restorekeyb();
   graphicsoff();
+}
+
+static bool
+title_escape_exits_program(void)
+{
+#if defined(__EMSCRIPTEN__)
+  return (false);
+#else
+  return (true);
+#endif
 }
 
 struct label {
