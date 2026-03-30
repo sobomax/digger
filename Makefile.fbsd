@@ -1,14 +1,19 @@
 PROG=		digger
 
-SRCS=		main.c digger.c drawing.c sprite.c scores.c record.c sound.c \
-		newsnd.c ini.c input.c monster.c bags.c alpha.c vgagrafx.c \
-		title_gz.c digger_math.c digger_math.h monster_obj.c \
-		monster_obj.h digger_obj.c digger_obj.h bullet_obj.c \
-		bullet_obj.h keyboard.c keyboard.h
+MK_PIE=		no
+
+COMMON_SRCS=	main.c digger.c drawing.c sprite.c scores.c record.c sound.c \
+		sound_backend.c newsnd.c ini.c input.c monster.c bags.c \
+		alpha.c vgagrafx.c cgagrafx.c title_gz.c title_anim.c \
+		digger_math.c monster_obj.c digger_obj.c bullet_obj.c \
+		keyboard.c soundgen.c spinlock.c game.c digger_log.c \
+		netsim.c netsim_platform.c netsim_debug.c
+
+SRCS=		${COMMON_SRCS}
 
 CFLAGS+=	-DFREEBSD -DDIGGER_DEBUG
 
-LDADD+=		-lz -lm
+LDADD+=		-lz -lm -lpthread
 
 SDL_CONFIG?=	sdl2-config
 
@@ -27,7 +32,7 @@ SRCS+=		fbsd_snd.c
 .endif	# SOUND
 .else	# SDL
 CFLAGS+=	-D_SDL `${SDL_CONFIG} --cflags`
-LDADD+=		`${SDL_CONFIG} --libs`
+LDADD+=		`${SDL_CONFIG} --libs` -lX11
 SRCS+=		fbsd_sup.c sdl_vid.c sdl_timer.c sdl_kbd.c sdl_snd.c icon.c \
 		sdl_kbd.h
 .endif

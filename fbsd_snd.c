@@ -20,3 +20,8 @@ void killsounddevice(void)
 void wakesounddevice(void)
 {
 }
+
+void pausesounddevice(bool p)
+{
+	(void)p;
+}

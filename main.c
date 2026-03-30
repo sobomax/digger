@@ -39,7 +39,7 @@ static struct game
 } gamedat[2];
 
 static bool levnotdrawn=false,alldead=false;
-static bool started;
+bool started;
 static int16_t penalty=0;
 
 FILE *digger_log = NULL;

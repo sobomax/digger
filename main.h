@@ -13,3 +13,4 @@ void game(void);
 void maininit(void);
 int mainprog(void);
 void testpause(void);
+extern bool started;
