@@ -146,7 +146,7 @@ void game(void)
       erasetext(ddap, 8, 108,0,3);
       initscores(ddap);
       drawlives(ddap);
-      music(1, 1.0);
+      music(MUSIC_MAIN, 1.0);
 
       flushkeybuf();
       input_reset_directions();

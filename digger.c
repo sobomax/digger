@@ -384,7 +384,7 @@ dodigger(struct digger_draw_api *ddap)
           soundbonus();
         }
         if (startbonustimeleft==0) {
-          music(0, 1.0);
+          music(MUSIC_BONUS, 1.0);
           soundbonusoff();
           ddap->ginten(1);
         }
@@ -393,13 +393,13 @@ dodigger(struct digger_draw_api *ddap)
     else {
       endbonusmode(ddap);
       soundbonusoff();
-      music(1, 1.0);
+      music(MUSIC_MAIN, 1.0);
     }
   }
   if (bonusmode && !isalive()) {
     endbonusmode(ddap);
     soundbonusoff();
-    music(1, 1.0);
+    music(MUSIC_MAIN, 1.0);
   }
 }
 
@@ -737,9 +737,9 @@ diggerdie(struct digger_draw_api *ddap, int n)
       }
       if (digdat[n].deathani==0) {
         if (dgstate.diggers == 1)
-          digdat[n].deathmusicdone = musicwithack(2, 1.0);
+          digdat[n].deathmusicdone = musicwithack(MUSIC_DIRGE, 1.0);
         else {
-          music(2, 0.7);
+          music(MUSIC_DIRGE, 0.7);
           digdat[n].deathmusicdone = 0;
         }
       }
@@ -834,9 +834,9 @@ diggerdie(struct digger_draw_api *ddap, int n)
             }
             clearfire(n);
             if (bonusmode)
-              music(0, 1.0);
+              music(MUSIC_BONUS, 1.0);
             else
-              music(1, 1.0);
+              music(MUSIC_MAIN, 1.0);
           } else {
             erasespr(n+FIRSTDIGGER-dgstate.curplayer);
             digdat[n].deathstage=DGR_DEATH_DONE;
