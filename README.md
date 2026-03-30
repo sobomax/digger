@@ -2,7 +2,7 @@
 [![Build Status (Windows)](https://ci.appveyor.com/api/projects/status/s3nmvbv7xnt9uuyh/branch/master?svg=true)](https://ci.appveyor.com/project/sobomax/digger/branch/master)
 [![Coverage Status](https://coveralls.io/repos/github/sobomax/digger/badge.svg?branch=master)](https://coveralls.io/github/sobomax/digger?branch=master)
 [![Coverity](https://scan.coverity.com/projects/17679/badge.svg)](https://scan.coverity.com/projects/sobomax-digger)
-[![Download ZIP](https://img.shields.io/badge/Windows-Download_ZIP-orange.svg)](https://ci.appveyor.com/api/projects/sobomax/digger/artifacts/digger-win32.zip?branch=master)
+[![Download ZIP](https://img.shields.io/badge/Windows-Download_ZIP-orange.svg)](https://ci.appveyor.com/api/projects/sobomax/digger/artifacts/digger-win64.zip?branch=master)
 [![Download Installer](https://img.shields.io/badge/Windows-Download_Installer-orange.svg)](https://ci.appveyor.com/api/projects/sobomax/digger/artifacts/DiggerRemastered-Setup.exe?branch=master)
 
 # This is Digger Reloaded, aka UNIX/Linux Digger, however it also works on Windows.
