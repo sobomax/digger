@@ -18,13 +18,17 @@
 
 #include "digger_log.h"
 
-#define NETSIM_MAGIC 0x4e53494dU
-#define NETSIM_VERSION 1U
 #define NETSIM_QUEUE_LEN 32
 #define NETSIM_FRAME_WINDOW 32
 #define NETSIM_RETRY_LIMIT 100
 #define NETSIM_RETRY_MS 10
 #define NETSIM_WAKE_MS ((NETSIM_RETRY_MS / 10) > 0 ? (NETSIM_RETRY_MS / 10) : 1)
+#define NETSIM_RTP_VERSION 2U
+#define NETSIM_RTP_PT 96U
+#define NETSIM_RTP_VPXCC ((uint8_t)(NETSIM_RTP_VERSION << 6))
+#define NETSIM_RTP_VPXCC_FLAGS_MASK 0x3fU
+#define NETSIM_RTP_MPT_PT_MASK 0x7fU
+#define NETSIM_RTP_SSRC_FALLBACK 0x4e53494dU
 enum netsim_pkt_type {
   NETSIM_PKT_HELLO = 1,
   NETSIM_PKT_FRAME = 2,
@@ -52,14 +56,33 @@ enum netsim_in_type {
 };
 
 struct netsim_pkt {
-  uint32_t magic;
-  uint16_t version;
   uint8_t type;
   uint8_t player;
   uint32_t tx_seq;
   uint32_t frame;
   uint32_t bits;
   uint64_t nonce;
+  uint32_t rtp_ssrc;
+  uint32_t stream_ssrc;
+};
+
+struct netsim_rtp_header {
+  uint8_t vpxcc;
+  uint8_t mpt;
+  uint16_t seq;
+  uint32_t timestamp;
+  uint32_t ssrc;
+};
+
+/* App subtype and high tx_seq bits stay in payload; RTP carries observability. */
+struct netsim_rtp_payload {
+  uint8_t subtype;
+  uint8_t player;
+  uint16_t tx_seq_hi;
+  uint32_t bits;
+  uint64_t nonce;
+  uint32_t stream_ssrc;
+  uint32_t reserved;
 };
 
 struct netsim_out_ev {
@@ -120,6 +143,7 @@ struct pending_tx {
   uint64_t nonce;
   int retries;
   int send_count;
+  int peer_frame_base;
   int peer_frame_count;
   netsim_deadline_t next_tx;
 };
@@ -379,6 +403,24 @@ ntohll(uint64_t v)
   return (((uint64_t)lo) << 32) | hi;
 }
 
+static uint32_t
+make_ssrc(uint64_t nonce)
+{
+  uint32_t ssrc;
+
+  ssrc = (uint32_t)(nonce ^ (nonce >> 32));
+  if (ssrc == 0)
+    ssrc = NETSIM_RTP_SSRC_FALLBACK;
+  return (ssrc);
+}
+
+static uint32_t
+make_stream_ssrc(uint64_t local_nonce, uint64_t session_nonce)
+{
+
+  return (make_ssrc(local_nonce ^ session_nonce ^ 0x5354524dU));
+}
+
 static void
 queue_out_init(struct netsim_out_queue *qp)
 {
@@ -616,6 +658,16 @@ make_nonce(void)
   return (nonce);
 }
 
+static void
+reset_hello_pending(struct pending_tx *ptx, uint64_t nonce)
+{
+
+  memset(ptx, '\0', sizeof(*ptx));
+  ptx->active = true;
+  ptx->type = NETSIM_PKT_HELLO;
+  ptx->nonce = nonce;
+}
+
 static netsim_socket_t
 open_socket(const struct netsim_config *cfgp)
 {
@@ -635,32 +687,46 @@ open_socket(const struct netsim_config *cfgp)
 }
 
 static int
-send_packet(netsim_socket_t sock, int type, int player, uint32_t tx_seq,
-  uint32_t frame, uint8_t bits, uint64_t nonce)
+send_packet(netsim_socket_t sock, uint32_t rtp_ssrc, uint32_t stream_ssrc,
+  int type, int player, uint32_t tx_seq, uint32_t frame, uint8_t bits,
+  uint64_t nonce)
 {
-  struct netsim_pkt pkt;
+  struct netsim_rtp_header hdr;
+  struct netsim_rtp_payload payload;
+  uint8_t buf[sizeof(hdr) + sizeof(payload)];
 
-  memset(&pkt, '\0', sizeof(pkt));
-  pkt.magic = htonl(NETSIM_MAGIC);
-  pkt.version = htons(NETSIM_VERSION);
-  pkt.type = (uint8_t)type;
-  pkt.player = (uint8_t)player;
-  pkt.tx_seq = htonl(tx_seq);
-  pkt.frame = htonl(frame);
-  pkt.bits = htonl(bits);
-  pkt.nonce = htonll(nonce);
-  return (netsim_socket_send(sock, &pkt, sizeof(pkt)));
+  memset(&hdr, '\0', sizeof(hdr));
+  hdr.vpxcc = NETSIM_RTP_VPXCC;
+  hdr.mpt = NETSIM_RTP_PT;
+  hdr.seq = htons((uint16_t)(tx_seq & 0xffffU));
+  hdr.timestamp = htonl(frame);
+  hdr.ssrc = htonl(rtp_ssrc);
+
+  memset(&payload, '\0', sizeof(payload));
+  payload.subtype = (uint8_t)type;
+  payload.player = (uint8_t)player;
+  payload.tx_seq_hi = htons((uint16_t)(tx_seq >> 16));
+  payload.bits = htonl(bits);
+  payload.nonce = htonll(nonce);
+  payload.stream_ssrc = htonl(stream_ssrc);
+
+  memcpy(buf, &hdr, sizeof(hdr));
+  memcpy(buf + sizeof(hdr), &payload, sizeof(payload));
+  return (netsim_socket_send(sock, buf, sizeof(buf)));
 }
 
 static bool
 recv_packet(netsim_socket_t sock, struct netsim_pkt *pktp)
 {
+  struct netsim_rtp_header hdr;
+  struct netsim_rtp_payload payload;
+  uint8_t buf[sizeof(hdr) + sizeof(payload)];
   struct netsim_pkt pkt;
   int rlen;
   int err;
   char errbuf[128];
 
-  rlen = netsim_socket_recv(sock, &pkt, sizeof(pkt));
+  rlen = netsim_socket_recv(sock, buf, sizeof(buf));
   if (rlen < 0) {
     err = netsim_socket_last_error();
     if (netsim_socket_err_wouldblock(err) || netsim_socket_err_transient(err))
@@ -669,18 +735,24 @@ recv_packet(netsim_socket_t sock, struct netsim_pkt *pktp)
       netsim_socket_strerror(err, errbuf, sizeof(errbuf)));
     return (false);
   }
-  if ((size_t)rlen != sizeof(pkt))
+  if ((size_t)rlen != sizeof(buf))
     return (false);
-  if (ntohl(pkt.magic) != NETSIM_MAGIC)
+  memcpy(&hdr, buf, sizeof(hdr));
+  if ((hdr.vpxcc >> 6) != NETSIM_RTP_VERSION ||
+      (hdr.vpxcc & NETSIM_RTP_VPXCC_FLAGS_MASK) != 0)
     return (false);
-  if (ntohs(pkt.version) != NETSIM_VERSION)
+  if ((hdr.mpt & NETSIM_RTP_MPT_PT_MASK) != NETSIM_RTP_PT)
     return (false);
-  pkt.magic = ntohl(pkt.magic);
-  pkt.version = ntohs(pkt.version);
-  pkt.tx_seq = ntohl(pkt.tx_seq);
-  pkt.frame = ntohl(pkt.frame);
-  pkt.bits = ntohl(pkt.bits);
-  pkt.nonce = ntohll(pkt.nonce);
+  memcpy(&payload, buf + sizeof(hdr), sizeof(payload));
+  pkt.type = payload.subtype;
+  pkt.player = payload.player;
+  pkt.tx_seq = (((uint32_t)ntohs(payload.tx_seq_hi)) << 16) |
+    (uint32_t)ntohs(hdr.seq);
+  pkt.frame = ntohl(hdr.timestamp);
+  pkt.bits = ntohl(payload.bits);
+  pkt.nonce = ntohll(payload.nonce);
+  pkt.rtp_ssrc = ntohl(hdr.ssrc);
+  pkt.stream_ssrc = ntohl(payload.stream_ssrc);
   *pktp = pkt;
   return (true);
 }
@@ -779,6 +851,7 @@ set_pending(struct pending_tx *ptx, int type, uint32_t frame, uint8_t bits,
   ptx->matched = false;
   ptx->retries = 0;
   ptx->send_count = 0;
+  ptx->peer_frame_base = 0;
   ptx->peer_frame_count = 0;
   ptx->next_tx = 0;
   netsim_log("queue %s seq=%u frame=%u bits=0x%02x", pending_name(type),
@@ -802,6 +875,25 @@ pending_pkt_type(int pending_type)
   return (0);
 }
 
+static uint32_t
+pending_rtp_ssrc(uint32_t control_ssrc, uint32_t stream_ssrc, int pending_type)
+{
+
+  if (pending_type == NETSIM_PKT_HELLO || pending_type == NETSIM_OUT_START ||
+      pending_type == NETSIM_OUT_START_ACK || stream_ssrc == 0)
+    return (control_ssrc);
+  return (stream_ssrc);
+}
+
+static uint32_t
+pending_stream_ssrc(uint32_t stream_ssrc, int pending_type)
+{
+
+  if (pending_type == NETSIM_PKT_HELLO)
+    return (0);
+  return (stream_ssrc);
+}
+
 static void
 pending_unschedule(struct pending_tx *ptx)
 {
@@ -810,26 +902,30 @@ pending_unschedule(struct pending_tx *ptx)
 }
 
 static bool
-send_pending_now(netsim_socket_t sock, struct pending_tx *ptx, int player)
+send_pending_now(netsim_socket_t sock, uint32_t control_ssrc,
+  uint32_t stream_ssrc, struct pending_tx *ptx, int player)
 {
   int pkt_type;
+  uint32_t rtp_ssrc;
 
   pkt_type = pending_pkt_type(ptx->type);
   if (pkt_type == 0)
     return (false);
-  if (send_packet(sock, pkt_type, player, ptx->seq, ptx->frame, ptx->bits,
-        ptx->nonce) < 0)
+  rtp_ssrc = pending_rtp_ssrc(control_ssrc, stream_ssrc, ptx->type);
+  if (send_packet(sock, rtp_ssrc, pending_stream_ssrc(stream_ssrc, ptx->type),
+        pkt_type, player, ptx->seq, ptx->frame, ptx->bits, ptx->nonce) < 0)
     return (false);
   ptx->send_count++;
   return (true);
 }
 
 static bool
-send_pending(netsim_socket_t sock, struct pending_tx *ptx, int player,
-  bool *sentp)
+send_pending(netsim_socket_t sock, uint32_t control_ssrc, uint32_t stream_ssrc,
+  struct pending_tx *ptx, int player, bool *sentp)
 {
   int type, err;
   char errbuf[128];
+  uint32_t rtp_ssrc;
 
   *sentp = false;
   if (!ptx->active)
@@ -843,8 +939,9 @@ send_pending(netsim_socket_t sock, struct pending_tx *ptx, int player,
   type = pending_pkt_type(ptx->type);
   if (type == 0)
     return (false);
-  if (send_packet(sock, type, player, ptx->seq, ptx->frame, ptx->bits,
-        ptx->nonce) < 0) {
+  rtp_ssrc = pending_rtp_ssrc(control_ssrc, stream_ssrc, ptx->type);
+  if (send_packet(sock, rtp_ssrc, pending_stream_ssrc(stream_ssrc, ptx->type),
+        type, player, ptx->seq, ptx->frame, ptx->bits, ptx->nonce) < 0) {
     err = netsim_socket_last_error();
     ptx->retries++;
     if (pending_log_retries(ptx->type) &&
@@ -893,6 +990,12 @@ send_pending(netsim_socket_t sock, struct pending_tx *ptx, int player,
     pending_unschedule(ptx);
     return (true);
   }
+  if (ptx->type == NETSIM_OUT_FRAME && ptx->peer_frame_base > 0 &&
+      ptx->send_count >=
+      (ptx->peer_frame_count - ptx->peer_frame_base + 1)) {
+    pending_unschedule(ptx);
+    return (true);
+  }
   pending_schedule(ptx);
   return (true);
 }
@@ -906,6 +1009,9 @@ struct netsim_thread_state {
   uint64_t local_nonce;
   uint64_t peer_nonce;
   uint64_t session_nonce;
+  uint32_t local_ctrl_ssrc;
+  uint32_t local_stream_ssrc;
+  uint32_t peer_stream_ssrc;
   uint32_t last_delivered;
   uint32_t last_peer_tx_seq;
   uint32_t next_tx_seq;
@@ -921,6 +1027,11 @@ struct netsim_thread_state {
   bool game_start_notified;
   bool prev_tx_valid;
 };
+
+_Static_assert(sizeof(struct netsim_rtp_header) == 12,
+  "netsim_rtp_header must match the RTP fixed header size");
+_Static_assert(sizeof(struct netsim_rtp_payload) == 24,
+  "netsim_rtp_payload must remain fixed-width on the wire");
 
 static netsim_deadline_t
 thread_next_wakeup(const struct netsim_thread_state *tsp)
@@ -939,11 +1050,14 @@ static void
 thread_clear_session(struct netsim_thread_state *tsp)
 {
 
+  reset_hello_pending(&tsp->hello_tx, tsp->local_nonce);
   tsp->tx.active = false;
   memset(&tsp->tx, '\0', sizeof(tsp->tx));
   memset(&tsp->prev_tx, '\0', sizeof(tsp->prev_tx));
   tsp->prev_tx_valid = false;
   tsp->session_nonce = 0;
+  tsp->local_stream_ssrc = 0;
+  tsp->peer_stream_ssrc = 0;
   tsp->last_delivered = 0;
   tsp->last_peer_tx_seq = 0;
   tsp->next_tx_seq = 1;
@@ -979,8 +1093,10 @@ thread_begin_session(struct netsim_thread_state *tsp, uint64_t session_nonce,
       (unsigned int)tsp->prev_tx.seq, (unsigned int)tsp->prev_tx.frame);
   }
   thread_clear_session(tsp);
+  tsp->hello_tx.active = false;
   tsp->session_offer_local = session_offer_local;
   tsp->session_nonce = session_nonce;
+  tsp->local_stream_ssrc = make_stream_ssrc(tsp->local_nonce, session_nonce);
   tsp->local_player = local_player;
   tsp->remote_player = remote_player;
 }
@@ -1076,8 +1192,16 @@ thread_set_tx(struct netsim_thread_state *tsp, int type, uint32_t frame,
   set_pending(&tsp->tx, type, frame, bits, tsp->session_nonce,
     tsp->next_tx_seq++);
   if (type == NETSIM_OUT_FRAME) {
+    struct remote_frame_slot *rsp;
+
     peer_seen = thread_peer_frame_seen_count(tsp, frame);
+    tsp->tx.peer_frame_base = peer_seen;
     tsp->tx.peer_frame_count = peer_seen;
+    rsp = &tsp->slots[frame % NETSIM_FRAME_WINDOW];
+    if (rsp->valid && rsp->frame == frame) {
+      rsp->peer_frame_count = peer_seen;
+      rsp->local_send_count = tsp->tx.send_count + 1;
+    }
 #if defined(DIGGER_DEBUG)
     if (peer_seen > 1) {
       netsim_proto_log("local frame catches up frame=%u seq=%u inherited parity=%d/%d",
@@ -1107,6 +1231,7 @@ thread_note_peer_frame(struct pending_tx *ptx, uint32_t peer_frame,
   const char *which)
 {
 
+  (void)which;
   if (ptx->type != NETSIM_OUT_FRAME || ptx->frame != peer_frame)
     return;
   if (ptx->matched)
@@ -1132,8 +1257,24 @@ thread_note_matching_peer_frame(struct netsim_thread_state *tsp, uint32_t peer_f
 }
 
 static void
+thread_mark_matching_peer_tx(struct netsim_thread_state *tsp, uint32_t peer_seq,
+  uint32_t peer_frame)
+{
+
+  if (tsp->tx.active && tsp->tx.type == NETSIM_OUT_FRAME &&
+      tsp->tx.seq == peer_seq && tsp->tx.frame == peer_frame) {
+    tsp->tx.matched = true;
+    pending_unschedule(&tsp->tx);
+  }
+  if (tsp->prev_tx_valid && tsp->prev_tx.type == NETSIM_OUT_FRAME &&
+      tsp->prev_tx.seq == peer_seq && tsp->prev_tx.frame == peer_frame)
+    tsp->prev_tx.matched = true;
+}
+
+static void
 thread_resend_to_match(struct pending_tx *ptx, netsim_socket_t sock, int player,
-  uint32_t peer_frame, const char *which)
+  uint32_t control_ssrc, uint32_t stream_ssrc, uint32_t peer_frame,
+  const char *which)
 {
 
   if (ptx->type != NETSIM_OUT_FRAME || ptx->frame != peer_frame)
@@ -1142,7 +1283,7 @@ thread_resend_to_match(struct pending_tx *ptx, netsim_socket_t sock, int player,
     return;
   if (ptx->send_count >= ptx->peer_frame_count)
     return;
-  if (send_pending_now(sock, ptx, player))
+  if (send_pending_now(sock, control_ssrc, stream_ssrc, ptx, player))
     netsim_log("peer repeated frame=%u, resend %s seq=%u parity=%d/%d",
       (unsigned int)peer_frame, which, (unsigned int)ptx->seq,
       ptx->send_count, ptx->peer_frame_count);
@@ -1155,10 +1296,27 @@ thread_resend_matching_frame(struct netsim_thread_state *tsp,
 
   if (tsp->tx.active)
     thread_resend_to_match(&tsp->tx, tsp->sock, tsp->local_player,
+      tsp->local_ctrl_ssrc, tsp->local_stream_ssrc,
       peer_frame, "current");
   if (tsp->prev_tx_valid)
     thread_resend_to_match(&tsp->prev_tx, tsp->sock, tsp->local_player,
+      tsp->local_ctrl_ssrc, tsp->local_stream_ssrc,
       peer_frame, "previous");
+}
+
+static void
+thread_update_buffered_peer_frame(struct netsim_thread_state *tsp,
+  uint32_t peer_frame)
+{
+  struct remote_frame_slot *rsp;
+  int peer_frame_count;
+
+  rsp = &tsp->slots[peer_frame % NETSIM_FRAME_WINDOW];
+  if (!rsp->valid || rsp->frame != peer_frame)
+    return;
+  peer_frame_count = thread_peer_frame_seen_count(tsp, peer_frame);
+  if (peer_frame_count > rsp->peer_frame_count)
+    rsp->peer_frame_count = peer_frame_count;
 }
 
 enum thread_step_result {
@@ -1203,6 +1361,7 @@ thread_drain_recv(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
         continue;
       if (pkt.nonce != tsp->session_nonce || tsp->session_offer_local) {
         thread_begin_session(tsp, pkt.nonce, 1, 0, false);
+        tsp->peer_stream_ssrc = pkt.stream_ssrc;
         netsim_log("recv start seq=%u session=0x%016llx local_player=%d",
           (unsigned int)pkt.tx_seq,
           (unsigned long long)tsp->session_nonce, tsp->local_player + 1);
@@ -1224,6 +1383,7 @@ thread_drain_recv(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
       if (!tsp->session_offer_local || tsp->session_nonce == 0 ||
           pkt.nonce != tsp->session_nonce)
         continue;
+      tsp->peer_stream_ssrc = pkt.stream_ssrc;
       if (tsp->tx.active && tsp->tx.type == NETSIM_OUT_START &&
           tsp->tx.seq == pkt.tx_seq)
         tsp->tx.active = false;
@@ -1241,13 +1401,17 @@ thread_drain_recv(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
     if (!tsp->session_active || tsp->session_nonce == 0 ||
         pkt.nonce != tsp->session_nonce)
       continue;
+    if (tsp->peer_stream_ssrc != 0 && pkt.rtp_ssrc != tsp->peer_stream_ssrc)
+      continue;
     if ((int)pkt.player != tsp->remote_player)
       continue;
     if (pkt.type == NETSIM_PKT_FRAME && pkt.tx_seq < tsp->last_peer_tx_seq)
       continue;
     if (pkt.type == NETSIM_PKT_FRAME) {
       thread_note_peer_frame_seen(tsp, pkt.frame);
+      thread_update_buffered_peer_frame(tsp, pkt.frame);
       thread_note_matching_peer_frame(tsp, pkt.frame);
+      thread_mark_matching_peer_tx(tsp, pkt.tx_seq, pkt.frame);
     }
     if (!thread_accept_peer_seq(tsp, pkt.tx_seq)) {
       if (pkt.type == NETSIM_PKT_FRAME)
@@ -1274,11 +1438,6 @@ thread_drain_recv(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
     if (pkt.type != NETSIM_PKT_FRAME)
       continue;
     tsp->peer_frame_seen = true;
-    if (tsp->tx.active && tsp->tx.type == NETSIM_OUT_FRAME &&
-        tsp->tx.seq == pkt.tx_seq) {
-      tsp->tx.matched = true;
-      pending_unschedule(&tsp->tx);
-    }
     if (pkt.frame <= tsp->last_delivered)
       continue;
     if (pkt.frame > tsp->last_delivered + NETSIM_FRAME_WINDOW) {
@@ -1304,17 +1463,44 @@ thread_drain_recv(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
       rslot.local_send_count = local_send_count;
       tsp->slots[pkt.frame % NETSIM_FRAME_WINDOW] = rslot;
     }
-    while (tsp->slots[(tsp->last_delivered + 1) % NETSIM_FRAME_WINDOW].valid &&
-           tsp->slots[(tsp->last_delivered + 1) % NETSIM_FRAME_WINDOW].frame ==
-           tsp->last_delivered + 1) {
-      struct remote_frame_slot *fsp;
+  }
+}
 
-      fsp = &tsp->slots[(tsp->last_delivered + 1) % NETSIM_FRAME_WINDOW];
-      push_frame(ctxp->inq, fsp->frame, fsp->bits, fsp->peer_frame_count,
-        fsp->local_send_count);
-      fsp->valid = false;
-      tsp->last_delivered++;
-    }
+static bool
+thread_local_reached_frame(const struct netsim_thread_state *tsp, uint32_t frame)
+{
+
+  if (tsp->tx.type == NETSIM_OUT_FRAME && tsp->tx.seq != 0 &&
+      tsp->tx.frame >= frame)
+    return (true);
+  if (tsp->prev_tx_valid && tsp->prev_tx.type == NETSIM_OUT_FRAME &&
+      tsp->prev_tx.frame >= frame)
+    return (true);
+  return (false);
+}
+
+static void
+thread_deliver_ready_frames(struct netsim_thread_state *tsp,
+  struct thread_ctx *ctxp)
+{
+  while (tsp->slots[(tsp->last_delivered + 1) % NETSIM_FRAME_WINDOW].valid &&
+         tsp->slots[(tsp->last_delivered + 1) % NETSIM_FRAME_WINDOW].frame ==
+         tsp->last_delivered + 1) {
+    struct remote_frame_slot *fsp;
+    uint32_t next_frame;
+
+    next_frame = tsp->last_delivered + 1;
+    if (!thread_local_reached_frame(tsp, next_frame))
+      break;
+    fsp = &tsp->slots[next_frame % NETSIM_FRAME_WINDOW];
+#if defined(DIGGER_DEBUG)
+    netsim_proto_log("push_frame: frame=%u peer_frame_count=%d local_send_count=%d",
+      fsp->frame, fsp->peer_frame_count, fsp->local_send_count);
+#endif
+    push_frame(ctxp->inq, fsp->frame, fsp->bits, fsp->peer_frame_count,
+      fsp->local_send_count);
+    fsp->valid = false;
+    tsp->last_delivered++;
   }
 }
 
@@ -1407,11 +1593,13 @@ thread_send_ready(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
 {
   bool data_sent;
 
-  if (!send_pending(tsp->sock, &tsp->hello_tx, tsp->local_player, &data_sent)) {
+  if (!send_pending(tsp->sock, tsp->local_ctrl_ssrc, tsp->local_stream_ssrc,
+        &tsp->hello_tx, tsp->local_player, &data_sent)) {
     push_error(ctxp->inq);
     return (THREAD_STEP_CONTINUE);
   }
-  if (!send_pending(tsp->sock, &tsp->tx, tsp->local_player, &data_sent)) {
+  if (!send_pending(tsp->sock, tsp->local_ctrl_ssrc, tsp->local_stream_ssrc,
+        &tsp->tx, tsp->local_player, &data_sent)) {
     if (tsp->tx.type == NETSIM_OUT_EXIT) {
       netsim_log("exit send failed permanently, resetting session");
       thread_reset_session(tsp, ctxp->outq);
@@ -1449,13 +1637,14 @@ netsim_thread(void *arg)
   thread_stop = false;
   ts.remote_player = 1;
   ts.local_nonce = make_nonce();
+  ts.local_ctrl_ssrc = make_ssrc(ts.local_nonce);
   ts.sock = ctxp->sock;
   netsim_log("thread start local=%s:%s remote=%s:%s local_nonce=0x%016llx",
     ctxp->cfg.local_host[0] != '\0' ? ctxp->cfg.local_host : "0.0.0.0",
     ctxp->cfg.local_port, ctxp->cfg.remote_host, ctxp->cfg.remote_port,
     (unsigned long long)ts.local_nonce);
 
-  set_pending(&ts.hello_tx, NETSIM_PKT_HELLO, 0, 0, ts.local_nonce, 0);
+  reset_hello_pending(&ts.hello_tx, ts.local_nonce);
 
   while (!thread_stop) {
     thread_drain_recv(&ts, ctxp);
@@ -1463,6 +1652,7 @@ netsim_thread(void *arg)
       continue;
     if (thread_handle_outgoing(&ts, ctxp) == THREAD_STEP_CONTINUE)
       continue;
+    thread_deliver_ready_frames(&ts, ctxp);
     if (thread_send_ready(&ts, ctxp) == THREAD_STEP_CONTINUE)
       continue;
     if (ts.exiting && !ts.tx.active) {
