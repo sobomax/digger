@@ -16,6 +16,7 @@
 
 #if defined(_WIN32)
 
+#include <mmsystem.h>
 #include <process.h>
 #include <ws2tcpip.h>
 
@@ -25,6 +26,7 @@ struct netsim_thread_start {
 };
 
 static bool g_wsa_ready = false;
+static bool g_timer_period_set = false;
 
 static uint64_t
 netsim_now_ms(void)
@@ -42,6 +44,8 @@ netsim_platform_init(void)
     return (true);
   if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
     return (false);
+  if (timeBeginPeriod(1) == TIMERR_NOERROR)
+    g_timer_period_set = true;
   g_wsa_ready = true;
   return (true);
 }
@@ -52,6 +56,10 @@ netsim_platform_cleanup(void)
 
   if (!g_wsa_ready)
     return;
+  if (g_timer_period_set) {
+    timeEndPeriod(1);
+    g_timer_period_set = false;
+  }
   WSACleanup();
   g_wsa_ready = false;
 }
