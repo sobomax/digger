@@ -31,8 +31,13 @@ static bool g_timer_period_set = false;
 static uint64_t
 netsim_now_ms(void)
 {
+  static LARGE_INTEGER freq = {0};
+  LARGE_INTEGER counter;
 
-  return ((uint64_t)GetTickCount64());
+  if (freq.QuadPart == 0)
+    QueryPerformanceFrequency(&freq);
+  QueryPerformanceCounter(&counter);
+  return ((uint64_t)((counter.QuadPart * 1000ULL) / freq.QuadPart));
 }
 
 bool
@@ -120,11 +125,18 @@ netsim_cond_timedwait(netsim_cond_t *cp, netsim_mutex_t *mp,
   uint64_t now;
   DWORD timeout;
 
-  now = netsim_now_ms();
-  timeout = deadline <= now ? 0 : (DWORD)(deadline - now);
-  if (SleepConditionVariableCS(&cp->cv, &mp->cs, timeout))
-    return (true);
-  return (GetLastError() != ERROR_TIMEOUT);
+  for (;;) {
+    now = netsim_now_ms();
+    if (deadline <= now)
+      return (false);
+    timeout = (DWORD)(deadline - now);
+    if (timeout == 0)
+      timeout = 1;
+    if (SleepConditionVariableCS(&cp->cv, &mp->cs, timeout))
+      return (true);
+    if (GetLastError() != ERROR_TIMEOUT)
+      return (true);
+  }
 }
 
 void
