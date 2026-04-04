@@ -440,7 +440,6 @@ void switchmode(void)
 			"fallback mode failed as well. Exitting.\n");
 		exit(1);
 	}
-	doscreenupdate();
 #endif
 }
 
