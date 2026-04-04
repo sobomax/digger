@@ -237,8 +237,11 @@ syncframe(bool local_freeze, bool local_pause, bool use_pause_latch,
   int local_player;
   int remote_player;
 
-  if (!local_freeze)
+  if (!local_freeze) {
     gethrt(false, 1);
+  } else {
+    gethrt(false, 3);
+  }
   checkkeyb();
   dgstate.netsim_remote_lead_ms = 0;
   if (!local_freeze && any_digger_deathmusic_pending()) {
@@ -312,11 +315,13 @@ redrawdelay(void)
 {
   bool remote_freeze;
 
-  gethrt(false, 3);
-  if (dgstate.netsim && netsim_session_active() && !escape) {
+  if (escape)
+    return;
+  if (dgstate.netsim && netsim_session_active()) {
     (void)freezeframe(true, &remote_freeze);
     return;
   }
+  gethrt(false, 3);
 }
 
 void drawdig(int n)
