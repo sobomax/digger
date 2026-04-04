@@ -65,7 +65,7 @@ gethrt(bool mindelay, int mult)
                 filterval = recfilter_getlast(loop_error);
         }
 	add_delay = freqoff_to_period(tfreq, 1.0, filterval) * 1000000;
-	doscreenupdate();
+	doscreenupdate(false);
         usleep(add_delay);
 	return;
 }

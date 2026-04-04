@@ -12,7 +12,10 @@
 
 #include <stdio.h>
 /* malloc() and friends */
+#include <assert.h>
 #include <stdlib.h>
+#include <stdatomic.h>
+#include <string.h>
 
 /* Lovely SDL */
 #include <SDL.h>
@@ -29,6 +32,7 @@
 #include "sdl_vid.h"
 
 extern const uint8_t *vgatable[];
+extern bool use_async_screen_updates;
 
 static const int16_t xratio = 2;
 static const int16_t yratio = 2;
@@ -80,6 +84,26 @@ static SDL_Texture *roottxt = NULL;
 static SDL_Surface *screen = NULL;
 static SDL_Surface *screen16 = NULL;
 
+struct sdl_display_state {
+	SDL_Thread *thread;
+	SDL_mutex *queue_lock;
+	SDL_cond *queue_cv;
+	bool sync_ready;
+	bool thread_started;
+	bool stop;
+	bool pending;
+	bool mode_change_pending;
+	uint32_t mode_addflag;
+	uint32_t mode_prev_addflag;
+	uint32_t next_frame_seq;
+	uint32_t pending_frame_seq;
+	atomic_uint completed_frame_seq;
+	SDL_Surface *pending16;
+	SDL_Surface *work16;
+};
+
+static struct sdl_display_state display = {0};
+
 struct ch2bmap_plane {
 	uint8_t const * const *sprites;
 	SDL_Surface *caches[256];
@@ -87,6 +111,19 @@ struct ch2bmap_plane {
 
 static struct ch2bmap_plane sprites = {.sprites = vgatable};
 static struct ch2bmap_plane alphas = {.sprites = ascii2vga};
+
+static bool display_sync_init(void);
+static void display_sync_destroy(void);
+static int display_thread_main(void *arg);
+static bool display_async_start(void);
+static void display_async_discard(void);
+static void display_async_stop(void);
+static void display_present_pixels_locked(const void *pixels);
+static void display_present_frame(SDL_Surface *frame16, uint32_t frame_seq);
+static uint32_t display_submit_frame(void);
+static void display_wait_for_frame(uint32_t frame_seq);
+static bool switchmode_apply(uint32_t desired_addflag, uint32_t fallback_addflag);
+static bool setmode(void);
 
 static SDL_Surface *
 ch2bmap(struct ch2bmap_plane *planep, uint8_t sprite, int16_t w, int16_t h)
@@ -109,6 +146,28 @@ ch2bmap(struct ch2bmap_plane *planep, uint8_t sprite, int16_t w, int16_t h)
 
 void graphicsoff(void)
 {
+	if (display.thread_started)
+		display_async_stop();
+	if (screen16 != NULL) {
+		SDL_FreeSurface(screen16);
+		screen16 = NULL;
+	}
+	if (screen != NULL) {
+		SDL_FreeSurface(screen);
+		screen = NULL;
+	}
+	if (roottxt != NULL) {
+		SDL_DestroyTexture(roottxt);
+		roottxt = NULL;
+	}
+	if (renderer != NULL) {
+		SDL_DestroyRenderer(renderer);
+		renderer = NULL;
+	}
+	if (window != NULL) {
+		SDL_DestroyWindow(window);
+		window = NULL;
+	}
 }
 
 #if defined(HAVE_SDL_X11_WINDOW)
@@ -132,11 +191,207 @@ x11_set_parent(Window parent)
 #endif
 
 static bool
+display_sync_init(void)
+{
+	SDL_mutex *queue_lock;
+	SDL_cond *queue_cv;
+
+	assert(!display.sync_ready);
+	queue_lock = SDL_CreateMutex();
+	queue_cv = SDL_CreateCond();
+	if (queue_lock == NULL || queue_cv == NULL) {
+		fprintf(stderr, "Failed to initialize display sync objects: %s\n",
+		    SDL_GetError());
+		if (queue_cv != NULL)
+			SDL_DestroyCond(queue_cv);
+		if (queue_lock != NULL)
+			SDL_DestroyMutex(queue_lock);
+		return (false);
+	}
+	display.queue_lock = queue_lock;
+	display.queue_cv = queue_cv;
+	display.sync_ready = true;
+	return (true);
+}
+
+static void
+display_sync_destroy(void)
+{
+	if (!display.sync_ready)
+		return;
+	SDL_DestroyCond(display.queue_cv);
+	display.queue_cv = NULL;
+	SDL_DestroyMutex(display.queue_lock);
+	display.queue_lock = NULL;
+	display.sync_ready = false;
+}
+
+static void
+display_present_pixels_locked(const void *pixels)
+{
+	SDL_UpdateTexture(roottxt, NULL, pixels, screen->pitch);
+	SDL_RenderClear(renderer);
+	SDL_RenderCopy(renderer, roottxt, NULL, NULL);
+	SDL_RenderPresent(renderer);
+}
+
+static void
+display_present_frame(SDL_Surface *frame16, uint32_t frame_seq)
+{
+	SDL_BlitSurface(frame16, NULL, screen, NULL);
+	display_present_pixels_locked(screen->pixels);
+	if (frame_seq != 0) {
+		atomic_store_explicit(&display.completed_frame_seq, frame_seq,
+		    memory_order_release);
+	}
+}
+
+static int
+display_thread_main(void *arg)
+{
+	SDL_Surface *frame16;
+	uint32_t frame_seq;
+	uint32_t desired_addflag;
+	uint32_t fallback_addflag;
+
+	(void)arg;
+
+	for (;;) {
+		SDL_LockMutex(display.queue_lock);
+		while (!display.pending && !display.stop &&
+		    !display.mode_change_pending)
+			SDL_CondWait(display.queue_cv, display.queue_lock);
+		if (!display.pending && !display.mode_change_pending && display.stop) {
+			SDL_UnlockMutex(display.queue_lock);
+			break;
+		}
+		if (display.mode_change_pending) {
+			desired_addflag = display.mode_addflag;
+			fallback_addflag = display.mode_prev_addflag;
+			display.mode_change_pending = false;
+			SDL_UnlockMutex(display.queue_lock);
+			if (switchmode_apply(desired_addflag, fallback_addflag))
+				display_present_frame(display.work16, 0);
+			continue;
+		}
+		frame16 = display.pending16;
+		frame_seq = display.pending_frame_seq;
+		display.pending16 = display.work16;
+		display.work16 = frame16;
+		display.pending = false;
+		SDL_UnlockMutex(display.queue_lock);
+		display_present_frame(frame16, frame_seq);
+	}
+	return (0);
+}
+
+static bool
+switchmode_apply(uint32_t desired_addflag, uint32_t fallback_addflag)
+{
+	addflag = desired_addflag;
+	if (setmode())
+		return (true);
+	addflag = fallback_addflag;
+	return (setmode());
+}
+
+static bool
+display_async_start(void)
+{
+	assert (!display.thread_started);
+	if (!display_sync_init())
+		return (false);
+	display.pending16 = SDL_CreateRGBSurface(0, SCREEN_WIDTH, SCREEN_HEIGHT, 8,
+	    0, 0, 0, 0);
+	display.work16 = SDL_CreateRGBSurface(0, SCREEN_WIDTH, SCREEN_HEIGHT, 8,
+	    0, 0, 0, 0);
+	if (display.pending16 == NULL || display.work16 == NULL) {
+		fprintf(stderr, "Failed to allocate display queue buffers\n");
+		display_async_discard();
+		return (false);
+	}
+	SDL_SetPaletteColors(display.pending16->format->palette,
+	    screen16->format->palette->colors, 0, 16);
+	SDL_SetPaletteColors(display.work16->format->palette,
+	    screen16->format->palette->colors, 0, 16);
+	display.stop = false;
+	display.pending = false;
+	display.mode_change_pending = false;
+	display.next_frame_seq = 0;
+	display.pending_frame_seq = 0;
+	atomic_store_explicit(&display.completed_frame_seq, 0, memory_order_relaxed);
+	display.thread = SDL_CreateThread(display_thread_main, "digger-display",
+	    NULL);
+	if (display.thread == NULL) {
+		fprintf(stderr, "Failed to create display thread: %s\n",
+		    SDL_GetError());
+		display_async_discard();
+		return (false);
+	}
+	display.thread_started = true;
+	return (true);
+}
+
+static void
+display_async_discard(void)
+{
+	SDL_FreeSurface(display.pending16);
+	display.pending16 = NULL;
+	SDL_FreeSurface(display.work16);
+	display.work16 = NULL;
+	display.thread = NULL;
+	display.thread_started = false;
+	display.stop = false;
+	display.pending = false;
+	display.mode_change_pending = false;
+	display.next_frame_seq = 0;
+	display.pending_frame_seq = 0;
+	atomic_store_explicit(&display.completed_frame_seq, 0, memory_order_relaxed);
+}
+
+static void
+display_async_stop(void)
+{
+	assert(display.thread_started);
+	assert(display.thread != NULL);
+	SDL_LockMutex(display.queue_lock);
+	display.stop = true;
+	SDL_CondSignal(display.queue_cv);
+	SDL_UnlockMutex(display.queue_lock);
+	SDL_WaitThread(display.thread, NULL);
+	display_async_discard();
+	display_sync_destroy();
+}
+
+static uint32_t
+display_submit_frame(void)
+{
+	uint32_t frame_seq;
+
+	SDL_LockMutex(display.queue_lock);
+	frame_seq = ++display.next_frame_seq;
+	display.pending_frame_seq = frame_seq;
+	SDL_SetPaletteColors(display.pending16->format->palette,
+	    screen16->format->palette->colors, 0, 16);
+	SDL_BlitSurface(screen16, NULL, display.pending16, NULL);
+	display.pending = true;
+	SDL_CondSignal(display.queue_cv);
+	SDL_UnlockMutex(display.queue_lock);
+	return (frame_seq);
+}
+
+static void
+display_wait_for_frame(uint32_t frame_seq)
+{
+	while (atomic_load_explicit(&display.completed_frame_seq,
+	    memory_order_acquire) < frame_seq) {
+		SDL_Delay(0);
+	}
+}
+
+static bool
 setmode(void)
 {
-#if defined(__EMSCRIPTEN__)
-	return (true);
-#else
 #if defined(SDL_OLD)
 #if defined(HAVE_SDL_X11_WINDOW)
         static int x11_parent_inited = 0;
@@ -145,6 +400,8 @@ setmode(void)
                 addflag |= SDL_NOFRAME;
         }
 #endif
+        if (screen != NULL)
+            SDL_FreeSurface(screen);
         screen = SDL_SetVideoMode(640, 400, 8, SDL_HWSURFACE | SDL_HWPALETTE | \
           SDL_DOUBLEBUF | addflag);
         if (screen == NULL)
@@ -155,13 +412,35 @@ setmode(void)
         }
 #endif
 #endif
+#if !defined(__EMSCRIPTEN__)
         if ((addflag & SDL_FULLSCREEN) != 0) {
                 SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
         } else {
                 SDL_SetWindowFullscreen(window, 0);
         }
-	return(true);
 #endif
+        if (renderer != NULL) {
+                SDL_DestroyRenderer(renderer);
+                renderer = NULL;
+        }
+        if (roottxt != NULL) {
+                SDL_DestroyTexture(roottxt);
+                roottxt = NULL;
+        }
+        renderer = SDL_CreateRenderer(window, -1, 0);
+        if (renderer == NULL) {
+                fprintf(stderr, "SDL_CreateRenderer() failed: %s\n",
+                    SDL_GetError());
+                return (false);
+        }
+        roottxt = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
+             SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
+        if (roottxt == NULL) {
+                fprintf(stderr, "SDL_CreateTexture() failed: %s\n",
+                    SDL_GetError());
+                return (false);
+        }
+	return(true);
 }
 
 void switchmode(void)
@@ -172,19 +451,25 @@ void switchmode(void)
 	uint32_t saved;
 
 	saved = addflag;
-
 	if ((addflag & SDL_FULLSCREEN) == 0) {
 		addflag |= SDL_FULLSCREEN;
 	} else {
 		addflag &= ~SDL_FULLSCREEN;
         }
-	if (setmode() == false) {
+	if (display.thread_started) {
+		SDL_LockMutex(display.queue_lock);
+		display.mode_prev_addflag = saved;
+		display.mode_addflag = addflag;
+		display.mode_change_pending = true;
+		SDL_CondSignal(display.queue_cv);
+		SDL_UnlockMutex(display.queue_lock);
+		return;
+	}
+	if (!switchmode_apply(addflag, saved)) {
 		addflag = saved;
-		if (setmode() == false) {
-			fprintf(stderr, "Fatal: failed to change videomode and"\
-				"fallback mode failed as well. Exitting.\n");
-			exit(1);
-		}
+		fprintf(stderr, "Fatal: failed to change videomode and"\
+			"fallback mode failed as well. Exitting.\n");
+		exit(1);
 	}
 #endif
 }
@@ -228,19 +513,6 @@ void vgainit(void)
                 SDL_SetWindowIcon(window, wm_icon);
                 SDL_FreeSurface(wm_icon);
         }
-        renderer = SDL_CreateRenderer(window, -1, 0);
-        if (renderer == NULL) {
-                fprintf(stderr, "SDL_CreateRenderer() failed: %s\n",
-                    SDL_GetError());
-                exit(1);
-        }
-        roottxt = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
-             SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
-        if (roottxt == NULL) {
-                fprintf(stderr, "SDL_CreateTexture() failed: %s\n",
-                    SDL_GetError());
-                exit(1);
-        }
         screen = SDL_CreateRGBSurface(0, SCREEN_WIDTH, SCREEN_HEIGHT, 32,
             0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000);
         if (screen == NULL) {
@@ -255,12 +527,19 @@ void vgainit(void)
                     SDL_GetError());
                 exit(1);
         }
-
-	if (setmode() == false) {
-		fprintf(stderr, "Couldn't set 640x400x8 video mode: %s\n",
+        if (setmode() == false) {
+                fprintf(stderr, "Couldn't set 640x400x8 video mode: %s\n",
                     SDL_GetError());
-		exit(1);
+                exit(1);
         }
+
+#if defined(__EMSCRIPTEN__)
+	use_async_screen_updates = false;
+#endif
+	if (use_async_screen_updates && !display_async_start()) {
+		fprintf(stderr, "Falling back to synchronous screen updates\n");
+		use_async_screen_updates = false;
+	}
 	SDL_ShowCursor(0);
 }
 
@@ -295,14 +574,18 @@ void vgapal(int16_t pal)
 	currpal = pal;
 }
 
-void doscreenupdate(void)
+void doscreenupdate(bool wait_for_present)
 {
+        uint32_t frame_seq;
 
+        if (display.thread_started) {
+                frame_seq = display_submit_frame();
+                if (wait_for_present)
+                        display_wait_for_frame(frame_seq);
+                return;
+        }
         SDL_BlitSurface(screen16, NULL, screen, NULL);
-        SDL_UpdateTexture(roottxt, NULL, screen->pixels, screen->pitch);
-        SDL_RenderClear(renderer);
-        SDL_RenderCopy(renderer, roottxt, NULL, NULL);
-        SDL_RenderPresent(renderer);
+        display_present_pixels_locked(screen->pixels);
 }
 
 void vgaputi(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h)

@@ -44,7 +44,7 @@ gethrt(bool minsleep, int mult)
     double eval, clk_rl, tfreq, add_delay_d, filterval, remote_lead_rl;
 
     if (dgstate.ftime <= 1) {
-        doscreenupdate();
+        doscreenupdate(false);
         if (minsleep)
             SDL_Delay(10);
         return;
@@ -67,7 +67,7 @@ gethrt(bool minsleep, int mult)
       clk_rl, add_delay, eval, filterval);
 #endif
 
-    doscreenupdate();
+    doscreenupdate(false);
     SDL_Delay(add_delay);
     return;
 }

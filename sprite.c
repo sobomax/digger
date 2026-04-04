@@ -40,6 +40,8 @@ static void bcollides(int bx);
 #if defined(DIGGER_DEBUG)
 static void gwrite_debug(int16_t x, int16_t y, int16_t ch, int16_t c);
 #endif
+static void gflush_async(void);
+static void gflush_sync(void);
 
 static const struct digger_draw_api dda_static = {
   .ginit = &vgainit,
@@ -56,10 +58,23 @@ static const struct digger_draw_api dda_static = {
 #else
   .gwrite = &gwrite_debug,
 #endif
-  .gflush = &doscreenupdate
+  .gflush = &gflush_async,
+  .gflush_sync = &gflush_sync
 };
 
 const struct digger_draw_api *ddap = &dda_static;
+
+static void
+gflush_async(void)
+{
+  doscreenupdate(false);
+}
+
+static void
+gflush_sync(void)
+{
+  doscreenupdate(true);
+}
 
 void setretr(bool f)
 {

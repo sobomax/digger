@@ -16,4 +16,5 @@ struct digger_draw_api {
   void (*gwrite)(int16_t x,int16_t y,int16_t ch,int16_t c);
 
   void (*gflush)(void);
+  void (*gflush_sync)(void);
 };

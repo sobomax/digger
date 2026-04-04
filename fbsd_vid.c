@@ -208,10 +208,12 @@ pendappend(struct PendNode *newn)
 }
 
 void
-doscreenupdate(void)
+doscreenupdate(bool wait_for_present)
 {
     struct PendNode *ptr;
     int pendnum = 0;
+
+    (void)wait_for_present;
 
     fprintf(stderr, "doscreenupdate: pendnum =%d\n", pendups.pendnum);
     for (ptr = pendups.First; ptr != NULL; ptr = pendups.First) {

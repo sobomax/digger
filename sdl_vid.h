@@ -13,7 +13,7 @@
 #endif
 #endif
 
-void doscreenupdate(void);
+void doscreenupdate(bool wait_for_present);
 void switchmode(void);
 void sdl_enable_fullscreen(void);
 

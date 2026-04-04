@@ -18,7 +18,7 @@ extern const struct digger_draw_api *ddap;
 #endif
 
 #if defined(_SDL) || defined(_VGL)
-extern void doscreenupdate(void);
+extern void doscreenupdate(bool wait_for_present);
 #endif
 
 extern int first[TYPES],coll[SPRITES];

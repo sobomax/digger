@@ -1,2 +1,2 @@
 void            savescreen(void);
-void		doscreenupdate(void);
+void		doscreenupdate(bool wait_for_present);
