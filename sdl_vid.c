@@ -345,24 +345,27 @@ void vgageti(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h)
 }
 
 int16_t vgagetpix(int16_t x, int16_t y)
-{	
-	SDL_Surface *tmp = NULL;
-	uint16_t xi,yi;
-	uint16_t i = 0;
+{
+	int16_t sx, sy, sw, sh;
+	int16_t xi, yi;
 	int16_t rval = 0;
-	uint8_t *pixels;
+	uint8_t *base;
 
 	if ((x > 319) || (y > 199))
 	       return (0xff);
 
-	vgageti(x, y, (uint8_t *)&tmp, 1, 1);
-	pixels = (uint8_t *)tmp->pixels;
-	for (yi=0;yi<tmp->h;yi++)
-		for (xi=0;xi<tmp->w;xi++)
-			if (pixels[i++])
-				rval |= 0x80 >> xi;
+	/* Read directly from screen16 instead of allocating a temporary
+	 * surface per call. virt2scr maps virtual 1x1 to 8x2 real pixels. */
+	sx = virt2scrx(x);
+	sy = virt2scry(y);
+	sw = virt2scrw(1);
+	sh = virt2scrh(1);
 
-	SDL_FreeSurface(tmp);
+	base = (uint8_t *)screen16->pixels + sy * screen16->pitch + sx;
+	for (yi = 0; yi < sh; yi++)
+		for (xi = 0; xi < sw; xi++)
+			if (base[yi * screen16->pitch + xi])
+				rval |= 0x80 >> xi;
 
 	return(rval & 0xee);
 }
@@ -395,6 +398,7 @@ void vgaputim(int16_t x, int16_t y, int16_t ch, int16_t w, int16_t h)
 void vgawrite(int16_t x, int16_t y, int16_t ch, int16_t c)
 {
 	SDL_Surface *tmp;
+	uint8_t copy_buf[24 * 24];
 	uint8_t *orig, *copy;
 	uint8_t color;
 	int16_t w=3, h=12, size;
@@ -404,7 +408,8 @@ void vgawrite(int16_t x, int16_t y, int16_t ch, int16_t c)
 		return;
 	tmp = ch2bmap(&alphas, ch-32, w, h);
 	size = tmp->w*tmp->h;
-	copy = (uint8_t*)malloc(size);
+	/* Max size: virt2scrw(3) * virt2scrh(12) = 24 * 24 = 576 bytes. */
+	copy = copy_buf;
 	memcpy(copy, tmp->pixels, size);
 
 	for(i = size;i!=0;) {
@@ -434,7 +439,6 @@ void vgawrite(int16_t x, int16_t y, int16_t ch, int16_t c)
 	tmp->pixels = copy;
 	vgaputi(x, y, (uint8_t *)&tmp, w, h);
 	tmp->pixels = orig;
-	free(copy);
 }
 
 void vgatitle(void)
