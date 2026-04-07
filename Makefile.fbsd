@@ -11,7 +11,7 @@ COMMON_SRCS=	main.c digger.c drawing.c sprite.c scores.c record.c sound.c \
 
 SRCS=		${COMMON_SRCS}
 
-CFLAGS+=	-DFREEBSD -DDIGGER_DEBUG
+CFLAGS+=	-DFREEBSD
 
 LDADD+=		-lz -lm -lpthread
 

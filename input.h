@@ -18,7 +18,7 @@ void input_reset_network(void);
 void input_enable_network_mode(void);
 void input_set_network_controls(int slot, uint8_t bits);
 
-extern bool firepflag,fire2pflag,escape;
+extern bool firepflag,fire2pflag,escape,toggle;
 extern int8_t keypressed;
 extern int16_t akeypressed;
 
