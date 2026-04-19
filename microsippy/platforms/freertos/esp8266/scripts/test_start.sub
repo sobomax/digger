@@ -1,0 +1,4 @@
+cd "${SRCDIR}"
+
+PATH="${PATH}:${IDF_TOOLCHAIN}/bin" python "${TOOLSDIR}/ptyrun.py" -o "${MLOG}" \
+  ${IDF_PATH}/tools/idf.py monitor &

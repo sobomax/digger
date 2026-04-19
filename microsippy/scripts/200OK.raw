@@ -1,0 +1,22 @@
+SIP/2.0 200 OK
+Via: SIP/2.0/TCP 100.100.100.100:5060;branch=z9hG4bKDGT5EGVPVDE4I146
+From: <sip:+4987654321@100.100.100.100:5060;user=phone>;tag=C8UF20CAKNLTLJ18
+To: <sip:+491234567@200.200.200.200:5060;user=phone>;tag=SDuhhca99-6ossrg8l-CC-57
+Call-ID: E4COR3MNVB8AK908
+CSeq: 1 INVITE
+Allow: INVITE,ACK,OPTIONS,BYE,CANCEL,REGISTER,INFO,PRACK,SUBSCRIBE,NOTIFY,UPDATE,MESSAGE,REFER
+P-Asserted-Identity: <sip:491234567@100.100.100.100;user=phone>
+Contact: <sip:200.200.200.200:5060;transport=tcp>
+Content-Length: 225
+Content-Type: application/sdp
+
+v=0
+o=HuaweiSoftX3000 27670846 27670848 IN IP4 200.200.200.200
+s=Sip Call
+c=IN IP4 200.200.200.200
+t=0 0
+m=audio 22978 RTP/AVP 8 101
+a=rtpmap:8 PCMA/8000
+a=rtpmap:101 telephone-event/8000
+a=ptime:20
+a=fmtp:101 0-15

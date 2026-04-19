@@ -1,0 +1,21 @@
+if [ -z "${TOOLSDIR}" ]
+then
+  echo "TOOLSDIR needs to be set" >&2
+  exit 1
+fi
+
+_SRCDIR="${1}"
+if [ -z "${_SRCDIR}" ]
+then
+  echo "Usage: `basename ${0}` SRCDIR" >&2
+  exit 1
+fi
+
+SRCDIR=`realpath "${_SRCDIR}"`
+if [ -e "${SRCDIR}/scripts/test.common.sub" ]
+then
+  . "${SRCDIR}/scripts/test.common.sub"
+fi
+
+BUILDDIR="${SRCDIR}/build"
+DIFF="diff -u"

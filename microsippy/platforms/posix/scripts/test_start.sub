@@ -1,0 +1,1 @@
+${BUILDDIR}/usipy_test 2>&1 | tee "${MLOG}" &
