@@ -31,7 +31,7 @@ jobs:
 
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: 'recursive'
 
@@ -47,7 +47,7 @@ jobs:
             mingw-w64-x86_64-binutils
 
       - name: Cache Windows deps
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             deps/SDL2-${{ env.SDL_VER }}
@@ -60,7 +60,7 @@ jobs:
             sh -x ./scripts/do-build-windows.sh
 
       - name: Upload distribution ZIP
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digger-win64
           path: digger-win64.zip
@@ -75,7 +75,7 @@ jobs:
             pkg/windows/digger.iss
 
       - name: Upload installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: digger-win64-installer
           path: pkg/windows/DiggerRemastered-Setup.exe
