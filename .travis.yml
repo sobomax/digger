@@ -1,0 +1,210 @@
+os: linux
+dist: bionic
+language: c
+
+matrix:
+  include:
+
+    - name: "Ubuntu 16 using GCC 5"
+      dist: xenial
+      addons:
+        apt:
+          packages:
+            - expect
+      env:
+        - MATRIX_EVAL="CC=gcc && CXX=g++ && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 16 using GCC 6"
+      dist: xenial
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-6
+            - expect
+      env:
+        - MATRIX_EVAL="CC=gcc-6 && CXX=g++-6 && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 16 using GCC 7"
+      dist: xenial
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-7
+            - expect
+      env:
+        - MATRIX_EVAL="CC=gcc-7 && CXX=g++-7 && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 16 using GCC 8"
+      dist: xenial
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-8
+            - expect
+      env:
+        - MATRIX_EVAL="CC=gcc-8 && CXX=g++-8 && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 16 using GCC 9"
+      dist: xenial
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-9
+            - expect
+      env:
+        - MATRIX_EVAL="CC=gcc-9 && CXX=g++-9 && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 18 using GCC 7"
+      addons:
+        apt:
+          packages:
+            - expect
+      env:
+        - MATRIX_EVAL="CC=gcc && CXX=g++ && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 18 using GCC 8"
+      addons:
+        apt:
+          sources:
+            - ubuntu-toolchain-r-test
+          packages:
+            - g++-8
+            - expect
+      env:
+        - MATRIX_EVAL="CC=gcc-8 && CXX=g++-8 && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 18 using Clang 4"
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-bionic-4.0
+          packages:
+            - clang-4.0
+            - expect
+      env:
+        - MATRIX_EVAL="CC=clang-4.0 && CXX=clang++-4.0 && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 18 using Clang 5"
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-bionic-5.0
+          packages:
+            - clang-5.0
+            - expect
+      env:
+        - MATRIX_EVAL="CC=clang-5.0 && CXX=clang++-5.0 && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 18 using Clang 6"
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-bionic-6.0
+          packages:
+            - clang-6.0
+            - expect
+      env:
+        - MATRIX_EVAL="CC=clang-6.0 && CXX=clang++-6.0 && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 18 using Clang 7"
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-bionic-7
+          packages:
+            - clang-7
+            - expect
+      env:
+        - MATRIX_EVAL="CC=clang-7 && CXX=clang++-7 && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 18 using Clang 8"
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-bionic-8
+          packages:
+            - clang-8
+            - expect
+      env:
+        - MATRIX_EVAL="CC=clang-8 && CXX=clang++-8 && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 18 using Clang 9"
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-bionic-9
+          packages:
+            - clang-9
+            - expect
+      env:
+        - MATRIX_EVAL="CC=clang-9 && CXX=clang++-9 && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 18 using Clang 10"
+      addons:
+        apt:
+          sources:
+            - llvm-toolchain-bionic-10
+          packages:
+            - clang-10
+            - expect
+      env:
+        - MATRIX_EVAL="CC=clang-10 && CXX=clang++-10 && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 18 using GCC 7 @ ARM64"
+      compiler: gcc
+      arch: arm64
+      addons:
+        apt:
+          packages:
+            - expect
+      env:
+        - MATRIX_EVAL="CC=gcc && CXX=g++ && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 18 using Clang 7 @ ARM64"
+      compiler: clang
+      arch: arm64
+      addons:
+        apt:
+          packages:
+            - expect
+      env:
+        - MATRIX_EVAL="CC=clang && CXX=clang++ && CC_FLAGS=-march=native"
+
+    - name: "Ubuntu 18 using GCC 7 @ MIPS64"
+      addons:
+        apt:
+          packages:
+            - gcc-mips64-linux-gnuabi64
+            - g++-mips64-linux-gnuabi64
+            - libc-dev-mips64-cross
+            - qemu-user-static
+            - expect
+      env:
+        - MATRIX_EVAL="CC=mips64-linux-gnuabi64-gcc && CXX=mips64-linux-gnuabi64-g++"
+      before_install:
+        - sudo mkdir "/usr/mips64-linux-gnuabi64/etc"
+        - sudo touch "/usr/mips64-linux-gnuabi64/etc/ld.so.cache"
+        - sudo mkdir "/etc/qemu-binfmt"
+        - sudo ln -sf "/usr/mips64-linux-gnuabi64" "/etc/qemu-binfmt/mips64"
+        - eval "${MATRIX_EVAL}"
+
+before_install:
+  - eval "${MATRIX_EVAL}"
+
+before_script:
+  - mkdir platforms/posix/build
+  - cmake --version
+  - cmake -DCMAKE_CC_FLAGS="-Werror ${CC_FLAGS}" -Bplatforms/posix/build -Hplatforms/posix
+
+script:
+  - make -C platforms/posix/build
+  - cd platforms/posix/build
+  - ctest -V

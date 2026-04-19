@@ -1,0 +1,11 @@
+i=0
+while [ ${i} -lt 10 ]
+do
+  if grep -q 'Waiting for data' "${MLOG}"
+  then
+    BRD_IP="127.0.0.1"
+    break
+  fi
+  sleep 1
+  i=$((${i} + 1))
+done

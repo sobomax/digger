@@ -1,0 +1,17 @@
+AcK sip:bob@%%BRD_IP%%?priority=urgent&subject=project%20x SIP/2.0
+Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bKkjshdyfe
+To: Bob <sip:bob@%%BRD_IP%%>;tag=99sa0xk
+From: Alice <sip:alice@atlanta.com>;tag=88sja8y
+Max-Forwards: 70
+Call-ID: 987asjd97y7ath
+CSeq: 986758 AcK
+
+SIP/2.0 666 For it is a human number
+Via: SIP/2.0/UDP pc33.atlanta.com;branch=z9hG4bKkjshdyfe
+To: Bob <sip:bob@%%BRD_IP%%>;tag=99sa0xk
+From: Alice <sip:alice@atlanta.com>;tag=88sja8y
+Call-ID: 987asjd97y7ath
+CSeq: 986758 AcK
+Server: uSippy
+Content-Length: 0
+
