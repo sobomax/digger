@@ -140,6 +140,10 @@ usipy_msg_heap_build(struct usipy_msg_heap *hp, struct usipy_str *sp, void *arg,
 
 static int
 usipy_msg_heap_vsprintf(struct usipy_msg_heap *hp, struct usipy_str *sp,
+  const char *fmt, va_list ap) __attribute__ ((format (printf, 3, 0)));
+
+static int
+usipy_msg_heap_vsprintf(struct usipy_msg_heap *hp, struct usipy_str *sp,
   const char *fmt, va_list ap)
 {
     const size_t currfree = usipy_msg_heap_remaining(hp);

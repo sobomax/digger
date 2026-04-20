@@ -5,15 +5,18 @@
 
 #include "usipy_debug.h"
 #include "usipy_types.h"
+#include "public/usipy_platform.h"
 #include "public/usipy_str.h"
 #include "public/usipy_sip_sline.h"
 #include "public/usipy_msg_heap.h"
 #include "usipy_msg_heap_rb.h"
 #include "usipy_msg_heap_inl.h"
+#include "usipy_append_priv.h"
 #include "public/usipy_sip_msg.h"
 #include "usipy_sip_hdr.h"
 #include "public/usipy_sip_hdr_types.h"
 #include "usipy_sip_hdr_db.h"
+#include "usipy_sip_msg_priv.h"
 #include "usipy_sip_res.h"
 
 const struct usipy_sip_status usipy_sip_res_trying = {
@@ -66,30 +69,44 @@ struct append_hdr {
     struct usipy_str value;
 };
 
-static const struct append_hdr append_hdrs[] = {
-    {
-        .type = USIPY_HF_SERVER,
-        .value = USIPY_2STR("uSippy")
-    },
-    {
-        .type = USIPY_HF_CONTENTLENGTH,
-        .value = USIPY_2STR("0")
-    },
-    {
-        .value = USIPY_STR_NULL
-    }
+struct usipy_sip_res_build_arg {
+    struct usipy_msg *rp;
+    const struct usipy_msg *reqp;
+    const struct usipy_sip_status *slp;
+    const struct usipy_str *tagp;
+    struct usipy_sip_hdr *hdrsp;
+    size_t hdr_cap;
 };
 
 static const struct {
     uint64_t copyfirst;
     uint64_t copyall;
-    const struct append_hdr *append_hdrs;
 } res_tmpl = {
     .copyfirst = USIPY_HFT_MASK(USIPY_HF_FROM) | USIPY_HFT_MASK(USIPY_HF_CALLID) | \
       USIPY_HFT_MASK(USIPY_HF_TO) | USIPY_HFT_MASK(USIPY_HF_CSEQ),
     .copyall = USIPY_HFT_MASK(USIPY_HF_VIA) | USIPY_HFT_MASK(USIPY_HF_RECORDROUTE),
-    .append_hdrs = append_hdrs
 };
+
+#define USIPY_SIP_RES_NAPPEND_HDRS_MAX (2)
+
+static size_t
+usipy_sip_res_init_append_hdrs(struct append_hdr *hdrsp)
+{
+    const struct usipy_str *serverp = USIPY_PLATFORM.get_server();
+    size_t nhdrs = 0;
+
+    if (serverp->l != 0) {
+        hdrsp[nhdrs++] = (struct append_hdr){
+          .type = USIPY_HF_SERVER,
+          .value = *serverp,
+        };
+    }
+    hdrsp[nhdrs++] = (struct append_hdr){
+      .type = USIPY_HF_CONTENTLENGTH,
+      .value = USIPY_2STR("0"),
+    };
+    return (nhdrs);
+}
 
 static size_t
 usipy_sip_res_to_tag_extra(const struct usipy_str *tagp)
@@ -100,10 +117,12 @@ usipy_sip_res_to_tag_extra(const struct usipy_str *tagp)
 static size_t
 usipy_sip_res_append_raw_size(void)
 {
+    struct append_hdr append_hdrs[2];
+    const size_t nhdrs = usipy_sip_res_init_append_hdrs(append_hdrs);
     size_t raw_len;
 
     raw_len = USIPY_CRLF_LEN;
-    for (int i = 0; append_hdrs[i].value.l != 0; i++) {
+    for (size_t i = 0; i < nhdrs; i++) {
         const struct append_hdr *ahp = &append_hdrs[i];
         const struct usipy_hdr_db_entr *hfp = usipy_hdr_db_byid(ahp->type);
 
@@ -113,260 +132,256 @@ usipy_sip_res_append_raw_size(void)
     return (raw_len);
 }
 
-static int
-usipy_sip_res_alloc_extra_hdr_space(size_t *spacep)
+static size_t
+usipy_sip_res_hdr_count(const struct usipy_msg *reqp)
 {
-    size_t extra_hdr_space;
-
-    USIPY_DASSERT(spacep != NULL);
-
-    extra_hdr_space = 0;
-    for (int i = 0; append_hdrs[i].value.l != 0; i++) {
-        extra_hdr_space += sizeof(struct usipy_sip_hdr);
-    }
-    *spacep = USIPY_ALIGNED_SIZE(extra_hdr_space);
-    return (0);
-}
-
-static int
-usipy_sip_res_alloc_size_build(const struct usipy_msg *reqp, const struct usipy_str *tagp,
-  size_t *raw_spacep, size_t *heap_spacep)
-{
-    size_t raw_len, extra_hdr_space;
+    size_t nhdrs;
 
     USIPY_DASSERT(reqp != NULL);
-    USIPY_DASSERT(raw_spacep != NULL);
-    USIPY_DASSERT(heap_spacep != NULL);
+
+    nhdrs = (size_t)reqp->nhdrs + USIPY_SIP_RES_NAPPEND_HDRS_MAX;
+    if (nhdrs > USIPY_SIP_MSG_NHDRS_HINT) {
+        nhdrs = USIPY_SIP_MSG_NHDRS_HINT;
+    }
+    return (nhdrs);
+}
+
+static size_t
+usipy_sip_res_alloc_size_build(const struct usipy_msg *reqp,
+  const struct usipy_str *tagp)
+{
+    size_t raw_len;
+    size_t hdr_space;
+    size_t heap_extra;
+
+    USIPY_DASSERT(reqp != NULL);
 
     raw_len = reqp->onwire.l + usipy_sip_res_append_raw_size() +
       usipy_sip_res_to_tag_extra(tagp);
-    usipy_sip_res_alloc_extra_hdr_space(&extra_hdr_space);
-    *raw_spacep = USIPY_ALIGNED_SIZE(raw_len);
-    *heap_spacep = USIPY_ALIGNED_SIZE(sizeof(struct usipy_sip_hdr) * reqp->nhdrs) +
-      extra_hdr_space;
-    return (sizeof(struct usipy_msg) + *raw_spacep + *heap_spacep);
-}
-
-static int
-usipy_sip_res_alloc_size_ctor(const struct usipy_msg *reqp, const struct usipy_str *tagp,
-  size_t *raw_spacep, size_t *heap_spacep)
-{
-    size_t extra_hdr_space;
-
-    USIPY_DASSERT(reqp != NULL);
-    USIPY_DASSERT(raw_spacep != NULL);
-    USIPY_DASSERT(heap_spacep != NULL);
-
-    usipy_sip_res_alloc_size_build(reqp, tagp, raw_spacep, heap_spacep);
-    usipy_sip_res_alloc_extra_hdr_space(&extra_hdr_space);
-    *heap_spacep = USIPY_ALIGNED_SIZE(reqp->heap.tsize + extra_hdr_space + *raw_spacep);
-    return (sizeof(struct usipy_msg) + *raw_spacep + *heap_spacep);
+    heap_extra = usipy_sip_msg_extra_heap_size(raw_len);
+    hdr_space = sizeof(struct usipy_sip_hdr) * usipy_sip_res_hdr_count(reqp);
+    return (sizeof(struct usipy_msg) + USIPY_ALIGNED_SIZE(raw_len) +
+      USIPY_ALIGNED_SIZE(hdr_space) + heap_extra);
 }
 
 static struct usipy_sip_hdr *
-get_next_ohp(struct usipy_msg *rp, struct usipy_msg_heap_cnt *cnp)
+usipy_sip_res_get_next_ohp(struct usipy_sip_hdr *hdrsp, unsigned int *nhdrsp,
+  size_t hdr_cap)
 {
-    if (rp->hdrs == NULL) {
-        memset(cnp, '\0', sizeof(*cnp));
-        rp->hdrs = usipy_msg_heap_alloc_cnt(&rp->heap, sizeof(rp->hdrs[0]),
-          cnp);
-        if (rp->hdrs == NULL)
-            return (NULL);
-        rp->nhdrs = 1;
-        return (&(rp->hdrs[0]));
-    }
-    if (usipy_msg_heap_aextend(&rp->heap, (rp->nhdrs + 1) * sizeof(rp->hdrs[0]),
-      cnp) != 0)
+    USIPY_DASSERT(hdrsp != NULL);
+    USIPY_DASSERT(nhdrsp != NULL);
+
+    if ((size_t)(*nhdrsp) >= hdr_cap) {
         return (NULL);
-    rp->nhdrs += 1;
-    return (&(rp->hdrs[rp->nhdrs - 1]));
-}
-
-static void
-usipy_sip_res_compact(struct usipy_msg *rp, struct usipy_msg_heap_cnt *mcnt,
-  struct usipy_msg_heap *hp, size_t raw_space)
-{
-    char *new_heapstart;
-    ptrdiff_t doff;
-
-    USIPY_DASSERT(rp != NULL);
-    USIPY_DASSERT(mcnt != NULL);
-    USIPY_DASSERT(hp != NULL);
-    USIPY_DASSERT(raw_space >= USIPY_ALIGNED_SIZE(rp->onwire.l));
-
-    new_heapstart = rp->_storage + USIPY_ALIGNED_SIZE(rp->onwire.l);
-    doff = (char *)rp->heap.first - new_heapstart;
-    if (doff > 0 && rp->heap.alen != 0) {
-        memmove(new_heapstart, rp->heap.first, rp->heap.alen);
-        if (rp->hdrs != NULL) {
-            rp->hdrs = (struct usipy_sip_hdr *)((char *)rp->hdrs - doff);
-        }
     }
-    rp->heap.first = new_heapstart;
-    usipy_msg_heap_cnt_reclaim(hp, mcnt, offsetof(struct usipy_msg, _storage) +
-      USIPY_ALIGNED_SIZE(rp->onwire.l) + rp->heap.tsize);
+    memset(&hdrsp[*nhdrsp], '\0', sizeof(hdrsp[0]));
+    return (&hdrsp[(*nhdrsp)++]);
 }
 
-struct usipy_msg *
-usipy_sip_res_build_fromreq_tagged_sz(struct usipy_msg_heap *hp,
-  const struct usipy_msg *reqp, const struct usipy_sip_status *slp,
-  const struct usipy_str *tagp, size_t raw_space, size_t heap_space, int compact)
+static int
+usipy_sip_res_append_hdr(char *buf, size_t len, size_t *offp,
+  struct usipy_sip_hdr *ohp, const struct usipy_hdr_db_entr *hfp,
+  const struct usipy_str *valuep, const char *extra_prefix,
+  size_t extra_prefix_len, const struct usipy_str *extrap)
 {
+    size_t off = *offp;
+
+#define APPEND_MEM(bp, blen) USIPY_APPEND_MEM_OR_GOTO(e0, buf, off, len, bp, blen)
+#define APPEND_STR(sp) USIPY_APPEND_STR_OR_GOTO(e0, buf, off, len, sp)
+
+    USIPY_DASSERT(buf != NULL);
+    USIPY_DASSERT(offp != NULL);
+    USIPY_DASSERT(ohp != NULL);
+    USIPY_DASSERT(hfp != NULL);
+    USIPY_DASSERT(valuep != NULL);
+
+    ohp->hf_type = ohp->onwire.hf_type = hfp;
+    ohp->onwire.name.s.ro = ohp->onwire.full.s.ro = buf + off;
+    APPEND_STR(&hfp->name);
+    ohp->onwire.name.l = hfp->name.l;
+    APPEND_MEM(": ", 2);
+    ohp->onwire.value.s.ro = buf + off;
+    APPEND_STR(valuep);
+    ohp->onwire.value.l = valuep->l;
+    if (extra_prefix_len != 0) {
+        APPEND_MEM(extra_prefix, extra_prefix_len);
+        ohp->onwire.value.l += extra_prefix_len;
+    }
+    if (extrap != NULL && extrap->l != 0) {
+        APPEND_STR(extrap);
+        ohp->onwire.value.l += extrap->l;
+    }
+    ohp->onwire.full.l = off - (size_t)(ohp->onwire.full.s.ro - buf);
+    APPEND_MEM(USIPY_CRLF, USIPY_CRLF_LEN);
+    *offp = off;
+#undef APPEND_MEM
+#undef APPEND_STR
+    return (0);
+e0:
+#undef APPEND_MEM
+#undef APPEND_STR
+    return (-1);
+}
+
+static int
+usipy_sip_res_append_next_hdr(const struct usipy_sip_res_build_arg *barg,
+  char *buf, size_t len, size_t *offp, const struct usipy_hdr_db_entr *hfp,
+  const struct usipy_str *valuep, const char *extra_prefix,
+  size_t extra_prefix_len, const struct usipy_str *extrap)
+{
+    struct usipy_sip_hdr *ohp;
+
+    USIPY_DASSERT(barg != NULL);
+    USIPY_DASSERT(barg->rp != NULL);
+    USIPY_DASSERT(offp != NULL);
+    USIPY_DASSERT(hfp != NULL);
+    ohp = usipy_sip_res_get_next_ohp(barg->hdrsp, &barg->rp->nhdrs,
+      barg->hdr_cap);
+    if (ohp == NULL) {
+        return (-1);
+    }
+    return (usipy_sip_res_append_hdr(buf, len, offp, ohp, hfp, valuep,
+      extra_prefix, extra_prefix_len, extrap));
+}
+
+static int
+usipy_sip_res_build_fromreq_tagged_sz(void *arg, char *buf, size_t len)
+{
+    const struct usipy_sip_res_build_arg *barg = arg;
+    const struct usipy_msg *reqp = barg->reqp;
+    const struct usipy_sip_status *slp = barg->slp;
+    const struct usipy_str *tagp = barg->tagp;
+    struct usipy_msg *rp = barg->rp;
+    const struct usipy_sip_request_line *rlin = &(reqp->sline.parsed.rl);
     uint64_t copyfirst = res_tmpl.copyfirst;
     uint64_t copyall = res_tmpl.copyall;
-    struct usipy_msg *rp;
-    struct usipy_msg_heap_cnt mcnt;
-    const struct usipy_sip_request_line *rlin = &(reqp->sline.parsed.rl);
-    const size_t total_size = sizeof(struct usipy_msg) + raw_space + heap_space;
-
-    USIPY_DASSERT(hp != NULL);
-    rp = usipy_msg_heap_alloc_cnt(hp, total_size, &mcnt);
-    if (rp == NULL) {
-        return (NULL);
-    }
-    memset(rp, '\0', sizeof(*rp));
-
-    rp->kind = USIPY_SIP_MSG_RES;
-    char *cp;
     struct usipy_sip_status_line *slout = &(rp->sline.parsed.sl);
     const struct usipy_str *vp;
-    cp = rp->onwire.s.rw = &(rp->_storage[0]);
+    size_t off = 0;
 
-    void *heapstart = rp->_storage + raw_space;
-    size_t heapsize = heap_space;
-    usipy_msg_heap_init(&rp->heap, heapstart, heapsize, NULL, 0);
+#define APPEND_MEM(bp, blen) USIPY_APPEND_MEM_OR_RETURN(-1, buf, off, len, bp, blen)
+#define APPEND_STR(sp) USIPY_APPEND_STR_OR_RETURN(-1, buf, off, len, sp)
 
+    rp->nhdrs = 0;
     vp = &rlin->version;
     if (vp->l == 0) {
         vp = &rlin->onwire.version;
     }
-    slout->version.s.rw = cp;
-    memcpy(cp, vp->s.ro, vp->l);
+    slout->version.s.ro = buf + off;
+    APPEND_STR(vp);
     slout->version.l = vp->l;
-    cp += vp->l;
-    cp[0] = ' ';
-    cp += 1;
-    scode2str(slp->code, cp);
+    APPEND_MEM(" ", 1);
     slout->status.code = slp->code;
-    cp += 4;
-    slout->status.reason_phrase.s.rw = cp;
-    memcpy(cp, slp->reason_phrase.s.ro, slp->reason_phrase.l);
+    scode2str(slp->code, buf + off);
+    off += 4;
+    slout->status.reason_phrase.s.ro = buf + off;
+    APPEND_STR(&slp->reason_phrase);
     slout->status.reason_phrase.l = slp->reason_phrase.l;
-    cp += slp->reason_phrase.l;
-    memcpy(cp, USIPY_CRLF, USIPY_CRLF_LEN);
-    cp += USIPY_CRLF_LEN;
+    APPEND_MEM(USIPY_CRLF, USIPY_CRLF_LEN);
 
-    struct usipy_msg_heap_cnt cnt;
     for (int i = 0; i < reqp->nhdrs; i++) {
         const struct usipy_sip_hdr *shp = &reqp->hdrs[i];
 
         if (USIPY_HF_ISMSET(copyfirst, shp->hf_type->cantype)) {
-            struct usipy_sip_hdr *ohp = get_next_ohp(rp, &cnt);
-            if (ohp == NULL)
-                goto e0;
-            ohp->hf_type = ohp->onwire.hf_type = shp->hf_type;
-            memcpy(cp, shp->hf_type->name.s.ro, shp->hf_type->name.l);
-            ohp->onwire.name.s.ro = ohp->onwire.full.s.ro = cp;
-            ohp->onwire.name.l = shp->hf_type->name.l;
-            cp += shp->hf_type->name.l;
-            memcpy(cp, ": ", 2);
-            cp += 2;
-            memcpy(cp, shp->onwire.value.s.ro, shp->onwire.value.l);
-            ohp->onwire.value.s.ro = cp;
-            ohp->onwire.value.l = shp->onwire.value.l;
-            cp += shp->onwire.value.l;
-            if (shp->hf_type->cantype == USIPY_HF_TO && tagp != NULL && tagp->l != 0) {
-                memcpy(cp, ";tag=", sizeof(";tag=") - 1);
-                cp += sizeof(";tag=") - 1;
-                memcpy(cp, tagp->s.ro, tagp->l);
-                cp += tagp->l;
-                ohp->onwire.value.l += sizeof(";tag=") - 1 + tagp->l;
+            if (usipy_sip_res_append_next_hdr(barg, buf, len, &off,
+              shp->hf_type, &shp->onwire.value,
+              shp->hf_type->cantype == USIPY_HF_TO && tagp != NULL &&
+              tagp->l != 0 ? ";tag=" : NULL,
+              shp->hf_type->cantype == USIPY_HF_TO && tagp != NULL &&
+              tagp->l != 0 ? sizeof(";tag=") - 1 : 0,
+              shp->hf_type->cantype == USIPY_HF_TO ? tagp : NULL) != 0) {
+                return (-1);
             }
-            ohp->onwire.full.l = cp - ohp->onwire.full.s.ro;
-            memcpy(cp, USIPY_CRLF, USIPY_CRLF_LEN);
-            cp += USIPY_CRLF_LEN;
             copyfirst &= ~USIPY_HFT_MASK(shp->hf_type->cantype);
             continue;
         }
         if (USIPY_HF_ISMSET(copyall, shp->hf_type->cantype)) {
-            struct usipy_sip_hdr *ohp = get_next_ohp(rp, &cnt);
-            if (ohp == NULL)
-                goto e0;
-            ohp->hf_type = ohp->onwire.hf_type = shp->hf_type;
-            memcpy(cp, shp->hf_type->name.s.ro, shp->hf_type->name.l);
-            ohp->onwire.name.s.ro = ohp->onwire.full.s.ro = cp;
-            ohp->onwire.name.l = shp->hf_type->name.l;
-            cp += shp->hf_type->name.l;
-            memcpy(cp, ": ", 2);
-            cp += 2;
-            memcpy(cp, shp->onwire.value.s.ro, shp->onwire.value.l);
-            ohp->onwire.value.s.ro = cp;
-            ohp->onwire.value.l = shp->onwire.value.l;
-            cp += shp->onwire.value.l;
-            ohp->onwire.full.l = cp - ohp->onwire.full.s.ro;
-            memcpy(cp, USIPY_CRLF, USIPY_CRLF_LEN);
-            cp += USIPY_CRLF_LEN;
+            if (usipy_sip_res_append_next_hdr(barg, buf, len, &off,
+              shp->hf_type, &shp->onwire.value, NULL, 0, NULL) != 0) {
+                return (-1);
+            }
         }
     }
     if (copyfirst != 0) {
-        goto e0;
+        return (-1);
     }
-    const struct append_hdr *ahdrs = res_tmpl.append_hdrs;
-    for (int i = 0; ahdrs[i].value.l != 0; i++) {
-        const struct append_hdr *ahp = &ahdrs[i];
-        struct usipy_sip_hdr *ohp = get_next_ohp(rp, &cnt);
-        if (ohp == NULL)
-            goto e0;
+    {
+        struct append_hdr ahdrs[2];
+        const size_t nahdrs = usipy_sip_res_init_append_hdrs(ahdrs);
 
-        ohp->hf_type = ohp->onwire.hf_type = usipy_hdr_db_byid(ahp->type);
-        memcpy(cp, ohp->hf_type->name.s.ro, ohp->hf_type->name.l);
-        ohp->onwire.name.s.ro = ohp->onwire.full.s.ro = cp;
-        ohp->onwire.name.l = ohp->hf_type->name.l;
-        cp += ohp->hf_type->name.l;
-        memcpy(cp, ": ", 2);
-        cp += 2;
-        memcpy(cp, ahp->value.s.ro, ahp->value.l);
-        ohp->onwire.value.s.ro = cp;
-        ohp->onwire.value.l = ahp->value.l;
-        cp += ahp->value.l;
-        ohp->onwire.full.l = cp - ohp->onwire.full.s.ro;
-        memcpy(cp, USIPY_CRLF, USIPY_CRLF_LEN);
-        cp += USIPY_CRLF_LEN;
+        for (size_t i = 0; i < nahdrs; i++) {
+            const struct append_hdr *ahp = &ahdrs[i];
+            const struct usipy_hdr_db_entr *hfp = usipy_hdr_db_byid(ahp->type);
+
+            if (hfp == NULL) {
+                return (-1);
+            }
+            if (usipy_sip_res_append_next_hdr(barg, buf, len, &off, hfp,
+              &ahp->value, NULL, 0, NULL) != 0) {
+                return (-1);
+            }
+        }
     }
 
-    memcpy(cp, USIPY_CRLF, USIPY_CRLF_LEN);
-    cp += USIPY_CRLF_LEN;
-    rp->onwire.l = cp - rp->onwire.s.rw;
-    if (compact) {
-        usipy_sip_res_compact(rp, &mcnt, hp, raw_space);
-    }
+    APPEND_MEM(USIPY_CRLF, USIPY_CRLF_LEN);
+#undef APPEND_MEM
+#undef APPEND_STR
+    return ((int)off);
+}
 
-    return (rp);
-e0:
-    usipy_msg_heap_cnt_rollback(hp, &mcnt);
-    return (NULL);
+static int
+usipy_sip_res_init_fromreq(struct usipy_msg *rp, size_t alloc_len,
+  const struct usipy_msg *reqp, const struct usipy_sip_status *slp,
+  const struct usipy_str *tagp)
+{
+    struct usipy_sip_res_build_arg barg = {
+      .rp = rp,
+      .reqp = reqp,
+      .slp = slp,
+      .tagp = tagp,
+    };
+    const size_t heap_size = alloc_len - sizeof(*rp);
+    const size_t hdr_cap = usipy_sip_res_hdr_count(reqp);
+    struct usipy_sip_hdr ohdrs[hdr_cap != 0 ? hdr_cap : 1];
+
+    USIPY_DASSERT(rp != NULL);
+    USIPY_DASSERT(reqp != NULL);
+    USIPY_DASSERT(slp != NULL);
+
+    memset(rp, '\0', alloc_len);
+    rp->kind = USIPY_SIP_MSG_RES;
+    usipy_msg_heap_init(&rp->heap, rp->_storage, heap_size, NULL, 0);
+    barg.hdrsp = ohdrs;
+    barg.hdr_cap = hdr_cap;
+    if (usipy_msg_heap_build(&rp->heap, &rp->onwire, &barg,
+      usipy_sip_res_build_fromreq_tagged_sz) != 0) {
+        return (-1);
+    }
+    rp->hdrs = usipy_msg_heap_alloc(&rp->heap, sizeof(rp->hdrs[0]) * rp->nhdrs);
+    if (rp->hdrs == NULL) {
+        return (-1);
+    }
+    memcpy(rp->hdrs, ohdrs, sizeof(rp->hdrs[0]) * rp->nhdrs);
+    rp->sline.onwire.s.ro = rp->onwire.s.ro;
+    rp->sline.onwire.l = rp->sline.parsed.sl.version.l + 1 + 4 +
+      rp->sline.parsed.sl.status.reason_phrase.l;
+    return (0);
 }
 
 struct usipy_msg *
 usipy_sip_res_ctor_fromreq(const struct usipy_msg *reqp,
   const struct usipy_sip_status *slp)
 {
-    struct usipy_msg_heap hp;
     struct usipy_msg *rp;
-    void *bp;
-    size_t raw_space, heap_space;
-    const size_t tlen = usipy_sip_res_alloc_size_ctor(reqp, NULL, &raw_space,
-      &heap_space);
+    const size_t tlen = usipy_sip_res_alloc_size_build(reqp, NULL);
 
-    bp = malloc(tlen);
-    if (bp == NULL) {
+    rp = malloc(tlen);
+    if (rp == NULL) {
         return (NULL);
     }
-    usipy_msg_heap_init(&hp, bp, tlen, NULL, 0);
-    rp = usipy_sip_res_build_fromreq_tagged_sz(&hp, reqp, slp, NULL, raw_space,
-      heap_space, 0);
-    if (rp == NULL) {
-        free(bp);
+    if (usipy_sip_res_init_fromreq(rp, tlen, reqp, slp, NULL) != 0) {
+        free(rp);
+        return (NULL);
     }
     return (rp);
 }
@@ -376,10 +391,19 @@ usipy_sip_res_build_fromreq_tagged(struct usipy_msg_heap *hp,
   const struct usipy_msg *reqp, const struct usipy_sip_status *slp,
   const struct usipy_str *tagp)
 {
-    size_t raw_space, heap_space;
+    struct usipy_msg_heap_cnt cnt;
+    struct usipy_msg *rp;
+    const size_t tlen = usipy_sip_res_alloc_size_build(reqp, tagp);
 
     USIPY_DASSERT(hp != NULL);
-    usipy_sip_res_alloc_size_build(reqp, tagp, &raw_space, &heap_space);
-    return (usipy_sip_res_build_fromreq_tagged_sz(hp, reqp, slp, tagp, raw_space,
-      heap_space, 1));
+    memset(&cnt, '\0', sizeof(cnt));
+    rp = usipy_msg_heap_alloc_cnt(hp, tlen, &cnt);
+    if (rp == NULL) {
+        return (NULL);
+    }
+    if (usipy_sip_res_init_fromreq(rp, tlen, reqp, slp, tagp) != 0) {
+        usipy_msg_heap_cnt_rollback(hp, &cnt);
+        return (NULL);
+    }
+    return (rp);
 }

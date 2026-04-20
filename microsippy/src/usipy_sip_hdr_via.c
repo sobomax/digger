@@ -9,6 +9,7 @@
 #include "public/usipy_msg_heap.h"
 #include "usipy_msg_heap_rb.h"
 #include "usipy_msg_heap_inl.h"
+#include "usipy_append_priv.h"
 #include "public/usipy_str.h"
 #include "usipy_sip_hdr.h"
 #include "usipy_tvpair.h"
@@ -101,15 +102,8 @@ usipy_sip_hdr_via_build(const union usipy_sip_hdr_parsed *up, char *buf, size_t 
     size_t off = 0;
 
     USIPY_DASSERT(vp != NULL);
-#define APPEND_STR(sp) do { \
-        if (off + (sp)->l > len) return (-1); \
-        memcpy(buf + off, (sp)->s.ro, (sp)->l); \
-        off += (sp)->l; \
-    } while (0)
-#define APPEND_CH(ch) do { \
-        if (off + 1 > len) return (-1); \
-        buf[off++] = (ch); \
-    } while (0)
+#define APPEND_STR(sp) USIPY_APPEND_STR_OR_RETURN(-1, buf, off, len, sp)
+#define APPEND_CH(ch) USIPY_APPEND_CH_OR_RETURN(-1, buf, off, len, ch)
     APPEND_STR(&vp->sent_protocol.name);
     APPEND_CH('/');
     APPEND_STR(&vp->sent_protocol.version);

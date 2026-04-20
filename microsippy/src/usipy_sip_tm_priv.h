@@ -30,6 +30,7 @@ struct usipy_sip_tm_uas_cache {
     struct usipy_str from_uri;
     struct usipy_str to_uri;
     struct usipy_str contact_uri;
+    struct usipy_str local_contact_uri;
     struct usipy_str *vias;
     struct usipy_str *record_routes;
     uint32_t ack_hash;
