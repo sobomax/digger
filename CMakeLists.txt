@@ -5,7 +5,7 @@ SET( PACKAGE "digger" )
 SET( CMAKE_MODULE_PATH ${DIGGER_SOURCE_DIR}/cmake/modules )
 SET( CMAKE_C_STANDARD 11 )
 SET( CMAKE_C_STANDARD_REQUIRED ON )
-SET( CMAKE_C_EXTENSIONS OFF )
+SET( CMAKE_C_EXTENSIONS ON )
 
 IF( NOT MSVC )
   SET( WARN_FLAGS "-Wall -Wformat=2" )
@@ -155,6 +155,8 @@ SET( DIGGER_SOURCE
      digger_log.c
      game.c
      netsim.c
+     netsim_sip.c
+     netsim_sip_sdp.c
      netsim_platform.c
      netsim_debug.c
 )
@@ -183,6 +185,89 @@ IF ( EMSCRIPTEN )
 ENDIF ( EMSCRIPTEN )
 
 ADD_EXECUTABLE( digger ${DIGGER_SOURCE})
+
+IF (UNIX AND NOT EMSCRIPTEN)
+  SET(DIGGER_SIP_PLATFORM_SOURCE
+    microsippy/platforms/posix/usipy_platform_default.c
+  )
+  SET(DIGGER_SIP_PLATFORM_INCLUDE_DIR
+    microsippy/platforms/posix
+  )
+  SET(DIGGER_SIP_PLATFORM_PORT_INCLUDE_DIR
+    microsippy/platforms/posix/usipy_port
+  )
+ELSEIF (WIN32 AND NOT EMSCRIPTEN)
+  SET(DIGGER_SIP_PLATFORM_SOURCE
+    microsippy/platforms/win32/usipy_platform_default.c
+  )
+  SET(DIGGER_SIP_PLATFORM_INCLUDE_DIR
+    microsippy/platforms/win32
+  )
+  SET(DIGGER_SIP_PLATFORM_PORT_INCLUDE_DIR
+    microsippy/platforms/win32/usipy_port
+  )
+ENDIF()
+
+IF ((UNIX OR WIN32) AND NOT EMSCRIPTEN)
+  SET(DIGGER_VERSION_HEADER "${CMAKE_CURRENT_BINARY_DIR}/digger_version.h")
+  ADD_CUSTOM_COMMAND(
+    OUTPUT ${DIGGER_VERSION_HEADER}
+    COMMAND sh ${DIGGER_SOURCE_DIR}/scripts/gen-build-info.sh ${DIGGER_VERSION_HEADER}
+    DEPENDS ${DIGGER_SOURCE_DIR}/scripts/gen-build-info.sh
+    WORKING_DIRECTORY ${DIGGER_SOURCE_DIR}
+    VERBATIM
+  )
+  TARGET_SOURCES(digger PRIVATE
+    ${DIGGER_VERSION_HEADER}
+    netsim_sip_platform.c
+    microsippy/src/usipy_sip_tm.c
+    microsippy/src/usipy_sip_tm_uac.c
+    microsippy/src/usipy_sip_tm_uas.c
+    microsippy/src/usipy_sip_tm_dialog.c
+    microsippy/src/sip_ua/usipy_sip_ua.c
+    microsippy/src/sip_ua/usipy_sip_ua_idle.c
+    microsippy/src/sip_ua/usipy_sip_ua_trying.c
+    microsippy/src/sip_ua/usipy_sip_ua_dialing.c
+    microsippy/src/sip_ua/usipy_sip_ua_connected.c
+    microsippy/src/sip_ua/usipy_sip_ua_disconnected.c
+    microsippy/src/sip_ua/usipy_sip_ua_utils.c
+    microsippy/src/usipy_sip_msg.c
+    microsippy/src/usipy_msg_heap.c
+    microsippy/src/usipy_str.c
+    microsippy/src/usipy_sip_hdr.c
+    microsippy/src/usipy_fast_parser.c
+    microsippy/src/usipy_sip_hdr_db.c
+    microsippy/src/usipy_sip_sline.c
+    microsippy/src/usipy_misc.c
+    microsippy/src/usipy_sip_method_db.c
+    microsippy/src/usipy_sip_hdr_cseq.c
+    microsippy/src/usipy_sip_hdr_via.c
+    microsippy/src/usipy_sip_uri.c
+    microsippy/src/usipy_sip_req.c
+    microsippy/src/usipy_sip_hdr_onetoken.c
+    microsippy/src/usipy_sip_hdr_nameaddr.c
+    microsippy/src/usipy_sip_hdr_auth.c
+    microsippy/src/usipy_sip_hdr_authz.c
+    microsippy/src/usipy_sip_tid.c
+    microsippy/src/usipy_sip_res.c
+    microsippy/src/usipy_sip_response_utils.c
+    microsippy/src/usipy_sip_tm_utils.c
+    microsippy/src/usipy_sip_dialog.c
+    microsippy/src/usipy_platform.c
+    microsippy/src/external/mackron_md5/md5.c
+    microsippy/platforms/posix/usipy_tm_uac.c
+    ${DIGGER_SIP_PLATFORM_SOURCE}
+  )
+  TARGET_INCLUDE_DIRECTORIES(digger PRIVATE
+    ${CMAKE_CURRENT_BINARY_DIR}
+    microsippy/src
+    ${DIGGER_SIP_PLATFORM_INCLUDE_DIR}
+    ${DIGGER_SIP_PLATFORM_PORT_INCLUDE_DIR}
+    microsippy/platforms/posix
+    microsippy/platforms/posix/usipy_port
+  )
+  TARGET_COMPILE_DEFINITIONS(digger PRIVATE USIPY_BIGENDIAN=0)
+ENDIF()
 
 IF ( SDL2_FOUND )
   TARGET_LINK_LIBRARIES( digger PUBLIC SDL2::SDL2 )

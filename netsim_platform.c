@@ -33,11 +33,15 @@ netsim_now_ms(void)
 {
   static LARGE_INTEGER freq = {0};
   LARGE_INTEGER counter;
+  uint64_t ticks;
+  uint64_t hz;
 
   if (freq.QuadPart == 0)
     QueryPerformanceFrequency(&freq);
   QueryPerformanceCounter(&counter);
-  return ((uint64_t)((counter.QuadPart * 1000ULL) / freq.QuadPart));
+  ticks = (uint64_t)counter.QuadPart;
+  hz = (uint64_t)freq.QuadPart;
+  return ((ticks / hz) * 1000ULL + ((ticks % hz) * 1000ULL) / hz);
 }
 
 bool
@@ -204,11 +208,16 @@ netsim_monotonic_ns(void)
 {
   static LARGE_INTEGER freq = {0};
   LARGE_INTEGER counter;
+  uint64_t ticks;
+  uint64_t hz;
 
   if (freq.QuadPart == 0)
     QueryPerformanceFrequency(&freq);
   QueryPerformanceCounter(&counter);
-  return ((uint64_t)((counter.QuadPart * 1000000000ULL) / freq.QuadPart));
+  ticks = (uint64_t)counter.QuadPart;
+  hz = (uint64_t)freq.QuadPart;
+  return ((ticks / hz) * 1000000000ULL +
+    ((ticks % hz) * 1000000000ULL) / hz);
 }
 
 uint32_t
@@ -238,6 +247,58 @@ format_sockaddr(const struct sockaddr_in *sap, char *buf, size_t buflen)
   snprintf(buf, buflen, "%s:%u", ipbuf, (unsigned int)ntohs(sap->sin_port));
 }
 
+static bool
+resolve_udp_addr(const char *host, const char *port, bool passive,
+  struct sockaddr_in *sap, char *errbuf, size_t errbuf_len)
+{
+  struct addrinfo hints, *res;
+  int gres;
+
+  memset(&hints, '\0', sizeof(hints));
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_DGRAM;
+  hints.ai_protocol = IPPROTO_UDP;
+  if (passive)
+    hints.ai_flags = AI_PASSIVE;
+  gres = getaddrinfo((host != NULL && host[0] != '\0') ? host : NULL, port,
+    &hints, &res);
+  if (gres != 0) {
+    snprintf(errbuf, errbuf_len, "%s", gai_strerrorA(gres));
+    return (false);
+  }
+  memcpy(sap, res->ai_addr, sizeof(*sap));
+  freeaddrinfo(res);
+  return (true);
+}
+
+static bool
+set_nonblocking_socket(SOCKET sock, char *errbuf, size_t errbuf_len)
+{
+  u_long one;
+
+  one = 1;
+  if (ioctlsocket(sock, FIONBIO, &one) != 0) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    return (false);
+  }
+  return (true);
+}
+
+static bool
+set_socket_recv_timeout(SOCKET sock, int timeout_ms, char *errbuf,
+  size_t errbuf_len)
+{
+  DWORD timeout;
+
+  timeout = (DWORD)timeout_ms;
+  if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (const char *)&timeout,
+        sizeof(timeout)) != 0) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    return (false);
+  }
+  return (true);
+}
+
 bool
 netsim_socket_open_udp(const char *local_host, const char *local_port,
   const char *remote_host, const char *remote_port, netsim_socket_t *sockp,
@@ -247,7 +308,6 @@ netsim_socket_open_udp(const char *local_host, const char *local_port,
   struct addrinfo hints, local_hints, *res, *rp, *lres, *lrp;
   struct sockaddr_in local_addr, peer_addr;
   SOCKET sock;
-  u_long one;
   int gres, lgres;
   int yes;
   int salen;
@@ -307,9 +367,7 @@ netsim_socket_open_udp(const char *local_host, const char *local_port,
       local_port[0] != '\0' ? ":" : "", local_port, remote_host, remote_port);
     return (false);
   }
-  one = 1;
-  if (ioctlsocket(sock, FIONBIO, &one) != 0) {
-    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+  if (!set_nonblocking_socket(sock, errbuf, errbuf_len)) {
     closesocket(sock);
     return (false);
   }
@@ -325,6 +383,46 @@ netsim_socket_open_udp(const char *local_host, const char *local_port,
     format_sockaddr(&peer_addr, peer_desc, peer_desc_len);
   else
     snprintf(peer_desc, peer_desc_len, "<unknown>");
+  *sockp = (netsim_socket_t)sock;
+  return (true);
+}
+
+bool
+netsim_socket_open_bound_udp(const char *local_host, const char *local_port,
+  netsim_socket_t *sockp, char *local_desc, size_t local_desc_len,
+  char *errbuf, size_t errbuf_len)
+{
+  struct sockaddr_in local_addr, bound_addr;
+  SOCKET sock;
+  int yes;
+  int salen;
+
+  if (!resolve_udp_addr(local_host, local_port, true, &local_addr, errbuf,
+        errbuf_len))
+    return (false);
+  sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (sock == INVALID_SOCKET) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    return (false);
+  }
+  yes = 1;
+  (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&yes,
+    sizeof(yes));
+  if (bind(sock, (const struct sockaddr *)&local_addr, sizeof(local_addr)) != 0) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    closesocket(sock);
+    return (false);
+  }
+  if (!set_socket_recv_timeout(sock, 100, errbuf, errbuf_len)) {
+    closesocket(sock);
+    return (false);
+  }
+  salen = (int)sizeof(bound_addr);
+  memset(&bound_addr, '\0', sizeof(bound_addr));
+  if (getsockname(sock, (struct sockaddr *)&bound_addr, &salen) == 0)
+    format_sockaddr(&bound_addr, local_desc, local_desc_len);
+  else
+    snprintf(local_desc, local_desc_len, "<unknown>");
   *sockp = (netsim_socket_t)sock;
   return (true);
 }
@@ -352,6 +450,118 @@ netsim_socket_recv(netsim_socket_t sock, void *buf, size_t len)
 }
 
 int
+netsim_socket_sendto(netsim_socket_t sock, const void *buf, size_t len,
+  const netsim_sockaddr_t *addrp)
+{
+
+  return ((int)sendto((SOCKET)sock, (const char *)buf, (int)len, 0,
+    (const struct sockaddr *)&addrp->ss, (int)addrp->len));
+}
+
+int
+netsim_socket_recvfrom(netsim_socket_t sock, void *buf, size_t len,
+  netsim_sockaddr_t *addrp)
+{
+  int salen;
+  int rval;
+
+  salen = (int)sizeof(addrp->ss);
+  memset(addrp, '\0', sizeof(*addrp));
+  rval = (int)recvfrom((SOCKET)sock, (char *)buf, (int)len, 0,
+    (struct sockaddr *)&addrp->ss, &salen);
+  if (rval >= 0)
+    addrp->len = (socklen_t)salen;
+  return (rval);
+}
+
+bool
+netsim_socket_getsockname(netsim_socket_t sock, netsim_sockaddr_t *addrp)
+{
+  int salen;
+
+  salen = (int)sizeof(addrp->ss);
+  memset(addrp, '\0', sizeof(*addrp));
+  if (getsockname((SOCKET)sock, (struct sockaddr *)&addrp->ss, &salen) != 0)
+    return (false);
+  addrp->len = (socklen_t)salen;
+  return (true);
+}
+
+bool
+netsim_sockaddr_resolve_udp(const char *host, const char *port,
+  netsim_sockaddr_t *addrp, char *errbuf, size_t errbuf_len)
+{
+  struct sockaddr_in sin;
+
+  if (!resolve_udp_addr(host, port, false, &sin, errbuf, errbuf_len))
+    return (false);
+  memset(addrp, '\0', sizeof(*addrp));
+  memcpy(&addrp->ss, &sin, sizeof(sin));
+  addrp->len = sizeof(sin);
+  return (true);
+}
+
+bool
+netsim_sockaddr_local_for_peer(const char *peer_host, const char *peer_port,
+  char *hostbuf, size_t hostbuf_len, char *errbuf, size_t errbuf_len)
+{
+  struct sockaddr_in peer_addr, local_addr;
+  SOCKET sock;
+  int salen;
+
+  if (!resolve_udp_addr(peer_host, peer_port, false, &peer_addr, errbuf,
+        errbuf_len))
+    return (false);
+  sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (sock == INVALID_SOCKET) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    return (false);
+  }
+  if (connect(sock, (const struct sockaddr *)&peer_addr, sizeof(peer_addr)) != 0) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    closesocket(sock);
+    return (false);
+  }
+  salen = (int)sizeof(local_addr);
+  if (getsockname(sock, (struct sockaddr *)&local_addr, &salen) != 0) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    closesocket(sock);
+    return (false);
+  }
+  closesocket(sock);
+  if (inet_ntop(AF_INET, &local_addr.sin_addr, hostbuf, (DWORD)hostbuf_len) == NULL) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    return (false);
+  }
+  return (true);
+}
+
+bool
+netsim_sockaddr_format(const netsim_sockaddr_t *addrp, char *buf, size_t buflen)
+{
+
+  if (addrp == NULL || addrp->len < sizeof(struct sockaddr_in) ||
+      ((const struct sockaddr *)&addrp->ss)->sa_family != AF_INET)
+    return (false);
+  format_sockaddr((const struct sockaddr_in *)&addrp->ss, buf, buflen);
+  return (true);
+}
+
+bool
+netsim_sockaddr_same(const netsim_sockaddr_t *ap, const netsim_sockaddr_t *bp)
+{
+  const struct sockaddr_in *sa, *sb;
+
+  if (ap == NULL || bp == NULL || ap->len < sizeof(*sa) || bp->len < sizeof(*sb))
+    return (false);
+  sa = (const struct sockaddr_in *)&ap->ss;
+  sb = (const struct sockaddr_in *)&bp->ss;
+  return (sa->sin_family == sb->sin_family &&
+    sa->sin_port == sb->sin_port &&
+    sa->sin_addr.s_addr == sb->sin_addr.s_addr);
+}
+
+int
 netsim_socket_last_error(void)
 {
 
@@ -362,7 +572,7 @@ bool
 netsim_socket_err_wouldblock(int err)
 {
 
-  return (err == WSAEWOULDBLOCK);
+  return (err == WSAEWOULDBLOCK || err == WSAETIMEDOUT);
 }
 
 bool
@@ -577,6 +787,56 @@ format_sockaddr(const struct sockaddr_in *sap, char *buf, size_t buflen)
   snprintf(buf, buflen, "%s:%u", ipbuf, (unsigned int)ntohs(sap->sin_port));
 }
 
+static bool
+resolve_udp_addr(const char *host, const char *port, bool passive,
+  struct sockaddr_in *sap, char *errbuf, size_t errbuf_len)
+{
+  struct addrinfo hints, *res;
+  int gres;
+
+  memset(&hints, '\0', sizeof(hints));
+  hints.ai_family = AF_INET;
+  hints.ai_socktype = SOCK_DGRAM;
+  hints.ai_protocol = IPPROTO_UDP;
+  if (passive)
+    hints.ai_flags = AI_PASSIVE;
+  gres = getaddrinfo((host != NULL && host[0] != '\0') ? host : NULL, port,
+    &hints, &res);
+  if (gres != 0) {
+    snprintf(errbuf, errbuf_len, "%s", gai_strerror(gres));
+    return (false);
+  }
+  memcpy(sap, res->ai_addr, sizeof(*sap));
+  freeaddrinfo(res);
+  return (true);
+}
+
+static bool
+set_nonblocking_socket(int sock, char *errbuf, size_t errbuf_len)
+{
+
+  if (fcntl(sock, F_SETFL, fcntl(sock, F_GETFL, 0) | O_NONBLOCK) != 0) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    return (false);
+  }
+  return (true);
+}
+
+static bool
+set_socket_recv_timeout(int sock, int timeout_ms, char *errbuf,
+  size_t errbuf_len)
+{
+  struct timeval tv;
+
+  tv.tv_sec = timeout_ms / 1000;
+  tv.tv_usec = (timeout_ms % 1000) * 1000;
+  if (setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) != 0) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    return (false);
+  }
+  return (true);
+}
+
 bool
 netsim_socket_open_udp(const char *local_host, const char *local_port,
   const char *remote_host, const char *remote_port, netsim_socket_t *sockp,
@@ -642,8 +902,7 @@ netsim_socket_open_udp(const char *local_host, const char *local_port,
       local_port[0] != '\0' ? ":" : "", local_port, remote_host, remote_port);
     return (false);
   }
-  if (fcntl(sock, F_SETFL, fcntl(sock, F_GETFL, 0) | O_NONBLOCK) != 0) {
-    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+  if (!set_nonblocking_socket(sock, errbuf, errbuf_len)) {
     close(sock);
     return (false);
   }
@@ -659,6 +918,44 @@ netsim_socket_open_udp(const char *local_host, const char *local_port,
     format_sockaddr(&peer_addr, peer_desc, peer_desc_len);
   else
     snprintf(peer_desc, peer_desc_len, "<unknown>");
+  *sockp = (netsim_socket_t)sock;
+  return (true);
+}
+
+bool
+netsim_socket_open_bound_udp(const char *local_host, const char *local_port,
+  netsim_socket_t *sockp, char *local_desc, size_t local_desc_len,
+  char *errbuf, size_t errbuf_len)
+{
+  struct sockaddr_in local_addr, bound_addr;
+  socklen_t salen;
+  int sock, one;
+
+  if (!resolve_udp_addr(local_host, local_port, true, &local_addr, errbuf,
+        errbuf_len))
+    return (false);
+  sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (sock < 0) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    return (false);
+  }
+  one = 1;
+  (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+  if (bind(sock, (const struct sockaddr *)&local_addr, sizeof(local_addr)) != 0) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    close(sock);
+    return (false);
+  }
+  if (!set_socket_recv_timeout(sock, 100, errbuf, errbuf_len)) {
+    close(sock);
+    return (false);
+  }
+  salen = sizeof(bound_addr);
+  memset(&bound_addr, '\0', sizeof(bound_addr));
+  if (getsockname(sock, (struct sockaddr *)&bound_addr, &salen) == 0)
+    format_sockaddr(&bound_addr, local_desc, local_desc_len);
+  else
+    snprintf(local_desc, local_desc_len, "<unknown>");
   *sockp = (netsim_socket_t)sock;
   return (true);
 }
@@ -683,6 +980,118 @@ netsim_socket_recv(netsim_socket_t sock, void *buf, size_t len)
 {
 
   return ((int)recv((int)sock, buf, len, 0));
+}
+
+int
+netsim_socket_sendto(netsim_socket_t sock, const void *buf, size_t len,
+  const netsim_sockaddr_t *addrp)
+{
+
+  return ((int)sendto((int)sock, buf, len, 0,
+    (const struct sockaddr *)&addrp->ss, addrp->len));
+}
+
+int
+netsim_socket_recvfrom(netsim_socket_t sock, void *buf, size_t len,
+  netsim_sockaddr_t *addrp)
+{
+  socklen_t salen;
+  int rval;
+
+  salen = sizeof(addrp->ss);
+  memset(addrp, '\0', sizeof(*addrp));
+  rval = (int)recvfrom((int)sock, buf, len, 0,
+    (struct sockaddr *)&addrp->ss, &salen);
+  if (rval >= 0)
+    addrp->len = salen;
+  return (rval);
+}
+
+bool
+netsim_socket_getsockname(netsim_socket_t sock, netsim_sockaddr_t *addrp)
+{
+  socklen_t salen;
+
+  salen = sizeof(addrp->ss);
+  memset(addrp, '\0', sizeof(*addrp));
+  if (getsockname((int)sock, (struct sockaddr *)&addrp->ss, &salen) != 0)
+    return (false);
+  addrp->len = salen;
+  return (true);
+}
+
+bool
+netsim_sockaddr_resolve_udp(const char *host, const char *port,
+  netsim_sockaddr_t *addrp, char *errbuf, size_t errbuf_len)
+{
+  struct sockaddr_in sin;
+
+  if (!resolve_udp_addr(host, port, false, &sin, errbuf, errbuf_len))
+    return (false);
+  memset(addrp, '\0', sizeof(*addrp));
+  memcpy(&addrp->ss, &sin, sizeof(sin));
+  addrp->len = sizeof(sin);
+  return (true);
+}
+
+bool
+netsim_sockaddr_local_for_peer(const char *peer_host, const char *peer_port,
+  char *hostbuf, size_t hostbuf_len, char *errbuf, size_t errbuf_len)
+{
+  struct sockaddr_in peer_addr, local_addr;
+  socklen_t salen;
+  int sock;
+
+  if (!resolve_udp_addr(peer_host, peer_port, false, &peer_addr, errbuf,
+        errbuf_len))
+    return (false);
+  sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+  if (sock < 0) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    return (false);
+  }
+  if (connect(sock, (const struct sockaddr *)&peer_addr, sizeof(peer_addr)) != 0) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    close(sock);
+    return (false);
+  }
+  salen = sizeof(local_addr);
+  if (getsockname(sock, (struct sockaddr *)&local_addr, &salen) != 0) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    close(sock);
+    return (false);
+  }
+  close(sock);
+  if (inet_ntop(AF_INET, &local_addr.sin_addr, hostbuf, hostbuf_len) == NULL) {
+    netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
+    return (false);
+  }
+  return (true);
+}
+
+bool
+netsim_sockaddr_format(const netsim_sockaddr_t *addrp, char *buf, size_t buflen)
+{
+
+  if (addrp == NULL || addrp->len < sizeof(struct sockaddr_in) ||
+      ((const struct sockaddr *)&addrp->ss)->sa_family != AF_INET)
+    return (false);
+  format_sockaddr((const struct sockaddr_in *)&addrp->ss, buf, buflen);
+  return (true);
+}
+
+bool
+netsim_sockaddr_same(const netsim_sockaddr_t *ap, const netsim_sockaddr_t *bp)
+{
+  const struct sockaddr_in *sa, *sb;
+
+  if (ap == NULL || bp == NULL || ap->len < sizeof(*sa) || bp->len < sizeof(*sb))
+    return (false);
+  sa = (const struct sockaddr_in *)&ap->ss;
+  sb = (const struct sockaddr_in *)&bp->ss;
+  return (sa->sin_family == sb->sin_family &&
+    sa->sin_port == sb->sin_port &&
+    sa->sin_addr.s_addr == sb->sin_addr.s_addr);
 }
 
 int

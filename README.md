@@ -33,6 +33,33 @@ Digger to run directly in your browser.
 
 [![WebAssembly](https://digger-build-artefacts.s3.amazonaws.com/digger_wasm.png)](https://digger-build-artefacts.s3.amazonaws.com/digger.html)
 
+# Network Play
+
+Two-player network play is enabled with the `/N:` option. There are two
+supported modes:
+
+1. Peer-to-peer:
+   one side acts as a small local SIP registrar and listens on UDP `5060`,
+   while the other side registers to it directly.
+
+   Examples:
+
+   - Host/listener: `/N:alice-bob`
+   - Peer connecting to host `192.168.50.10`: `/N:bob@192.168.50.10-alice`
+
+2. Via a SIP server:
+   both sides use a normal SIP server, register there, and place the game
+   call through that server.
+
+   Examples:
+
+   - Alice via SIP server: `/N:alice[:password]@sip.example.com[:5060]-bob`
+   - Bob via SIP server: `/N:bob[:password]@sip.example.com[:5060]-alice`
+
+In both modes, the value before `-` is the local SIP user and the value after
+`-` is the peer SIP user. In peer-to-peer mode the host side omits `@server`
+and binds to `*:5060`; in SIP-server mode `@server[:port]` is required.
+
 # Future Plans
 
 Some plans for the future releases include:

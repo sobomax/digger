@@ -823,7 +823,7 @@ static void parsecmd(int argc,char *argv[])
                "         [/E:playback file] [/R:record file] [/O] [/K[A]] "
                                                            "[/G[:time]] [/2]\n"
                "         [/U] [/I:level] "
-               "[/N:[[localip:]localport-]host:port] "
+               "[/N:sipuser[-peeruser]|sipuser[[:password]@siphost[:port]]-peeruser] "
 
 #if defined(UNIX) && defined(_SDL)
                          "[/X:xid] "
@@ -844,7 +844,7 @@ static void parsecmd(int argc,char *argv[])
                "/K = Redefine keyboard\n"
                "/G = Gauntlet mode\n"
                "/2 = Two player simultaneous mode\n"
-               "/N = Enable two-player UDP NetSim mode\n"
+               "/N = Enable two-player SIP/RTP NetSim mode\n"
 #if defined(UNIX) && defined(_SDL)
                "/X = Embed in window\n"
 #endif

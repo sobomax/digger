@@ -4,11 +4,13 @@
 #include "def.h"
 #include "netsim.h"
 #include "netsim_platform.h"
+#include "netsim_sip.h"
 
 #if NETSIM_PLATFORM_SUPPORTED
 
 #include <stdbool.h>
 #include <assert.h>
+#include <errno.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdatomic.h>
@@ -23,13 +25,14 @@
 #define NETSIM_FRAME_WINDOW 32
 #define NETSIM_RETRY_LIMIT 100
 #define NETSIM_RETRY_MS 10
-#define NETSIM_WAKE_MS ((NETSIM_RETRY_MS / 10) > 0 ? (NETSIM_RETRY_MS / 10) : 1)
 #define NETSIM_RTP_VERSION 2U
 #define NETSIM_RTP_PT 96U
 #define NETSIM_RTP_VPXCC ((uint8_t)(NETSIM_RTP_VERSION << 6))
 #define NETSIM_RTP_VPXCC_FLAGS_MASK 0x3fU
 #define NETSIM_RTP_MPT_PT_MASK 0x7fU
 #define NETSIM_RTP_SSRC_FALLBACK 0x4e53494dU
+#define NETSIM_RX_BUFSIZE 4096
+#define NETSIM_IDLE_WAKE_MS 100
 enum netsim_pkt_type {
   NETSIM_PKT_HELLO = 1,
   NETSIM_PKT_FRAME = 2,
@@ -44,7 +47,9 @@ enum netsim_out_type {
   NETSIM_OUT_STOP = 103,
   NETSIM_OUT_START = 104,
   NETSIM_OUT_START_ACK = 105,
-  NETSIM_OUT_SHUTDOWN = 106
+  NETSIM_OUT_SHUTDOWN = 106,
+  NETSIM_OUT_RX_PACKET = 107,
+  NETSIM_OUT_RX_ERROR = 108
 };
 
 enum netsim_in_type {
@@ -91,6 +96,10 @@ struct netsim_out_ev {
   uint32_t frame;
   uint8_t bits;
   uint64_t nonce;
+  int err;
+  size_t pkt_len;
+  netsim_sockaddr_t peer_addr;
+  uint8_t *pkt_buf;
 };
 
 struct netsim_in_ev {
@@ -151,10 +160,7 @@ struct pending_tx {
 
 struct netsim_config {
   bool configured;
-  char local_host[256];
-  char local_port[16];
-  char remote_host[256];
-  char remote_port[16];
+  struct netsim_sip_config sip;
 };
 
 enum netsim_session_state {
@@ -181,6 +187,13 @@ struct netsim_session {
 struct thread_ctx {
   struct netsim_config cfg;
   netsim_socket_t sock;
+  netsim_sockaddr_t local_addr;
+  char local_host[64];
+  char local_port[16];
+  atomic_bool stop_requested;
+  netsim_thread_t rx_thr;
+  bool rx_started;
+  struct netsim_sip *sip;
   struct netsim_out_queue *outq;
   struct netsim_in_queue *inq;
 };
@@ -198,6 +211,7 @@ static void netsim_log(const char *fmt, ...)
   __attribute__((format(printf, 1, 2)));
 static void netsim_err(const char *fmt, ...)
   __attribute__((format(printf, 1, 2)));
+static void netsim_out_ev_cleanup(struct netsim_out_ev *evp);
 static void netsim_reset_state(enum netsim_session_state state);
 static bool netsim_is_started(void);
 static bool netsim_is_error(void);
@@ -340,14 +354,21 @@ netsim_err(const char *fmt, ...)
 }
 
 static bool
-parse_host_port(const char *spec, char *host, size_t host_len, char *port,
+parse_sip_host_port(const char *spec, char *host, size_t host_len, char *port,
   size_t port_len)
 {
   const char *portp;
   size_t len;
 
   portp = strrchr(spec, ':');
-  if (portp == NULL || portp == spec || portp[1] == '\0')
+  if (portp == NULL || strchr(portp + 1, ':') != NULL) {
+    if (strlen(spec) >= host_len)
+      return (false);
+    strcpy(host, spec);
+    strcpy(port, "5060");
+    return (host[0] != '\0');
+  }
+  if (portp == spec || portp[1] == '\0')
     return (false);
   len = (size_t)(portp - spec);
   if (len >= host_len || strlen(portp + 1) >= port_len)
@@ -442,6 +463,13 @@ queue_in_init(struct netsim_in_queue *qp)
 static void
 queue_out_destroy(struct netsim_out_queue *qp)
 {
+  size_t i;
+
+  netsim_mutex_lock(&qp->mutex);
+  for (i = 0; i < qp->len; i++)
+    netsim_out_ev_cleanup(&qp->items[(qp->head + i) % NETSIM_QUEUE_LEN]);
+  qp->head = qp->tail = qp->len = 0;
+  netsim_mutex_unlock(&qp->mutex);
   netsim_cond_destroy(&qp->cond);
   netsim_mutex_destroy(&qp->mutex);
 }
@@ -466,67 +494,27 @@ queue_out_put(struct netsim_out_queue *qp, const struct netsim_out_ev *evp)
   netsim_mutex_unlock(&qp->mutex);
 }
 
+static void
+queue_out_wake(struct netsim_out_queue *qp)
+{
+
+  netsim_mutex_lock(&qp->mutex);
+  netsim_cond_broadcast(&qp->cond);
+  netsim_mutex_unlock(&qp->mutex);
+}
+
 static bool
-queue_out_peek(struct netsim_out_queue *qp, struct netsim_out_ev *evp)
+queue_out_tryget(struct netsim_out_queue *qp, struct netsim_out_ev *evp)
 {
   bool ok = false;
 
   netsim_mutex_lock(&qp->mutex);
   if (qp->len > 0) {
     *evp = qp->items[qp->head];
-    ok = true;
-  }
-  netsim_mutex_unlock(&qp->mutex);
-  return (ok);
-}
-
-static bool
-queue_out_drop_head(struct netsim_out_queue *qp)
-{
-  bool ok = false;
-
-  netsim_mutex_lock(&qp->mutex);
-  if (qp->len > 0) {
     qp->head = (qp->head + 1) % NETSIM_QUEUE_LEN;
     qp->len--;
     netsim_cond_broadcast(&qp->cond);
     ok = true;
-  }
-  netsim_mutex_unlock(&qp->mutex);
-  return (ok);
-}
-
-static bool
-queue_out_trytake_control(struct netsim_out_queue *qp,
-  struct netsim_out_ev *evp)
-{
-  struct netsim_out_ev tmp[NETSIM_QUEUE_LEN];
-  size_t i, ctrl_ix, out_len;
-  bool ok = false;
-
-  netsim_mutex_lock(&qp->mutex);
-  ctrl_ix = 0;
-  for (i = 0; i < qp->len; i++) {
-    struct netsim_out_ev cur;
-
-    cur = qp->items[(qp->head + i) % NETSIM_QUEUE_LEN];
-    if (cur.type == NETSIM_OUT_STOP || cur.type == NETSIM_OUT_SHUTDOWN) {
-      *evp = cur;
-      ctrl_ix = i;
-      ok = true;
-      break;
-    }
-  }
-  if (ok) {
-    out_len = 0;
-    for (i = ctrl_ix + 1; i < qp->len; i++)
-      tmp[out_len++] = qp->items[(qp->head + i) % NETSIM_QUEUE_LEN];
-    if (out_len > 0)
-      memcpy(qp->items, tmp, out_len * sizeof(tmp[0]));
-    qp->head = 0;
-    qp->len = out_len;
-    qp->tail = out_len % NETSIM_QUEUE_LEN;
-    netsim_cond_broadcast(&qp->cond);
   }
   netsim_mutex_unlock(&qp->mutex);
   return (ok);
@@ -548,6 +536,7 @@ queue_out_clear_session(struct netsim_out_queue *qp)
       tmp[out_len++] = cur;
       continue;
     }
+    netsim_out_ev_cleanup(&cur);
   }
   if (out_len > 0)
     memcpy(qp->items, tmp, out_len * sizeof(tmp[0]));
@@ -623,7 +612,8 @@ queue_out_wait_until(struct netsim_out_queue *qp, netsim_deadline_t deadline)
 {
 
   netsim_mutex_lock(&qp->mutex);
-  (void)netsim_cond_timedwait(&qp->cond, &qp->mutex, deadline);
+  if (qp->len == 0)
+    (void)netsim_cond_timedwait(&qp->cond, &qp->mutex, deadline);
   netsim_mutex_unlock(&qp->mutex);
 }
 
@@ -644,6 +634,17 @@ ns_delta_to_ms(int64_t delta_ns)
   if (delta_ms < INT_MIN)
     return (INT_MIN);
   return ((int)delta_ms);
+}
+
+static void
+netsim_out_ev_cleanup(struct netsim_out_ev *evp)
+{
+
+  if (evp->type == NETSIM_OUT_RX_PACKET && evp->pkt_buf != NULL) {
+    free(evp->pkt_buf);
+    evp->pkt_buf = NULL;
+  }
+  evp->pkt_len = 0;
 }
 
 static void
@@ -673,36 +674,50 @@ make_nonce(void)
   return (nonce);
 }
 
-static void
-reset_hello_pending(struct pending_tx *ptx, uint64_t nonce)
+static bool
+open_socket(const struct netsim_config *cfgp, netsim_socket_t *sockp,
+  netsim_sockaddr_t *local_addrp, char *local_host, size_t local_host_len,
+  char *local_port, size_t local_port_len)
 {
+  char bind_host[64], local_desc[64], errbuf[160];
+  const struct sockaddr_in *sin;
+  const bool peer_mode = (cfgp->sip.server_host[0] == '\0');
 
-  memset(ptx, '\0', sizeof(*ptx));
-  ptx->active = true;
-  ptx->type = NETSIM_PKT_HELLO;
-  ptx->nonce = nonce;
-}
-
-static netsim_socket_t
-open_socket(const struct netsim_config *cfgp)
-{
-  char local_desc[64], peer_desc[64], errbuf[160];
-  netsim_socket_t sock;
-
-  sock = NETSIM_SOCKET_INVALID;
-  if (!netsim_socket_open_udp(cfgp->local_host, cfgp->local_port,
-        cfgp->remote_host, cfgp->remote_port, &sock, local_desc,
-        sizeof(local_desc), peer_desc, sizeof(peer_desc), errbuf,
-        sizeof(errbuf))) {
+  if (!peer_mode &&
+      !netsim_sockaddr_local_for_peer(cfgp->sip.server_host, cfgp->sip.server_port,
+        bind_host, sizeof(bind_host), errbuf, sizeof(errbuf))) {
     netsim_err("%s", errbuf);
-    return (NETSIM_SOCKET_INVALID);
+    return (false);
   }
-  netsim_log("socket ready local=%s peer=%s", local_desc, peer_desc);
-  return (sock);
+  if (peer_mode)
+    bind_host[0] = '\0';
+  if (!netsim_socket_open_bound_udp(bind_host, peer_mode ? "5060" : "0", sockp, local_desc,
+        sizeof(local_desc), errbuf, sizeof(errbuf))) {
+    netsim_err("%s", errbuf);
+    return (false);
+  }
+  if (!netsim_socket_getsockname(*sockp, local_addrp)) {
+    netsim_socket_close(*sockp);
+    *sockp = NETSIM_SOCKET_INVALID;
+    return (false);
+  }
+  sin = (const struct sockaddr_in *)&local_addrp->ss;
+  if (inet_ntop(AF_INET, &sin->sin_addr, local_host, local_host_len) == NULL) {
+    netsim_socket_close(*sockp);
+    *sockp = NETSIM_SOCKET_INVALID;
+    return (false);
+  }
+  snprintf(local_port, local_port_len, "%u", (unsigned int)ntohs(sin->sin_port));
+  netsim_log("socket ready local=%s server=%s%s%s", local_desc,
+    peer_mode ? "<peer>" : cfgp->sip.server_host,
+    peer_mode ? "" : ":",
+    peer_mode ? "" : cfgp->sip.server_port);
+  return (true);
 }
 
 static int
-send_packet(netsim_socket_t sock, uint32_t rtp_ssrc, uint32_t stream_ssrc,
+send_packet(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
+  uint32_t rtp_ssrc, uint32_t stream_ssrc,
   int type, int player, uint32_t tx_seq, uint32_t frame, uint8_t bits,
   uint64_t nonce)
 {
@@ -727,38 +742,27 @@ send_packet(netsim_socket_t sock, uint32_t rtp_ssrc, uint32_t stream_ssrc,
 
   memcpy(buf, &hdr, sizeof(hdr));
   memcpy(buf + sizeof(hdr), &payload, sizeof(payload));
-  return (netsim_socket_send(sock, buf, sizeof(buf)));
+  return (netsim_socket_sendto(sock, buf, sizeof(buf), addrp));
 }
 
 static bool
-recv_packet(netsim_socket_t sock, struct netsim_pkt *pktp)
+decode_packet(const void *buf, size_t len, struct netsim_pkt *pktp)
 {
+  const uint8_t *bp;
   struct netsim_rtp_header hdr;
   struct netsim_rtp_payload payload;
-  uint8_t buf[sizeof(hdr) + sizeof(payload)];
   struct netsim_pkt pkt;
-  int rlen;
-  int err;
-  char errbuf[128];
 
-  rlen = netsim_socket_recv(sock, buf, sizeof(buf));
-  if (rlen < 0) {
-    err = netsim_socket_last_error();
-    if (netsim_socket_err_wouldblock(err) || netsim_socket_err_transient(err))
-      return (false);
-    netsim_log("recv failed: %s",
-      netsim_socket_strerror(err, errbuf, sizeof(errbuf)));
+  if (len != sizeof(hdr) + sizeof(payload))
     return (false);
-  }
-  if ((size_t)rlen != sizeof(buf))
-    return (false);
+  bp = buf;
   memcpy(&hdr, buf, sizeof(hdr));
   if ((hdr.vpxcc >> 6) != NETSIM_RTP_VERSION ||
       (hdr.vpxcc & NETSIM_RTP_VPXCC_FLAGS_MASK) != 0)
     return (false);
   if ((hdr.mpt & NETSIM_RTP_MPT_PT_MASK) != NETSIM_RTP_PT)
     return (false);
-  memcpy(&payload, buf + sizeof(hdr), sizeof(payload));
+  memcpy(&payload, bp + sizeof(hdr), sizeof(payload));
   pkt.type = payload.subtype;
   pkt.player = payload.player;
   pkt.tx_seq = (((uint32_t)ntohs(payload.tx_seq_hi)) << 16) |
@@ -917,7 +921,8 @@ pending_unschedule(struct pending_tx *ptx)
 }
 
 static bool
-send_pending_now(netsim_socket_t sock, uint32_t control_ssrc,
+send_pending_now(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
+  uint32_t control_ssrc,
   uint32_t stream_ssrc, struct pending_tx *ptx, int player)
 {
   int pkt_type;
@@ -927,7 +932,7 @@ send_pending_now(netsim_socket_t sock, uint32_t control_ssrc,
   if (pkt_type == 0)
     return (false);
   rtp_ssrc = pending_rtp_ssrc(control_ssrc, stream_ssrc, ptx->type);
-  if (send_packet(sock, rtp_ssrc, pending_stream_ssrc(stream_ssrc, ptx->type),
+  if (send_packet(sock, addrp, rtp_ssrc, pending_stream_ssrc(stream_ssrc, ptx->type),
         pkt_type, player, ptx->seq, ptx->frame, ptx->bits, ptx->nonce) < 0)
     return (false);
   if (ptx->first_send_ns == 0)
@@ -937,7 +942,8 @@ send_pending_now(netsim_socket_t sock, uint32_t control_ssrc,
 }
 
 static bool
-send_pending(netsim_socket_t sock, uint32_t control_ssrc, uint32_t stream_ssrc,
+send_pending(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
+  uint32_t control_ssrc, uint32_t stream_ssrc,
   struct pending_tx *ptx, int player, bool *sentp)
 {
   int type, err;
@@ -957,7 +963,7 @@ send_pending(netsim_socket_t sock, uint32_t control_ssrc, uint32_t stream_ssrc,
   if (type == 0)
     return (false);
   rtp_ssrc = pending_rtp_ssrc(control_ssrc, stream_ssrc, ptx->type);
-  if (send_packet(sock, rtp_ssrc, pending_stream_ssrc(stream_ssrc, ptx->type),
+  if (send_packet(sock, addrp, rtp_ssrc, pending_stream_ssrc(stream_ssrc, ptx->type),
         type, player, ptx->seq, ptx->frame, ptx->bits, ptx->nonce) < 0) {
     err = netsim_socket_last_error();
     ptx->retries++;
@@ -1025,12 +1031,16 @@ struct netsim_thread_state {
   struct pending_tx hello_tx;
   struct pending_tx prev_tx;
   struct pending_tx tx;
+  uint32_t pending_frame;
+  uint8_t pending_frame_bits;
   uint64_t local_nonce;
   uint64_t peer_nonce;
   uint64_t session_nonce;
   uint32_t local_ctrl_ssrc;
   uint32_t local_stream_ssrc;
   uint32_t peer_stream_ssrc;
+  netsim_sockaddr_t media_target;
+  netsim_sockaddr_t media_source;
   uint32_t last_delivered;
   uint32_t last_peer_tx_seq;
   uint32_t next_tx_seq;
@@ -1039,13 +1049,18 @@ struct netsim_thread_state {
   int remote_player;
   bool peer_nonce_seen;
   bool peer_frame_seen;
+  bool media_source_valid;
   bool exiting;
   bool acking_peer_exit;
   bool session_active;
   bool session_offer_local;
   bool game_start_notified;
+  bool pending_frame_valid;
   bool prev_tx_valid;
 };
+
+static void thread_set_tx(struct netsim_thread_state *tsp, int type,
+  uint32_t frame, uint8_t bits);
 
 _Static_assert(sizeof(struct netsim_rtp_header) == 12,
   "netsim_rtp_header must match the RTP fixed header size");
@@ -1057,9 +1072,7 @@ thread_next_wakeup(const struct netsim_thread_state *tsp)
 {
   netsim_deadline_t deadline;
 
-  deadline = netsim_deadline_after_ms(NETSIM_WAKE_MS);
-  if (tsp->hello_tx.active && tsp->hello_tx.next_tx < deadline)
-    deadline = tsp->hello_tx.next_tx;
+  deadline = netsim_deadline_after_ms(NETSIM_IDLE_WAKE_MS);
   if (tsp->tx.active && tsp->tx.next_tx < deadline)
     deadline = tsp->tx.next_tx;
   return (deadline);
@@ -1069,7 +1082,7 @@ static void
 thread_clear_session(struct netsim_thread_state *tsp)
 {
 
-  reset_hello_pending(&tsp->hello_tx, tsp->local_nonce);
+  memset(&tsp->hello_tx, '\0', sizeof(tsp->hello_tx));
   tsp->tx.active = false;
   memset(&tsp->tx, '\0', sizeof(tsp->tx));
   memset(&tsp->prev_tx, '\0', sizeof(tsp->prev_tx));
@@ -1077,6 +1090,8 @@ thread_clear_session(struct netsim_thread_state *tsp)
   tsp->session_nonce = 0;
   tsp->local_stream_ssrc = 0;
   tsp->peer_stream_ssrc = 0;
+  memset(&tsp->media_target, '\0', sizeof(tsp->media_target));
+  memset(&tsp->media_source, '\0', sizeof(tsp->media_source));
   tsp->last_delivered = 0;
   tsp->last_peer_tx_seq = 0;
   tsp->next_tx_seq = 1;
@@ -1085,10 +1100,48 @@ thread_clear_session(struct netsim_thread_state *tsp)
   tsp->exiting = false;
   tsp->acking_peer_exit = false;
   tsp->game_start_notified = false;
+  tsp->pending_frame_valid = false;
+  tsp->pending_frame = 0;
+  tsp->pending_frame_bits = 0;
+  tsp->media_source_valid = false;
   clear_frame_slots(tsp->slots);
   clear_peer_seen_slots(tsp->peer_seen);
   tsp->local_player = 0;
   tsp->remote_player = 1;
+}
+
+static bool
+thread_tx_blocks_frame(const struct netsim_thread_state *tsp)
+{
+
+  return (tsp->tx.active &&
+    !(tsp->tx.type == NETSIM_OUT_FRAME && tsp->tx.matched));
+}
+
+static void
+thread_queue_pending_frame(struct netsim_thread_state *tsp, uint32_t frame,
+  uint8_t bits)
+{
+
+  if (tsp->pending_frame_valid) {
+    netsim_log("drop extra local frame frame=%u while frame=%u pending",
+      (unsigned int)frame, (unsigned int)tsp->pending_frame);
+    return;
+  }
+  tsp->pending_frame_valid = true;
+  tsp->pending_frame = frame;
+  tsp->pending_frame_bits = bits;
+}
+
+static void
+thread_promote_pending_frame(struct netsim_thread_state *tsp)
+{
+
+  if (!tsp->pending_frame_valid || thread_tx_blocks_frame(tsp))
+    return;
+  thread_set_tx(tsp, NETSIM_OUT_FRAME, tsp->pending_frame,
+    tsp->pending_frame_bits);
+  tsp->pending_frame_valid = false;
 }
 
 static void
@@ -1112,10 +1165,8 @@ thread_begin_session(struct netsim_thread_state *tsp, uint64_t session_nonce,
       (unsigned int)tsp->prev_tx.seq, (unsigned int)tsp->prev_tx.frame);
   }
   thread_clear_session(tsp);
-  tsp->hello_tx.active = false;
   tsp->session_offer_local = session_offer_local;
   tsp->session_nonce = session_nonce;
-  tsp->local_stream_ssrc = make_stream_ssrc(tsp->local_nonce, session_nonce);
   tsp->local_player = local_player;
   tsp->remote_player = remote_player;
 }
@@ -1131,10 +1182,9 @@ thread_fail_session(struct netsim_thread_state *tsp, struct netsim_in_queue *inq
     return;
   }
   tsp->exiting = true;
-  tsp->acking_peer_exit = false;
   queue_out_clear_session(outq);
-  set_pending(&tsp->tx, NETSIM_OUT_EXIT, frame, 0, tsp->session_nonce,
-    tsp->next_tx_seq++);
+  tsp->tx.active = false;
+  (void)frame;
 }
 
 static void
@@ -1284,9 +1334,9 @@ thread_mark_matching_peer_tx(struct netsim_thread_state *tsp, uint32_t peer_seq,
 }
 
 static void
-thread_resend_to_match(struct pending_tx *ptx, netsim_socket_t sock, int player,
-  uint32_t control_ssrc, uint32_t stream_ssrc, uint32_t peer_frame,
-  const char *which)
+thread_resend_to_match(struct pending_tx *ptx, netsim_socket_t sock,
+  const netsim_sockaddr_t *addrp, int player, uint32_t control_ssrc,
+  uint32_t stream_ssrc, uint32_t peer_frame, const char *which)
 {
 
   if (ptx->type != NETSIM_OUT_FRAME || ptx->frame != peer_frame)
@@ -1295,7 +1345,7 @@ thread_resend_to_match(struct pending_tx *ptx, netsim_socket_t sock, int player,
     return;
   if (ptx->send_count >= ptx->peer_frame_count)
     return;
-  if (send_pending_now(sock, control_ssrc, stream_ssrc, ptx, player))
+  if (send_pending_now(sock, addrp, control_ssrc, stream_ssrc, ptx, player))
     netsim_log("peer repeated frame=%u, resend %s seq=%u parity=%d/%d",
       (unsigned int)peer_frame, which, (unsigned int)ptx->seq,
       ptx->send_count, ptx->peer_frame_count);
@@ -1307,11 +1357,13 @@ thread_resend_matching_frame(struct netsim_thread_state *tsp,
 {
 
   if (tsp->tx.active)
-    thread_resend_to_match(&tsp->tx, tsp->sock, tsp->local_player,
+    thread_resend_to_match(&tsp->tx, tsp->sock, &tsp->media_target,
+      tsp->local_player,
       tsp->local_ctrl_ssrc, tsp->local_stream_ssrc,
       peer_frame, "current");
   if (tsp->prev_tx_valid)
-    thread_resend_to_match(&tsp->prev_tx, tsp->sock, tsp->local_player,
+    thread_resend_to_match(&tsp->prev_tx, tsp->sock, &tsp->media_target,
+      tsp->local_player,
       tsp->local_ctrl_ssrc, tsp->local_stream_ssrc,
       peer_frame, "previous");
 }
@@ -1323,135 +1375,152 @@ enum thread_step_result {
 };
 
 static void
-thread_drain_recv(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
+thread_apply_sip_event(struct netsim_thread_state *tsp, struct thread_ctx *ctxp,
+  const struct netsim_sip_event *evp)
+{
+  switch (evp->type) {
+    case NETSIM_SIP_EVENT_REMOTE_START:
+      thread_begin_session(tsp, evp->session.session_nonce,
+        evp->session.local_player, evp->session.remote_player, false);
+      tsp->local_stream_ssrc = evp->session.local_stream_ssrc;
+      tsp->peer_stream_ssrc = evp->session.peer_stream_ssrc;
+      tsp->media_target = evp->session.media_addr;
+      push_start(ctxp->inq, tsp->local_player, tsp->session_nonce);
+      push_gamestart(ctxp->inq);
+      break;
+    case NETSIM_SIP_EVENT_CONNECTED:
+      if (evp->session.session_nonce != 0 && evp->session.session_nonce != tsp->session_nonce) {
+        thread_begin_session(tsp, evp->session.session_nonce,
+          evp->session.local_player, evp->session.remote_player, false);
+      }
+      tsp->local_stream_ssrc = evp->session.local_stream_ssrc;
+      tsp->peer_stream_ssrc = evp->session.peer_stream_ssrc;
+      tsp->media_target = evp->session.media_addr;
+      tsp->session_active = true;
+      netsim_log("session connected local_player=%d session=0x%016llx",
+        tsp->local_player + 1, (unsigned long long)tsp->session_nonce);
+      push_start_ack(ctxp->inq);
+      break;
+    case NETSIM_SIP_EVENT_DISCONNECTED:
+      if (!tsp->exiting)
+        push_exit(ctxp->inq);
+      thread_reset_session(tsp, ctxp->outq);
+      break;
+    case NETSIM_SIP_EVENT_ERROR:
+      push_error(ctxp->inq);
+      thread_reset_session(tsp, ctxp->outq);
+      break;
+    default:
+      break;
+  }
+}
+
+static void
+thread_drain_sip_events(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
+{
+  struct netsim_sip_event ev;
+
+  while (netsim_sip_pop_event(ctxp->sip, &ev))
+    thread_apply_sip_event(tsp, ctxp, &ev);
+}
+
+static void
+thread_process_rx_packet(struct netsim_thread_state *tsp, struct thread_ctx *ctxp,
+  const struct netsim_out_ev *outevp)
 {
   struct netsim_pkt pkt;
+  const netsim_sockaddr_t *peer_addrp;
 
-  while (recv_packet(tsp->sock, &pkt)) {
-    if (pkt.type == NETSIM_PKT_HELLO) {
-      if (!tsp->peer_nonce_seen || pkt.nonce != tsp->peer_nonce) {
-        if (!tsp->peer_nonce_seen) {
-          netsim_log("peer present nonce=0x%016llx",
-            (unsigned long long)pkt.nonce);
-        } else {
-          netsim_log("peer restarted nonce 0x%016llx -> 0x%016llx",
-            (unsigned long long)tsp->peer_nonce,
-            (unsigned long long)pkt.nonce);
-        }
-        tsp->peer_nonce = pkt.nonce;
-        tsp->peer_nonce_seen = true;
-      }
-      continue;
-    }
-    if (pkt.type == NETSIM_PKT_START) {
-      bool adopt_remote = false;
-
-      if (!tsp->session_active) {
-        if (tsp->session_nonce == 0 || pkt.nonce == tsp->session_nonce)
-          adopt_remote = true;
-        else if (tsp->session_offer_local)
-          adopt_remote = pkt.nonce < tsp->session_nonce;
-        else
-          adopt_remote = true;
-      }
-      if (!adopt_remote)
-        continue;
-      if (pkt.nonce != tsp->session_nonce || tsp->session_offer_local) {
-        thread_begin_session(tsp, pkt.nonce, 1, 0, false);
-        tsp->peer_stream_ssrc = pkt.stream_ssrc;
-        netsim_log("recv start seq=%u session=0x%016llx local_player=%d",
-          (unsigned int)pkt.tx_seq,
-          (unsigned long long)tsp->session_nonce, tsp->local_player + 1);
-        push_start(ctxp->inq, tsp->local_player, tsp->session_nonce);
-      }
-      if (tsp->tx.active && tsp->tx.type == NETSIM_OUT_START_ACK &&
-          tsp->tx.seq == pkt.tx_seq)
-        tsp->tx.active = false;
-      if (!thread_accept_peer_seq(tsp, pkt.tx_seq))
-        continue;
-      if (!tsp->game_start_notified) {
-        tsp->game_start_notified = true;
-        netsim_log("peer start request");
-        push_gamestart(ctxp->inq);
-      }
-      continue;
-    }
-    if (pkt.type == NETSIM_PKT_START_ACK) {
-      if (!tsp->session_offer_local || tsp->session_nonce == 0 ||
-          pkt.nonce != tsp->session_nonce)
-        continue;
-      tsp->peer_stream_ssrc = pkt.stream_ssrc;
-      if (tsp->tx.active && tsp->tx.type == NETSIM_OUT_START &&
-          tsp->tx.seq == pkt.tx_seq)
-        tsp->tx.active = false;
-      if (!thread_accept_peer_seq(tsp, pkt.tx_seq))
-        continue;
-      if (!tsp->session_active) {
-        tsp->session_active = true;
-        netsim_log("recv start-ack seq=%u session=0x%016llx local_player=%d",
-          (unsigned int)pkt.tx_seq,
-          (unsigned long long)tsp->session_nonce, tsp->local_player + 1);
-        push_start_ack(ctxp->inq);
-      }
-      continue;
-    }
-    if (!tsp->session_active || tsp->session_nonce == 0 ||
-        pkt.nonce != tsp->session_nonce)
-      continue;
-    if (tsp->peer_stream_ssrc != 0 && pkt.rtp_ssrc != tsp->peer_stream_ssrc)
-      continue;
-    if ((int)pkt.player != tsp->remote_player)
-      continue;
-    if (pkt.type == NETSIM_PKT_FRAME && pkt.tx_seq < tsp->last_peer_tx_seq)
-      continue;
-    if (pkt.type == NETSIM_PKT_FRAME) {
-      thread_note_peer_frame_seen(tsp, pkt.frame);
-      thread_note_matching_peer_frame(tsp, pkt.frame);
-      thread_mark_matching_peer_tx(tsp, pkt.tx_seq, pkt.frame);
-    }
-    if (!thread_accept_peer_seq(tsp, pkt.tx_seq)) {
-      if (pkt.type == NETSIM_PKT_FRAME)
-        thread_resend_matching_frame(tsp, pkt.frame);
-      continue;
-    }
-    if (pkt.type == NETSIM_PKT_EXIT) {
-      tsp->peer_frame_seen = true;
-      netsim_log("recv exit seq=%u", (unsigned int)pkt.tx_seq);
-      push_exit(ctxp->inq);
-      if (tsp->tx.active && tsp->tx.type == NETSIM_OUT_EXIT)
-        tsp->tx.active = false;
-      if (tsp->exiting) {
-        thread_reset_session(tsp, ctxp->outq);
-        continue;
-      }
-      queue_out_clear_session(ctxp->outq);
-      tsp->prev_tx_valid = false;
-      tsp->acking_peer_exit = true;
-      tsp->exiting = false;
-      thread_set_tx(tsp, NETSIM_OUT_EXIT, pkt.frame, 0);
-      continue;
-    }
-    if (pkt.type != NETSIM_PKT_FRAME)
-      continue;
-    tsp->peer_frame_seen = true;
-    if (pkt.frame <= tsp->last_delivered)
-      continue;
-    if (pkt.frame > tsp->last_delivered + NETSIM_FRAME_WINDOW) {
-      netsim_log("frame window overflow frame=%u last_delivered=%u",
-        (unsigned int)pkt.frame, (unsigned int)tsp->last_delivered);
-      thread_fail_session(tsp, ctxp->inq, ctxp->outq, pkt.frame);
-      break;
-    }
-    if (!tsp->slots[pkt.frame % NETSIM_FRAME_WINDOW].valid) {
-      struct remote_frame_slot rslot;
-
-      rslot.valid = true;
-      rslot.frame = pkt.frame;
-      rslot.bits = (uint8_t)pkt.bits;
-      rslot.first_recv_ns = netsim_monotonic_ns();
-      tsp->slots[pkt.frame % NETSIM_FRAME_WINDOW] = rslot;
-    }
+  peer_addrp = &outevp->peer_addr;
+  if (netsim_sip_packet_looks_like(outevp->pkt_buf, outevp->pkt_len)) {
+    (void)netsim_sip_handle_packet(ctxp->sip, outevp->pkt_buf, outevp->pkt_len, peer_addrp,
+      &ctxp->local_addr);
+    return;
   }
+  if (!decode_packet(outevp->pkt_buf, outevp->pkt_len, &pkt))
+    return;
+  if (!tsp->session_active || tsp->session_nonce == 0 ||
+      pkt.nonce != tsp->session_nonce || pkt.type != NETSIM_PKT_FRAME)
+    return;
+  if (tsp->peer_stream_ssrc != 0 && pkt.rtp_ssrc != tsp->peer_stream_ssrc)
+    return;
+  if ((int)pkt.player != tsp->remote_player)
+    return;
+  if (!tsp->media_source_valid) {
+    tsp->media_source = *peer_addrp;
+    tsp->media_source_valid = true;
+  } else if (!netsim_sockaddr_same(&tsp->media_source, peer_addrp)) {
+    return;
+  }
+  if (pkt.tx_seq < tsp->last_peer_tx_seq)
+    return;
+  thread_note_peer_frame_seen(tsp, pkt.frame);
+  thread_note_matching_peer_frame(tsp, pkt.frame);
+  thread_mark_matching_peer_tx(tsp, pkt.tx_seq, pkt.frame);
+  if (!thread_accept_peer_seq(tsp, pkt.tx_seq)) {
+    thread_resend_matching_frame(tsp, pkt.frame);
+    return;
+  }
+  tsp->peer_frame_seen = true;
+  if (pkt.frame <= tsp->last_delivered)
+    return;
+  if (pkt.frame > tsp->last_delivered + NETSIM_FRAME_WINDOW) {
+    netsim_log("frame window overflow frame=%u last_delivered=%u",
+      (unsigned int)pkt.frame, (unsigned int)tsp->last_delivered);
+    thread_fail_session(tsp, ctxp->inq, ctxp->outq, pkt.frame);
+    return;
+  }
+  if (!tsp->slots[pkt.frame % NETSIM_FRAME_WINDOW].valid) {
+    struct remote_frame_slot rslot;
+
+    rslot.valid = true;
+    rslot.frame = pkt.frame;
+    rslot.bits = (uint8_t)pkt.bits;
+    rslot.first_recv_ns = netsim_monotonic_ns();
+    tsp->slots[pkt.frame % NETSIM_FRAME_WINDOW] = rslot;
+  }
+}
+
+static void *
+netsim_rx_thread(void *arg)
+{
+  struct thread_ctx *ctxp;
+  struct netsim_out_ev outev;
+  netsim_sockaddr_t peer_addr;
+  uint8_t *buf;
+  int rlen, err;
+
+  ctxp = (struct thread_ctx *)arg;
+  while (!atomic_load_explicit(&ctxp->stop_requested, memory_order_relaxed)) {
+    buf = malloc(NETSIM_RX_BUFSIZE);
+    if (buf == NULL) {
+      memset(&outev, '\0', sizeof(outev));
+      outev.type = NETSIM_OUT_RX_ERROR;
+      outev.err = ENOMEM;
+      queue_out_put(ctxp->outq, &outev);
+      return (NULL);
+    }
+    rlen = netsim_socket_recvfrom(ctxp->sock, buf, NETSIM_RX_BUFSIZE, &peer_addr);
+    if (rlen < 0) {
+      err = netsim_socket_last_error();
+      free(buf);
+      if (netsim_socket_err_wouldblock(err) || netsim_socket_err_transient(err))
+        continue;
+      memset(&outev, '\0', sizeof(outev));
+      outev.type = NETSIM_OUT_RX_ERROR;
+      outev.err = err;
+      queue_out_put(ctxp->outq, &outev);
+      return (NULL);
+    }
+    memset(&outev, '\0', sizeof(outev));
+    outev.type = NETSIM_OUT_RX_PACKET;
+    outev.pkt_len = (size_t)rlen;
+    outev.peer_addr = peer_addr;
+    outev.pkt_buf = buf;
+    queue_out_put(ctxp->outq, &outev);
+  }
+  queue_out_wake(ctxp->outq);
+  return (NULL);
 }
 
 static bool
@@ -1504,87 +1573,109 @@ thread_deliver_ready_frames(struct netsim_thread_state *tsp,
 }
 
 static enum thread_step_result
-thread_handle_control(struct netsim_thread_state *tsp, struct thread_ctx *ctxp,
-  bool *thread_stopp)
-{
-  struct netsim_out_ev outev;
-
-  if (!queue_out_trytake_control(ctxp->outq, &outev))
-    return (THREAD_STEP_NEXT);
-  if (outev.type == NETSIM_OUT_SHUTDOWN) {
-    netsim_log("shutdown signal received");
-    tsp->hello_tx.active = false;
-    tsp->tx.active = false;
-    *thread_stopp = true;
-    return (THREAD_STEP_STOP);
-  }
-  if (tsp->exiting)
-    return (THREAD_STEP_CONTINUE);
-  netsim_log("stop requested");
-  thread_reset_session(tsp, ctxp->outq);
-  return (THREAD_STEP_CONTINUE);
-}
-
-static enum thread_step_result
 thread_handle_outgoing(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
 {
   struct netsim_out_ev outev;
+  char errbuf[128];
+  enum thread_step_result rval;
 
-  if (!queue_out_peek(ctxp->outq, &outev))
+  if (!queue_out_tryget(ctxp->outq, &outev))
     return (THREAD_STEP_NEXT);
-  if (outev.type == NETSIM_OUT_START) {
-    if (tsp->tx.active)
-      return (THREAD_STEP_NEXT);
-    (void)queue_out_drop_head(ctxp->outq);
-    thread_begin_session(tsp, outev.nonce, 0, 1, true);
-    netsim_log("local start offer session=0x%016llx local_player=%d",
-      (unsigned long long)tsp->session_nonce, tsp->local_player + 1);
-    push_start(ctxp->inq, tsp->local_player, tsp->session_nonce);
-    thread_set_tx(tsp, outev.type, outev.frame, outev.bits);
-    return (THREAD_STEP_NEXT);
-  }
-  if (outev.type == NETSIM_OUT_START_ACK) {
-    if (tsp->session_nonce == 0 || outev.nonce != tsp->session_nonce) {
-      (void)queue_out_drop_head(ctxp->outq);
-      return (THREAD_STEP_CONTINUE);
+  rval = THREAD_STEP_NEXT;
+  switch (outev.type) {
+    case NETSIM_OUT_RX_ERROR:
+      netsim_log("recv failed: %s",
+        netsim_socket_strerror(outev.err, errbuf, sizeof(errbuf)));
+      push_error(ctxp->inq);
+      thread_reset_session(tsp, ctxp->outq);
+      rval = THREAD_STEP_CONTINUE;
+      break;
+
+    case NETSIM_OUT_RX_PACKET:
+      thread_process_rx_packet(tsp, ctxp, &outev);
+      break;
+
+    case NETSIM_OUT_START: {
+      char sip_errbuf[160];
+
+      sip_errbuf[0] = '\0';
+      thread_begin_session(tsp, outev.nonce, 0, 1, true);
+      tsp->local_stream_ssrc = make_stream_ssrc(tsp->local_nonce, tsp->session_nonce);
+      netsim_log("local start offer session=0x%016llx local_player=%d",
+        (unsigned long long)tsp->session_nonce, tsp->local_player + 1);
+      push_start(ctxp->inq, tsp->local_player, tsp->session_nonce);
+      if (!netsim_sip_start_call(ctxp->sip, tsp->session_nonce,
+            tsp->local_stream_ssrc, tsp->local_player, sip_errbuf,
+            sizeof(sip_errbuf))) {
+        netsim_log("SIP start failed: %s", sip_errbuf);
+        push_error(ctxp->inq);
+        thread_reset_session(tsp, ctxp->outq);
+        rval = THREAD_STEP_CONTINUE;
+      } else if (sip_errbuf[0] != '\0') {
+        netsim_log("SIP start deferred: %s", sip_errbuf);
+      }
+      break;
     }
-    if (tsp->tx.active)
-      return (THREAD_STEP_NEXT);
-    (void)queue_out_drop_head(ctxp->outq);
-    thread_set_tx(tsp, outev.type, outev.frame, outev.bits);
-    return (THREAD_STEP_NEXT);
+
+    case NETSIM_OUT_START_ACK:
+      break;
+
+    case NETSIM_OUT_EXIT:
+      if (!tsp->session_active) {
+        netsim_log("drop stale %s frame=%u while session inactive",
+          pending_name(outev.type), (unsigned int)outev.frame);
+        break;
+      }
+      netsim_log("local exit queued");
+      tsp->exiting = true;
+      tsp->session_active = false;
+      tsp->tx.active = false;
+      tsp->prev_tx_valid = false;
+      clear_frame_slots(tsp->slots);
+      clear_peer_seen_slots(tsp->peer_seen);
+      netsim_sip_hangup(ctxp->sip);
+      queue_out_clear_session(ctxp->outq);
+      break;
+
+    case NETSIM_OUT_FRAME:
+      if (!tsp->session_active) {
+        netsim_log("drop stale %s frame=%u while session inactive",
+          pending_name(outev.type), (unsigned int)outev.frame);
+        break;
+      }
+      if (thread_tx_blocks_frame(tsp))
+        thread_queue_pending_frame(tsp, outev.frame, outev.bits);
+      else
+        thread_set_tx(tsp, outev.type, outev.frame, outev.bits);
+      break;
+
+    case NETSIM_OUT_STOP:
+      netsim_log("stop requested");
+      tsp->exiting = true;
+      tsp->session_active = false;
+      tsp->tx.active = false;
+      tsp->prev_tx_valid = false;
+      tsp->pending_frame_valid = false;
+      clear_frame_slots(tsp->slots);
+      clear_peer_seen_slots(tsp->peer_seen);
+      netsim_sip_hangup(ctxp->sip);
+      queue_out_clear_session(ctxp->outq);
+      rval = THREAD_STEP_CONTINUE;
+      break;
+
+    case NETSIM_OUT_SHUTDOWN:
+      netsim_log("shutdown signal received");
+      tsp->tx.active = false;
+      tsp->pending_frame_valid = false;
+      rval = THREAD_STEP_STOP;
+      break;
+
+    default:
+      assert(false && "unexpected out queue event");
+      break;
   }
-  if (!tsp->session_active) {
-    if (outev.type == NETSIM_OUT_FRAME || outev.type == NETSIM_OUT_EXIT) {
-      netsim_log("drop stale %s frame=%u while session inactive",
-        pending_name(outev.type), (unsigned int)outev.frame);
-      (void)queue_out_drop_head(ctxp->outq);
-      return (THREAD_STEP_CONTINUE);
-    }
-    return (THREAD_STEP_NEXT);
-  }
-  if (outev.type == NETSIM_OUT_EXIT) {
-    if (tsp->acking_peer_exit) {
-      (void)queue_out_drop_head(ctxp->outq);
-      return (THREAD_STEP_CONTINUE);
-    }
-    (void)queue_out_drop_head(ctxp->outq);
-    netsim_log("local exit queued");
-    tsp->prev_tx_valid = false;
-    tsp->tx.active = false;
-    thread_set_tx(tsp, outev.type, outev.frame, outev.bits);
-    tsp->exiting = true;
-    return (THREAD_STEP_NEXT);
-  }
-  if (outev.type == NETSIM_OUT_FRAME) {
-    if (tsp->tx.active && !(tsp->tx.type == NETSIM_OUT_FRAME && tsp->tx.matched))
-      return (THREAD_STEP_NEXT);
-    (void)queue_out_drop_head(ctxp->outq);
-    thread_set_tx(tsp, outev.type, outev.frame, outev.bits);
-    return (THREAD_STEP_NEXT);
-  }
-  assert(false && "unexpected out queue event at worker head");
-  return (THREAD_STEP_NEXT);
+  netsim_out_ev_cleanup(&outev);
+  return (rval);
 }
 
 static enum thread_step_result
@@ -1592,33 +1683,13 @@ thread_send_ready(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
 {
   bool data_sent;
 
-  if (!send_pending(tsp->sock, tsp->local_ctrl_ssrc, tsp->local_stream_ssrc,
-        &tsp->hello_tx, tsp->local_player, &data_sent)) {
-    push_error(ctxp->inq);
-    return (THREAD_STEP_CONTINUE);
-  }
-  if (!send_pending(tsp->sock, tsp->local_ctrl_ssrc, tsp->local_stream_ssrc,
-        &tsp->tx, tsp->local_player, &data_sent)) {
-    if (tsp->tx.type == NETSIM_OUT_EXIT) {
-      netsim_log("exit send failed permanently, resetting session");
-      thread_reset_session(tsp, ctxp->outq);
-      return (THREAD_STEP_CONTINUE);
-    }
-    netsim_log("session data send failed permanently, converting to exit");
+  if (!tsp->session_active || tsp->media_target.len == 0)
+    return (THREAD_STEP_NEXT);
+  if (!send_pending(tsp->sock, &tsp->media_target, tsp->local_ctrl_ssrc,
+        tsp->local_stream_ssrc, &tsp->tx, tsp->local_player, &data_sent)) {
+    netsim_log("session data send failed permanently, resetting session");
     thread_fail_session(tsp, ctxp->inq, ctxp->outq, tsp->tx.frame);
     return (THREAD_STEP_CONTINUE);
-  }
-  if (data_sent && tsp->acking_peer_exit && tsp->tx.type == NETSIM_OUT_EXIT) {
-    netsim_log("peer exit ack sent");
-    thread_reset_session(tsp, ctxp->outq);
-    return (THREAD_STEP_CONTINUE);
-  }
-  if (data_sent && tsp->tx.type == NETSIM_OUT_START_ACK &&
-      !tsp->session_active) {
-    tsp->session_active = true;
-    netsim_log("session ready local_player=%d session=0x%016llx",
-      tsp->local_player + 1, (unsigned long long)tsp->session_nonce);
-    push_start_ack(ctxp->inq);
   }
   return (THREAD_STEP_NEXT);
 }
@@ -1628,6 +1699,7 @@ netsim_thread(void *arg)
 {
   struct thread_ctx *ctxp;
   struct netsim_thread_state ts;
+  enum thread_step_result step;
   bool thread_stop;
 
   ctxp = (struct thread_ctx *)arg;
@@ -1638,28 +1710,39 @@ netsim_thread(void *arg)
   ts.local_nonce = make_nonce();
   ts.local_ctrl_ssrc = make_ssrc(ts.local_nonce);
   ts.sock = ctxp->sock;
-  netsim_log("thread start local=%s:%s remote=%s:%s local_nonce=0x%016llx",
-    ctxp->cfg.local_host[0] != '\0' ? ctxp->cfg.local_host : "0.0.0.0",
-    ctxp->cfg.local_port, ctxp->cfg.remote_host, ctxp->cfg.remote_port,
+  netsim_log("thread start local=%s:%s sip=%s:%s local_nonce=0x%016llx",
+    ctxp->local_host, ctxp->local_port,
+    ctxp->cfg.sip.server_host, ctxp->cfg.sip.server_port,
     (unsigned long long)ts.local_nonce);
 
-  reset_hello_pending(&ts.hello_tx, ts.local_nonce);
-
   while (!thread_stop) {
-    thread_drain_recv(&ts, ctxp);
-    if (thread_handle_control(&ts, ctxp, &thread_stop) != THREAD_STEP_NEXT)
-      continue;
-    if (thread_handle_outgoing(&ts, ctxp) == THREAD_STEP_CONTINUE)
-      continue;
+    thread_drain_sip_events(&ts, ctxp);
+    step = thread_handle_outgoing(&ts, ctxp);
+    switch (step) {
+      case THREAD_STEP_STOP:
+        thread_stop = true;
+        continue;
+
+      case THREAD_STEP_CONTINUE:
+        continue;
+
+      case THREAD_STEP_NEXT:
+        break;
+    }
+    (void)netsim_sip_run(ctxp->sip);
+    thread_drain_sip_events(&ts, ctxp);
+    thread_promote_pending_frame(&ts);
     if (thread_send_ready(&ts, ctxp) == THREAD_STEP_CONTINUE)
       continue;
     thread_deliver_ready_frames(&ts, ctxp);
-    if (ts.exiting && !ts.tx.active) {
-      thread_reset_session(&ts, ctxp->outq);
-      continue;
-    }
-    queue_out_wait_until(ctxp->outq, thread_next_wakeup(&ts));
+    queue_out_wait_until(ctxp->outq,
+      netsim_sip_next_wakeup(ctxp->sip, thread_next_wakeup(&ts)));
   }
+  atomic_store_explicit(&ctxp->stop_requested, true, memory_order_relaxed);
+  queue_out_wake(ctxp->outq);
+  if (ctxp->rx_started)
+    netsim_thread_join(ctxp->rx_thr);
+  netsim_sip_destroy(ctxp->sip);
   if (ts.sock != NETSIM_SOCKET_INVALID)
     netsim_socket_close(ts.sock);
   netsim_log("thread stop send_stop=%d session_active=%d exiting=%d peer_frame_seen=%d",
@@ -1671,55 +1754,65 @@ netsim_thread(void *arg)
 bool
 netsim_configure(const char *spec)
 {
-  const char *dashp;
-  const char *closep;
-  char local_spec[272], remote_spec[272];
+  const char *dashp, *atp, *passp;
   size_t len;
 
   memset(&g_cfg, '\0', sizeof(g_cfg));
-  if (spec[0] == '[') {
-    closep = strchr(spec, ']');
-    if (closep == NULL || closep[1] != '-')
+  dashp = strrchr(spec, '-');
+  atp = strchr(spec, '@');
+  if (dashp == NULL || dashp == spec || dashp[1] == '\0')
+    return (false);
+  if (atp == NULL || atp >= dashp) {
+    len = (size_t)(dashp - spec);
+    if (len == 0 || len >= sizeof(g_cfg.sip.username))
       return (false);
-    len = (size_t)(closep - (spec + 1));
-    if (len == 0 || len >= sizeof(local_spec))
-      return (false);
-    memcpy(local_spec, spec + 1, len);
-    local_spec[len] = '\0';
-    if (!parse_host_port(local_spec, g_cfg.local_host, sizeof(g_cfg.local_host),
-          g_cfg.local_port, sizeof(g_cfg.local_port)))
-      return (false);
-    if (!parse_host_port(closep + 2, g_cfg.remote_host, sizeof(g_cfg.remote_host),
-          g_cfg.remote_port, sizeof(g_cfg.remote_port)))
-      return (false);
+    memcpy(g_cfg.sip.username, spec, len);
+    g_cfg.sip.username[len] = '\0';
+    strcpy(g_cfg.sip.server_port, "5060");
   } else {
-    dashp = strchr(spec, '-');
-    if (dashp != NULL) {
-      len = (size_t)(dashp - spec);
-      if (len == 0 || len >= sizeof(local_spec) || strlen(dashp + 1) >= sizeof(remote_spec))
+    passp = memchr(spec, ':', (size_t)(atp - spec));
+    if (passp == NULL) {
+      len = (size_t)(atp - spec);
+      if (len == 0 || len >= sizeof(g_cfg.sip.username))
         return (false);
-      memcpy(local_spec, spec, len);
-      local_spec[len] = '\0';
-      strcpy(remote_spec, dashp + 1);
-      if (!parse_host_port(local_spec, g_cfg.local_host, sizeof(g_cfg.local_host),
-            g_cfg.local_port, sizeof(g_cfg.local_port)))
-        return (false);
-      if (!parse_host_port(remote_spec, g_cfg.remote_host, sizeof(g_cfg.remote_host),
-            g_cfg.remote_port, sizeof(g_cfg.remote_port)))
-        return (false);
+      memcpy(g_cfg.sip.username, spec, len);
+      g_cfg.sip.username[len] = '\0';
     } else {
-      if (!parse_host_port(spec, g_cfg.remote_host, sizeof(g_cfg.remote_host),
-            g_cfg.remote_port, sizeof(g_cfg.remote_port)))
+      len = (size_t)(passp - spec);
+      if (len == 0 || len >= sizeof(g_cfg.sip.username))
         return (false);
-      strcpy(g_cfg.local_port, g_cfg.remote_port);
+      memcpy(g_cfg.sip.username, spec, len);
+      g_cfg.sip.username[len] = '\0';
+      len = (size_t)(atp - (passp + 1));
+      if (len == 0 || len >= sizeof(g_cfg.sip.password))
+        return (false);
+      memcpy(g_cfg.sip.password, passp + 1, len);
+      g_cfg.sip.password[len] = '\0';
+    }
+    len = (size_t)(dashp - (atp + 1));
+    if (len == 0 || len >= sizeof(g_cfg.sip.server_host))
+      return (false);
+    {
+      char hostbuf[272];
+
+      memcpy(hostbuf, atp + 1, len);
+      hostbuf[len] = '\0';
+      if (!parse_sip_host_port(hostbuf, g_cfg.sip.server_host,
+            sizeof(g_cfg.sip.server_host), g_cfg.sip.server_port,
+            sizeof(g_cfg.sip.server_port)))
+        return (false);
     }
   }
-  if (g_cfg.local_port[0] == '\0')
-    strcpy(g_cfg.local_port, g_cfg.remote_port);
+  if (strlen(dashp + 1) >= sizeof(g_cfg.sip.peer_user))
+    return (false);
+  strcpy(g_cfg.sip.peer_user, dashp + 1);
   g_cfg.configured = true;
-  netsim_log("configured local=%s:%s remote=%s:%s",
-    g_cfg.local_host[0] != '\0' ? g_cfg.local_host : "0.0.0.0",
-    g_cfg.local_port, g_cfg.remote_host, g_cfg.remote_port);
+  netsim_log("configured sip_user=%s server=%s%s%s peer=%s",
+    g_cfg.sip.username,
+    g_cfg.sip.server_host[0] != '\0' ? g_cfg.sip.server_host : "<peer>",
+    g_cfg.sip.server_host[0] != '\0' ? ":" : "",
+    g_cfg.sip.server_host[0] != '\0' ? g_cfg.sip.server_port : "",
+    g_cfg.sip.peer_user);
   return (true);
 }
 
@@ -1735,31 +1828,56 @@ netsim_begin_wait(void)
 {
   struct thread_ctx *ctxp;
   netsim_socket_t sock;
+  char errbuf[160];
 
   if (!g_cfg.configured || g_session.running)
     return (g_session.running);
   if (!netsim_platform_init())
     return (false);
-  netsim_log("begin_wait requested local=%s:%s remote=%s:%s",
-    g_cfg.local_host[0] != '\0' ? g_cfg.local_host : "0.0.0.0",
-    g_cfg.local_port, g_cfg.remote_host, g_cfg.remote_port);
+  netsim_log("begin_wait requested sip_user=%s server=%s%s%s peer=%s",
+    g_cfg.sip.username,
+    g_cfg.sip.server_host[0] != '\0' ? g_cfg.sip.server_host : "<peer>",
+    g_cfg.sip.server_host[0] != '\0' ? ":" : "",
+    g_cfg.sip.server_host[0] != '\0' ? g_cfg.sip.server_port : "",
+    g_cfg.sip.peer_user);
   queue_out_init(&g_session.outq);
   queue_in_init(&g_session.inq);
   g_session.running = true;
   netsim_reset_state(NETSIM_SESSION_WAITING);
-  sock = open_socket(&g_cfg);
-  if (sock == NETSIM_SOCKET_INVALID)
-    goto fail;
+  sock = NETSIM_SOCKET_INVALID;
   ctxp = calloc(1, sizeof(*ctxp));
-  if (ctxp == NULL) {
+  if (ctxp == NULL)
+    goto fail;
+  if (!open_socket(&g_cfg, &sock, &ctxp->local_addr, ctxp->local_host,
+        sizeof(ctxp->local_host), ctxp->local_port, sizeof(ctxp->local_port))) {
+    free(ctxp);
+    goto fail;
+  }
+  ctxp->sip = netsim_sip_create(&g_cfg.sip, sock, ctxp->local_host, ctxp->local_port,
+    errbuf, sizeof(errbuf));
+  if (ctxp->sip == NULL) {
+    netsim_err("%s", errbuf);
     netsim_socket_close(sock);
+    free(ctxp);
     goto fail;
   }
   ctxp->cfg = g_cfg;
   ctxp->sock = sock;
   ctxp->outq = &g_session.outq;
   ctxp->inq = &g_session.inq;
+  atomic_init(&ctxp->stop_requested, false);
+  if (!netsim_thread_create(&ctxp->rx_thr, netsim_rx_thread, ctxp)) {
+    netsim_sip_destroy(ctxp->sip);
+    netsim_socket_close(sock);
+    free(ctxp);
+    goto fail;
+  }
+  ctxp->rx_started = true;
   if (!netsim_thread_create(&g_session.thr, netsim_thread, ctxp)) {
+    atomic_store_explicit(&ctxp->stop_requested, true, memory_order_relaxed);
+    if (ctxp->rx_started)
+      netsim_thread_join(ctxp->rx_thr);
+    netsim_sip_destroy(ctxp->sip);
     netsim_socket_close(sock);
     free(ctxp);
     goto fail;
@@ -1914,7 +2032,7 @@ netsim_stop_session(bool send_exit)
     send_exit, netsim_is_started(),
     netsim_is_peer_exited());
   memset(&outev, '\0', sizeof(outev));
-  outev.type = send_exit ? NETSIM_OUT_EXIT : NETSIM_OUT_STOP;
+  outev.type = NETSIM_OUT_STOP;
   queue_out_put(&g_session.outq, &outev);
   queue_in_clear_session(&g_session.inq);
   netsim_reset_state(NETSIM_SESSION_WAITING);
@@ -1957,7 +2075,10 @@ netsim_sync_frame(uint32_t frame, uint8_t local_bits, bool local_freeze,
   outev.nonce = g_session.session_nonce;
   if (local_freeze)
     outev.bits |= NETSIM_CTRL_FREEZE;
+  netsim_log("submit local frame frame=%u bits=0x%02x",
+    (unsigned int)frame, (unsigned int)outev.bits);
   queue_out_put(&g_session.outq, &outev);
+  netsim_log("submitted local frame frame=%u", (unsigned int)frame);
   for (;;) {
     queue_in_get(&g_session.inq, &inev);
     if (inev.type == NETSIM_IN_FRAME && inev.frame == frame) {
