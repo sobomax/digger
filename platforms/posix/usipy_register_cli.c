@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+#include "public/usipy_sip_ua_utils.h"
 #include "usipy_tm_uac.h"
 #include "usipy_tm_uac_cli.h"
 
@@ -19,9 +20,7 @@ struct usipy_register_cli_ctx {
     int sock;
     int stop;
     int error;
-    int auth_retry_started;
-    uint16_t final_status;
-    unsigned int expires;
+    struct usipy_sip_register_state reg;
     struct usipy_sip_tm *tm;
     struct usipy_sip_tm_addr peer;
     struct usipy_sip_tm_addr local;
@@ -56,31 +55,21 @@ register_response(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
   const struct usipy_msg *msg)
 {
     struct usipy_register_cli_ctx *ctx = arg;
-    const unsigned int scode = msg->sline.parsed.sl.status.code;
+    enum usipy_sip_register_response_result reg_rval;
 
-    (void)txp;
-    ctx->final_status = (uint16_t)scode;
-    if ((scode == 401 || scode == 407) && !ctx->auth_retry_started) {
-        if (usipy_tm_uac_register_reply_auth(ctx->tm, tx_index, msg, &ctx->username,
-          &ctx->password, &ctx->qop, NULL, 0) != USIPY_SIP_TM_OK) {
-            ctx->error = 1;
-            ctx->stop = 1;
-            return;
-        }
-        ctx->auth_retry_started = 1;
-        return;
-    }
-    if (scode >= 200 && scode < 300) {
-        if (usipy_tm_uac_extract_register_expires(msg, &ctx->username,
-          &ctx->expires) != 0) {
-            ctx->error = 1;
-        }
-        ctx->stop = 1;
-        return;
-    }
-    if (scode >= 200) {
+    if (usipy_sip_register_handle_response(&ctx->reg, ctx->tm, tx_index, txp, msg,
+          &ctx->username, &ctx->password, &ctx->qop, usipy_tm_uac_mono_ms(),
+          &reg_rval) != USIPY_SIP_TM_OK) {
         ctx->error = 1;
         ctx->stop = 1;
+        return;
+    }
+    if (reg_rval == USIPY_SIP_REGISTER_RESPONSE_ESTABLISHED ||
+      reg_rval == USIPY_SIP_REGISTER_RESPONSE_FINAL) {
+        ctx->stop = 1;
+        if (reg_rval == USIPY_SIP_REGISTER_RESPONSE_FINAL) {
+            ctx->error = 1;
+        }
     }
 }
 
@@ -93,6 +82,7 @@ register_timeout(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
     (void)tx_index;
     (void)txp;
     (void)timeout_id;
+    usipy_sip_register_handle_timeout(&ctx->reg);
     ctx->error = 1;
     ctx->stop = 1;
 }
@@ -108,11 +98,13 @@ main(int argc, char **argv)
     };
     struct usipy_register_cli_ctx ctx = {
       .sock = -1,
+      .reg = {
+        .next_cseq = 1,
+      },
       .qop = (struct usipy_str)USIPY_2STR("auth"),
     };
     struct sockaddr_storage peer_ss;
     socklen_t peer_slen = 0;
-    struct usipy_sip_tm_new_uac_tr_params tp = {0};
     struct usipy_sip_tm_run_in rin;
     struct usipy_sip_tm_run_out rout;
     struct usipy_sip_tm_handle_incoming_in hin;
@@ -246,19 +238,20 @@ main(int argc, char **argv)
         fprintf(stderr, "unable to initialize SIP TM\n");
         goto done;
     }
-    tp.request_id.call_id = call_id;
-    tp.request_id.cseq = 1;
-    tp.request_id.method_type = USIPY_SIP_METHOD_REGISTER;
-    tp.request_target.request_uri = request_uri;
-    tp.request_target.target = ctx.peer;
-    tp.parties_by_username.from = ctx.username;
-    tp.parties_by_username.to = ctx.username;
-    tp.parties_by_username.contact = ctx.username;
-    tp.contact_expires = expires;
-    tp.callbacks.arg = &ctx;
-    tp.callbacks.response = register_response;
-    tp.callbacks.timeout = register_timeout;
-    if (usipy_sip_tm_new_uac_tr(ctx.tm, &tp, &tx_index) != USIPY_SIP_TM_OK) {
+    ctx.reg.requested_expires = expires;
+    if (usipy_sip_register_start(&ctx.reg,
+          &(const struct usipy_sip_register_start_params){
+            .tm = ctx.tm,
+            .call_id = call_id,
+            .request_uri = request_uri,
+            .target = ctx.peer,
+            .username = ctx.username,
+            .callbacks = {
+              .arg = &ctx,
+              .response = register_response,
+              .timeout = register_timeout,
+            },
+          }, &tx_index) != USIPY_SIP_TM_OK) {
         fprintf(stderr, "unable to create SIP transaction\n");
         goto done;
     }
@@ -345,11 +338,11 @@ main(int argc, char **argv)
             }
         }
     }
-    if (ctx.error || ctx.final_status < 200 || ctx.final_status >= 300) {
-        fprintf(stderr, "register failed with status %u\n", ctx.final_status);
+    if (ctx.error || ctx.reg.status < 200 || ctx.reg.status >= 300) {
+        fprintf(stderr, "register failed with status %u\n", ctx.reg.status);
         goto done;
     }
-    printf("%u\n", ctx.expires);
+    printf("%u\n", ctx.reg.expires);
     rval = 0;
 
 done:

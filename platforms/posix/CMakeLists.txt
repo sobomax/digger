@@ -33,7 +33,9 @@ target_include_directories(ua_cli PUBLIC
 target_include_directories(microsippy PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}
 )
-target_sources(microsippy PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/usipy_log.c")
+target_sources(microsippy PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/usipy_platform_default.c"
+)
 target_link_libraries(usipy_test PRIVATE
   microsippy
   ${CMAKE_THREAD_LIBS_INIT}
@@ -92,6 +94,8 @@ ENDIF (IS_BIG_ENDIAN)
 enable_testing()
 
 add_test(basic ${CMAKE_SOURCE_DIR}/../../scripts/do-test.sh ${CMAKE_SOURCE_DIR})
+add_test(NAME usipy_test_uac COMMAND usipy_test_uac)
+add_test(NAME usipy_test_ua COMMAND usipy_test_ua)
 
 check_ipo_supported(RESULT USIPY_POSIX_IPO_SUPPORTED OUTPUT USIPY_POSIX_IPO_OUTPUT LANGUAGES C)
 if (USIPY_POSIX_IPO_SUPPORTED)

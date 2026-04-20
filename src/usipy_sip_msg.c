@@ -31,9 +31,8 @@
 #include "usipy_sip_hdr_via.h"
 #include "usipy_sip_uri.h"
 #include "usipy_sip_tid.h"
+#include "usipy_sip_msg_priv.h"
 #include "usipy_misc.h"
-
-#define USIPY_HFS_NMIN (30)
 
 struct usipy_sip_msg_iterator {
     struct usipy_str msg_onwire;
@@ -62,11 +61,8 @@ struct usipy_sip_msg_build_hdr_arg {
 static size_t
 usipy_sip_msg_alloc_len(size_t len)
 {
-    size_t hf_prealloclen;
-
-    hf_prealloclen = USIPY_ALIGNED_SIZE(len < (sizeof(struct usipy_sip_hdr) * USIPY_HFS_NMIN) ?
-      sizeof(struct usipy_sip_hdr) * USIPY_HFS_NMIN : len);
-    return (sizeof(struct usipy_msg) + USIPY_ALIGNED_SIZE(len) + hf_prealloclen);
+    return (sizeof(struct usipy_msg) + USIPY_ALIGNED_SIZE(len) +
+      usipy_sip_msg_extra_heap_size(len));
 }
 
 struct usipy_msg *
@@ -548,7 +544,7 @@ crlfcompr(uintptr_t cval, bool carry)
 {
     const uintptr_t mskA = BFILL(typeof(mskA), '\r'); /* '\r' * sizeof(mskA) */
     const uintptr_t mskB = BFILL(typeof(mskB), '\n'); /* '\n' * sizeof(mskB) */
-    uintptr_t val, mvalA, mvalB;
+    uintptr_t mvalA, mvalB;
     struct crlfres rval = {.v = 0};
 
     mvalA = cval ^ mskA; /* This produces 0x00 at positions with \r */

@@ -25,7 +25,7 @@ int usipy_msg_heap_append(struct usipy_msg_heap *, struct usipy_str *,
 int usipy_msg_heap_build(struct usipy_msg_heap *, struct usipy_str *, void *,
   usipy_msg_heap_build_cb);
 int usipy_msg_heap_sprintf(struct usipy_msg_heap *, struct usipy_str *,
-  const char *, ...);
+  const char *, ...) __attribute__ ((format (printf, 3, 4)));
 
 #define USIPY_MEM_ALIGNOF  (3) /* alignof(max_align_t) ? */
 #define USIPY_REALIGN(val) ((val) & ~((1 << USIPY_MEM_ALIGNOF) - 1))

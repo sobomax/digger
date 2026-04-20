@@ -1,6 +1,8 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "public/usipy_str.h"
+#include "usipy_misc.h"
 
 const struct usipy_str usipy_sip_version = USIPY_2STR("SIP/2.0");
 #define CHLOWER(ch) ((ch) | 32)

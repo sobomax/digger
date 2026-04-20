@@ -1,3 +1,5 @@
+#pragma once
+
 struct usipy_hdr_db_entr;
 struct usipy_sip_hdr_cseq;
 struct usipy_sip_hdr_via;

@@ -1,10 +1,9 @@
 #include <assert.h>
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <time.h>
 
+#include "public/usipy_platform.h"
 #include "public/usipy_str.h"
 #include "external/mackron_md5/md5.h"
 #include "usipy_sip_hdr.h"
@@ -28,22 +27,15 @@ usipy_tm_uac_uint_from_str(const struct usipy_str *sp, unsigned int *outp)
 uint64_t
 usipy_tm_uac_mono_ms(void)
 {
-    struct timespec ts;
 
-    assert(clock_gettime(CLOCK_MONOTONIC, &ts) == 0);
-    return ((uint64_t)ts.tv_sec * 1000u) + ((uint64_t)ts.tv_nsec / 1000000u);
+    return (usipy_platform_mono_ms());
 }
 
 void
 usipy_tm_uac_sleep_until_ms(uint64_t when_ms)
 {
-    struct timespec ts;
 
-    ts.tv_sec = when_ms / 1000u;
-    ts.tv_nsec = (long)((when_ms % 1000u) * 1000000u);
-    while (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &ts, NULL) != 0) {
-        assert(errno == EINTR);
-    }
+    usipy_platform_sleep_until_ms(when_ms);
 }
 
 int
@@ -188,20 +180,19 @@ usipy_tm_uac_extract_register_expires(const struct usipy_msg *msg,
 int
 usipy_tm_uac_production_ids_init(struct usipy_tm_uac_production_ids *idsp)
 {
-    struct timespec ts;
     md5_context ctx;
+    unsigned char seed[MD5_SIZE];
     unsigned char hash[MD5_SIZE];
     char hash_hex[MD5_SIZE_FORMATTED];
 
     if (idsp == NULL) {
         return (-1);
     }
-    if (clock_gettime(CLOCK_REALTIME, &ts) != 0) {
+    if (usipy_platform_random_fill(seed, sizeof(seed)) != 0) {
         return (-1);
     }
     md5_init(&ctx);
-    md5_update(&ctx, &ts.tv_sec, sizeof(ts.tv_sec));
-    md5_update(&ctx, &ts.tv_nsec, sizeof(ts.tv_nsec));
+    md5_update(&ctx, seed, sizeof(seed));
     md5_finalize(&ctx, hash);
     md5_format(hash_hex, sizeof(hash_hex), hash);
     memcpy(idsp->branch_seed, hash_hex, USIPY_TM_UAC_ID_SEED_HEXLEN);
@@ -231,6 +222,7 @@ usipy_tm_uac_production_id_policy(void *arg, struct usipy_msg_heap *mhp,
       USIPY_TM_UAC_ID_SEED_HEXLEN, idsp->branch_seed) != 0) {
         return (-1);
     }
+    outp->call_id = idsp->call_id_s;
     if (usipy_msg_heap_append(mhp, &outp->local_tag, &(struct usipy_str){
       .s.ro = idsp->local_tag,
       .l = USIPY_TM_UAC_ID_SEED_HEXLEN,

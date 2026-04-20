@@ -3,8 +3,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "usipy_port/network.h"
+
 #include "usipy_debug.h"
+#include "public/usipy_platform.h"
 #include "public/usipy_sip_tm.h"
+#include "usipy_append_priv.h"
 #include "usipy_sip_hdr.h"
 #include "usipy_sip_hdr_db.h"
 #include "usipy_sip_hdr_nameaddr.h"
@@ -481,6 +485,30 @@ usipy_sip_tm_uas_cache_request(const struct usipy_msg *reqp,
     return (0);
 }
 
+static int
+usipy_sip_tm_uas_format_local_contact_uri(struct usipy_msg_heap *mhp,
+  const struct usipy_sip_tm_addr *localp, struct usipy_str *urip)
+{
+    USIPY_DASSERT(mhp != NULL);
+    USIPY_DASSERT(localp != NULL);
+    USIPY_DASSERT(urip != NULL);
+
+    switch (localp->af) {
+    case AF_INET:
+        return (usipy_msg_heap_sprintf(mhp, urip, "sip:%.*s:%u",
+          USIPY_SFMT(&localp->host), localp->port));
+
+#ifdef IPPROTO_IPV6
+    case AF_INET6:
+        return (usipy_msg_heap_sprintf(mhp, urip, "sip:[%.*s]:%u",
+          USIPY_SFMT(&localp->host), localp->port));
+#endif
+
+    default:
+        return (-1);
+    }
+}
+
 struct usipy_sip_tm_uas_build_arg {
     const struct usipy_sip_tm *tm;
     const struct usipy_sip_tm_txi *tp;
@@ -493,12 +521,12 @@ usipy_sip_tm_uas_build_response_cb(void *arg, char *buf, size_t len)
     static const struct usipy_str sip20_sp = USIPY_2STR("SIP/2.0 ");
     static const struct usipy_str colon_sp = USIPY_2STR(": ");
     static const struct usipy_str tag_param = USIPY_2STR(";tag=");
-    static const struct usipy_str server_value = USIPY_2STR("uSippy");
     const struct usipy_sip_tm_uas_build_arg *barg = arg;
     const struct usipy_sip_tm *tm = barg->tm;
     const struct usipy_sip_tm_txi *tp = barg->tp;
     const struct usipy_sip_tm_uas_response_params *rpp = barg->rpp;
     const struct usipy_sip_status *slp = &rpp->status;
+    const struct usipy_str *serverp = USIPY_PLATFORM.get_server();
     const struct usipy_hdr_db_entr *via_hfp = usipy_hdr_db_byid(USIPY_HF_VIA);
     const struct usipy_hdr_db_entr *from_hfp = usipy_hdr_db_byid(USIPY_HF_FROM);
     const struct usipy_hdr_db_entr *to_hfp = usipy_hdr_db_byid(USIPY_HF_TO);
@@ -509,17 +537,16 @@ usipy_sip_tm_uas_build_response_cb(void *arg, char *buf, size_t len)
     const struct usipy_hdr_db_entr *server_hfp = usipy_hdr_db_byid(USIPY_HF_SERVER);
     const struct usipy_hdr_db_entr *ctype_hfp = usipy_hdr_db_byid(USIPY_HF_CONTENTTYPE);
     const struct usipy_hdr_db_entr *clen_hfp = usipy_hdr_db_byid(USIPY_HF_CONTENTLENGTH);
+    const struct usipy_sip_tm_extra_header *ehp = rpp->extra_headers;
+    const size_t neh = rpp->nextra_headers;
     char clen_buf[32];
+    struct usipy_hdr_db_entr ehdb[neh != 0 ? neh : 1];
     size_t off = 0;
     char sbuf[4];
     int rval;
 
-#define APPEND_MEM(bp, blen) do { \
-        if (off + (blen) > len) return (-1); \
-        memcpy(buf + off, (bp), (blen)); \
-        off += (blen); \
-    } while (0)
-#define APPEND_STR(sp) APPEND_MEM((sp)->s.ro, (sp)->l)
+#define APPEND_MEM(bp, blen) USIPY_APPEND_MEM_OR_RETURN(-1, buf, off, len, bp, blen)
+#define APPEND_STR(sp) USIPY_APPEND_STR_OR_RETURN(-1, buf, off, len, sp)
     USIPY_DASSERT(via_hfp != NULL);
     USIPY_DASSERT(from_hfp != NULL);
     USIPY_DASSERT(to_hfp != NULL);
@@ -574,17 +601,41 @@ usipy_sip_tm_uas_build_response_cb(void *arg, char *buf, size_t len)
     }
     if (tp->cache.method_type == USIPY_SIP_METHOD_INVITE &&
       slp->code >= 200 && slp->code < 300) {
+        const struct usipy_str *local_contactp = &tp->cache.uas.local_contact_uri;
+
+        if (local_contactp->l == 0) {
+            local_contactp = &tm->luri;
+        }
         APPEND_STR(&contact_hfp->name);
         APPEND_STR(&colon_sp);
         APPEND_MEM("<", 1);
-        APPEND_STR(&tm->luri);
+        APPEND_STR(local_contactp);
         APPEND_MEM(">", 1);
         APPEND_MEM(USIPY_CRLF, USIPY_CRLF_LEN);
     }
-    APPEND_STR(&server_hfp->name);
-    APPEND_STR(&colon_sp);
-    APPEND_STR(&server_value);
-    APPEND_MEM(USIPY_CRLF, USIPY_CRLF_LEN);
+    if (serverp->l != 0) {
+        APPEND_STR(&server_hfp->name);
+        APPEND_STR(&colon_sp);
+        APPEND_STR(serverp);
+        APPEND_MEM(USIPY_CRLF, USIPY_CRLF_LEN);
+    }
+    for (size_t i = 0; i < neh; i++) {
+        const struct usipy_hdr_db_entr *eh_hfp = usipy_hdr_db_byid(ehp[i].hf_type);
+
+        if (eh_hfp == NULL || eh_hfp->cantype != ehp[i].hf_type ||
+          ehp[i].value_kind != USIPY_SIP_TM_EH_RAW) {
+            return (-1);
+        }
+        if (eh_hfp->build != NULL) {
+            ehdb[i] = *eh_hfp;
+            ehdb[i].build = NULL;
+            eh_hfp = &ehdb[i];
+        }
+        APPEND_STR(&eh_hfp->name);
+        APPEND_STR(&colon_sp);
+        APPEND_STR(&ehp[i].value);
+        APPEND_MEM(USIPY_CRLF, USIPY_CRLF_LEN);
+    }
     if (rpp->body.l != 0 && rpp->content_type.l != 0) {
         APPEND_STR(&ctype_hfp->name);
         APPEND_STR(&colon_sp);
@@ -747,6 +798,11 @@ usipy_sip_tm_new_uas_tr(struct usipy_sip_tm *tm,
     tp->cache.method_type = method_type;
     if (usipy_msg_heap_append(&tp->scratch, &tp->cache.call_id, tid.call_id) != 0 ||
       usipy_sip_tm_uas_cache_request(tpp->request, &tid, tp) != 0) {
+        usipy_sip_tm_tx_fini(tp);
+        return (USIPY_SIP_TM_ERR_NOSPC);
+    }
+    if (usipy_sip_tm_uas_format_local_contact_uri(&tp->scratch, &tpp->local,
+      &tp->cache.uas.local_contact_uri) != 0) {
         usipy_sip_tm_tx_fini(tp);
         return (USIPY_SIP_TM_ERR_NOSPC);
     }
