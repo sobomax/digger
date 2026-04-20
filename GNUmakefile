@@ -76,6 +76,7 @@ ZLIB_VER ?= 1.3.1
 MGW_PREF ?= i686-w64-mingw32
 MINGW_DEPS_ROOT ?= ../
 MGW64_PREF ?= x86_64-w64-mingw32
+MINGW_LTO_FLAGS ?= -flto
 
 ifdef CI_COVERAGE
 CFLAGS += --coverage
@@ -86,6 +87,8 @@ ifeq ($(ARCH),MINGW)
 CC	=  ${MGW_PREF}-gcc
 WINDRES	?=  windres
 STRIP   ?= strip
+CFLAGS	+= $(MINGW_LTO_FLAGS)
+LIBS	+= $(MINGW_LTO_FLAGS)
 OBJS	+= $(DIGGER_SIP_OBJS)
 OBJS	+= $(DIGGER_SIP_WIN32_OBJS)
 DIGGER_VERSION_HDR = digger_version.h
@@ -107,6 +110,8 @@ ifeq ($(ARCH),MINGW64)
 CC      =  ${MGW64_PREF}-gcc
 WINDRES ?=  windres
 STRIP   ?=  strip
+CFLAGS	+= $(MINGW_LTO_FLAGS)
+LIBS	+= $(MINGW_LTO_FLAGS)
 OBJS    += $(DIGGER_SIP_OBJS)
 OBJS    += $(DIGGER_SIP_WIN32_OBJS)
 DIGGER_VERSION_HDR = digger_version.h
