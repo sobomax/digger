@@ -1274,18 +1274,25 @@ thread_set_tx(struct netsim_thread_state *tsp, int type, uint32_t frame,
   }
 }
 
-static bool
+enum peer_seq_result {
+  PEER_SEQ_DUPLICATE = 0,
+  PEER_SEQ_ACCEPTED,
+  PEER_SEQ_GAP
+};
+
+static enum peer_seq_result
 thread_accept_peer_seq(struct netsim_thread_state *tsp, uint32_t peer_seq)
 {
 
   if (peer_seq == 0)
-    return (false);
+    return (PEER_SEQ_DUPLICATE);
   thread_ack_tx(tsp, peer_seq);
   if (peer_seq <= tsp->last_peer_tx_seq)
-    return (false);
-  assert(peer_seq == tsp->last_peer_tx_seq + 1);
+    return (PEER_SEQ_DUPLICATE);
+  if (peer_seq != tsp->last_peer_tx_seq + 1)
+    return (PEER_SEQ_GAP);
   tsp->last_peer_tx_seq = peer_seq;
-  return (true);
+  return (PEER_SEQ_ACCEPTED);
 }
 
 static void
@@ -1430,6 +1437,7 @@ thread_process_rx_packet(struct netsim_thread_state *tsp, struct thread_ctx *ctx
 {
   struct netsim_pkt pkt;
   const netsim_sockaddr_t *peer_addrp;
+  enum peer_seq_result seq_rval;
 
   peer_addrp = &outevp->peer_addr;
   if (netsim_sip_packet_looks_like(outevp->pkt_buf, outevp->pkt_len)) {
@@ -1457,9 +1465,21 @@ thread_process_rx_packet(struct netsim_thread_state *tsp, struct thread_ctx *ctx
   thread_note_peer_frame_seen(tsp, pkt.frame);
   thread_note_matching_peer_frame(tsp, pkt.frame);
   thread_mark_matching_peer_tx(tsp, pkt.tx_seq, pkt.frame);
-  if (!thread_accept_peer_seq(tsp, pkt.tx_seq)) {
-    thread_resend_matching_frame(tsp, pkt.frame);
-    return;
+  seq_rval = thread_accept_peer_seq(tsp, pkt.tx_seq);
+  switch (seq_rval) {
+    case PEER_SEQ_DUPLICATE:
+      thread_resend_matching_frame(tsp, pkt.frame);
+      return;
+
+    case PEER_SEQ_GAP:
+      netsim_log("peer seq gap peer_seq=%u expected=%u frame=%u last_delivered=%u",
+        (unsigned int)pkt.tx_seq, (unsigned int)(tsp->last_peer_tx_seq + 1),
+        (unsigned int)pkt.frame, (unsigned int)tsp->last_delivered);
+      thread_fail_session(tsp, ctxp->inq, ctxp->outq, pkt.frame);
+      return;
+
+    case PEER_SEQ_ACCEPTED:
+      break;
   }
   tsp->peer_frame_seen = true;
   if (pkt.frame <= tsp->last_delivered)
