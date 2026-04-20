@@ -31,7 +31,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #if defined(DIGGER_DEBUG)
-#include <stdio.h>
+#include "digger_log.h"
 #endif
 #include <string.h>
 #include <stdlib.h>
@@ -60,6 +60,18 @@ struct monster_obj_full
 };
 
 static void monster_obj_updspr(struct monster_obj_private *);
+
+#if defined(DIGGER_DEBUG)
+static bool
+monster_trace_enabled(void)
+{
+  static int cached = -1;
+
+  if (cached == -1)
+    cached = (getenv("DIGGER_MONSTER_DEBUG") != NULL) ? 1 : 0;
+  return (cached != 0);
+}
+#endif
 
 static void
 __drawmon(struct monster_obj_private *mop)
@@ -214,16 +226,18 @@ monster_obj_setpos(struct monster_obj *self, struct obj_position *pos)
   int dx, dy;
   const char *dsold, *dsnew;
 
-  dx = self->priv->pos.x - pos->x;
-  dy = self->priv->pos.y - pos->y;
-  if (dx != 0 || dy != 0) {
-    fprintf(stderr, "monster(%d): moved by %d,%d\n", self->priv->m_id, dx, dy);
-  }
-  if (self->priv->pos.dir != pos->dir) {
-    DIR2STR(dsold, &self->priv->pos);
-    DIR2STR(dsnew, pos);
-    fprintf(stderr, "monster(%d): changed direction from %s to %s\n",
-     self->priv->m_id, dsold, dsnew);
+  if (monster_trace_enabled()) {
+    dx = self->priv->pos.x - pos->x;
+    dy = self->priv->pos.y - pos->y;
+    if (dx != 0 || dy != 0) {
+      digger_log_printf("monster(%d): moved by %d,%d\n", self->priv->m_id, dx, dy);
+    }
+    if (self->priv->pos.dir != pos->dir) {
+      DIR2STR(dsold, &self->priv->pos);
+      DIR2STR(dsnew, pos);
+      digger_log_printf("monster(%d): changed direction from %s to %s\n",
+       self->priv->m_id, dsold, dsnew);
+    }
   }
 #endif
   memcpy(&self->priv->pos, pos, sizeof(struct obj_position));

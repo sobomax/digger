@@ -10,6 +10,9 @@
 #include "fbsd_vid.h"
 #include "digger_math.h"
 #include "game.h"
+#if defined(DIGGER_DEBUG)
+#include "digger_log.h"
+#endif
 
 long int account = 0;
 long int slept = 0;
@@ -17,6 +20,18 @@ int i = 0;
 
 static struct PFD phase_detector;
 static struct recfilter *loop_error;
+
+#if defined(DIGGER_DEBUG)
+static bool
+gethrt_debug_enabled(void)
+{
+        static int cached = -1;
+
+        if (cached == -1)
+                cached = (getenv("DIGGER_GETHRT_DEBUG") != NULL) ? 1 : 0;
+        return (cached != 0);
+}
+#endif
 
 void inittimer(void)
 {
@@ -50,14 +65,15 @@ void
 gethrt(bool mindelay, int mult)
 {
 	uint32_t add_delay;
-	double eval, clk_rl, tfreq, filterval;
+	double eval, clk_rl, tfreq, filterval, remote_lead_rl;
 
 	VGLCheckSwitch();
 
 	/* Speed controlling stuff */
 	tfreq = mult * 1000000.0 / dgstate.ftime;
 	clk_rl = getdtime() * tfreq;
-	clk_rl += (double)dgstate.netsim_remote_lead_ms * tfreq / 1000.0;
+	remote_lead_rl = (double)dgstate.netsim_remote_lead_ms * tfreq / 1000.0;
+	clk_rl += remote_lead_rl;
 	eval = PFD_get_error(&phase_detector, clk_rl);
 	if (eval != 0.0) {
 		filterval = recfilter_apply(loop_error, sigmoid(eval));
@@ -65,6 +81,13 @@ gethrt(bool mindelay, int mult)
                 filterval = recfilter_getlast(loop_error);
         }
 	add_delay = freqoff_to_period(tfreq, 1.0, filterval) * 1000000;
+#if defined(DIGGER_DEBUG)
+	if (gethrt_debug_enabled()) {
+		digger_log_printf("gethrt: minsleep=%d mult=%d lead_ms=%d lead_rl=%f clk_rl=%f add_delay=%u eval=%f filterval=%f\n",
+		    mindelay ? 1 : 0, mult, dgstate.netsim_remote_lead_ms, remote_lead_rl,
+		    clk_rl, add_delay, eval, filterval);
+	}
+#endif
 	doscreenupdate(false);
         usleep(add_delay);
 	return;

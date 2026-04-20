@@ -1,4 +1,5 @@
 #include <math.h>
+#include <stdlib.h>
 #if defined(DIGGER_DEBUG)
 #include <stdio.h>
 #endif
@@ -24,6 +25,19 @@
 
 static struct PFD phase_detector;
 static struct recfilter *loop_error;
+
+#if defined(DIGGER_DEBUG)
+static bool
+gethrt_debug_enabled(void)
+{
+    static int cached = -1;
+
+    if (cached == -1) {
+        cached = (getenv("DIGGER_GETHRT_DEBUG") != NULL) ? 1 : 0;
+    }
+    return (cached != 0);
+}
+#endif
 
 void inittimer(void)
 {
@@ -61,10 +75,12 @@ gethrt(bool minsleep, int mult)
     }
     add_delay_d = (freqoff_to_period(tfreq, 1.0, filterval) * 1000.0);
     add_delay = round(add_delay_d);
-#if defined(DIGGER_DEBUG) 
-    digger_log_printf("gethrt: minsleep=%d mult=%d lead_ms=%d lead_rl=%f clk_rl=%f add_delay=%d eval=%f filterval=%f\n",
-      minsleep ? 1 : 0, mult, dgstate.netsim_remote_lead_ms, remote_lead_rl,
-      clk_rl, add_delay, eval, filterval);
+#if defined(DIGGER_DEBUG)
+    if (gethrt_debug_enabled()) {
+        digger_log_printf("gethrt: minsleep=%d mult=%d lead_ms=%d lead_rl=%f clk_rl=%f add_delay=%d eval=%f filterval=%f\n",
+          minsleep ? 1 : 0, mult, dgstate.netsim_remote_lead_ms, remote_lead_rl,
+          clk_rl, add_delay, eval, filterval);
+    }
 #endif
 
     doscreenupdate(false);
