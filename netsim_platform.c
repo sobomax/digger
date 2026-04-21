@@ -252,6 +252,7 @@ resolve_udp_addr(const char *host, const char *port, bool passive,
   struct sockaddr_in *sap, char *errbuf, size_t errbuf_len)
 {
   struct addrinfo hints, *res;
+  const char *rhost;
   int gres;
 
   memset(&hints, '\0', sizeof(hints));
@@ -260,10 +261,12 @@ resolve_udp_addr(const char *host, const char *port, bool passive,
   hints.ai_protocol = IPPROTO_UDP;
   if (passive)
     hints.ai_flags = AI_PASSIVE;
-  gres = getaddrinfo((host != NULL && host[0] != '\0') ? host : NULL, port,
-    &hints, &res);
+  rhost = (host != NULL && host[0] != '\0') ? host : NULL;
+  gres = getaddrinfo(rhost, port, &hints, &res);
   if (gres != 0) {
-    snprintf(errbuf, errbuf_len, "%s", gai_strerrorA(gres));
+    snprintf(errbuf, errbuf_len, "cannot resolve %s%s%s: %s",
+      rhost != NULL ? rhost : "*", port != NULL ? ":" : "",
+      port != NULL ? port : "", gai_strerrorA(gres));
     return (false);
   }
   memcpy(sap, res->ai_addr, sizeof(*sap));
@@ -792,6 +795,7 @@ resolve_udp_addr(const char *host, const char *port, bool passive,
   struct sockaddr_in *sap, char *errbuf, size_t errbuf_len)
 {
   struct addrinfo hints, *res;
+  const char *rhost;
   int gres;
 
   memset(&hints, '\0', sizeof(hints));
@@ -800,10 +804,12 @@ resolve_udp_addr(const char *host, const char *port, bool passive,
   hints.ai_protocol = IPPROTO_UDP;
   if (passive)
     hints.ai_flags = AI_PASSIVE;
-  gres = getaddrinfo((host != NULL && host[0] != '\0') ? host : NULL, port,
-    &hints, &res);
+  rhost = (host != NULL && host[0] != '\0') ? host : NULL;
+  gres = getaddrinfo(rhost, port, &hints, &res);
   if (gres != 0) {
-    snprintf(errbuf, errbuf_len, "%s", gai_strerror(gres));
+    snprintf(errbuf, errbuf_len, "cannot resolve %s%s%s: %s",
+      rhost != NULL ? rhost : "*", port != NULL ? ":" : "",
+      port != NULL ? port : "", gai_strerror(gres));
     return (false);
   }
   memcpy(sap, res->ai_addr, sizeof(*sap));

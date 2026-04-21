@@ -26,6 +26,7 @@ static bool aleftpressed=false,arightpressed=false,
 static bool aleft2pressed=false,aright2pressed=false,
      aup2pressed=false,adown2pressed=false,af12pressed=false;
 static bool anykeyf=false;
+static bool updown_start_enabled=true;
 
 enum input_source {
   INPUT_SOURCE_PRIMARY = 0,
@@ -53,6 +54,14 @@ static bool ounpressed[DIGGERS]={false,false},odnpressed[DIGGERS]={false,false},
 
 void readjoy(void);
 static void apply_network_controls(int n);
+static bool key_is_title_updown(int16_t key);
+
+static bool
+key_is_title_updown(int16_t key)
+{
+
+  return (key == keycodes[PKEY_UP][0] || key == keycodes[PKEY_DOWN][0]);
+}
 
 /* The standard ASCII keyboard is also checked so that very short keypresses
    are not overlooked. The functions kbhit() (returns bool denoting whether or
@@ -133,7 +142,7 @@ void checkkeyb(void)
         savedrf=true;
         break;
     }
-    if (!mode_change)
+    if (!mode_change && (updown_start_enabled || !key_is_title_updown(akeypressed)))
       start=true;                                /* Change number of players */
   }
 }
@@ -187,6 +196,13 @@ input_consume_anykey(void)
   anykey = anykeyf;
   anykeyf = false;
   return (anykey);
+}
+
+void
+input_set_updown_start(bool enabled)
+{
+
+  updown_start_enabled = enabled;
 }
 
 void

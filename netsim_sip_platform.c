@@ -24,6 +24,8 @@ static const struct usipy_platform _netsim_sip_platform = {
 const struct usipy_platform usipy_platform = {
 #endif
   .fallback = &usipy_platform_default,
+  .default_udp_port = &DEFAULT_UDP_PORT_s,
+  .default_udp_port_i = DEFAULT_UDP_PORT,
   .mono_ms = usipy_platform_delegate_mono_ms,
   .sleep_until_ms = usipy_platform_delegate_sleep_until_ms,
   .random_fill = usipy_platform_delegate_random_fill,

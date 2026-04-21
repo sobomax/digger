@@ -12,7 +12,9 @@ OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o sound.o \
 	title_gz.o icon.o sdl_kbd.o sdl_vid.o sdl_timer.o sdl_snd.o \
 	digger_math.o monster_obj.o digger_obj.o bullet_obj.o title_anim.o \
 	cgagrafx.o keyboard.o soundgen.o spinlock.o game.o digger_log.o \
-	netsim.o netsim_sip.o netsim_sip_sdp.o netsim_platform.o netsim_debug.o
+	netsim.o netsim_friends.o netsim_sip.o netsim_sip_registrar.o netsim_sip_sdp.o netsim_platform.o \
+	netsim_debug.o
+NETSIM_OBJ = netsim.o
 MSIP	= microsippy
 MSRC	= $(MSIP)/src
 MPOSIX	= $(MSIP)/platforms/posix
@@ -159,6 +161,9 @@ endif
 ifeq ($(ARCH),WASM)
 CC      = emcc
 CFLAGS  += -flto=full -DUNIX -s USE_SDL=2 -s USE_ZLIB=1
+OBJS    := $(filter-out netsim.o,$(OBJS))
+OBJS    += netsim_stubs.o
+NETSIM_OBJ = netsim_stubs.o
 OBJS    += ems_vid.o
 OBJS    += fbsd_sup.o
 WASM_BUILD_INFO = digger-build-info.js

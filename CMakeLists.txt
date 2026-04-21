@@ -154,12 +154,25 @@ SET( DIGGER_SOURCE
      spinlock.c
      digger_log.c
      game.c
-     netsim.c
+     netsim_friends.c
      netsim_sip.c
+     netsim_sip_registrar.c
      netsim_sip_sdp.c
      netsim_platform.c
      netsim_debug.c
 )
+
+IF ( EMSCRIPTEN )
+  SET( DIGGER_SOURCE
+       ${DIGGER_SOURCE}
+       netsim_stubs.c
+  )
+ELSE ()
+  SET( DIGGER_SOURCE
+       ${DIGGER_SOURCE}
+       netsim.c
+  )
+ENDIF ()
 
 IF ( NOT MSVC )
   SET( DIGGER_SOURCE

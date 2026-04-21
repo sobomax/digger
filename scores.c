@@ -265,6 +265,40 @@ void endofgame(struct digger_draw_api *ddap)
 void showtable(struct digger_draw_api *ddap)
 {
   int16_t i,col;
+
+  erasetext(ddap, 11, 16, 25, 3);
+  for (i=0;i<10;i++)
+    erasetext(ddap, 11, 16, 44 + 13 * i, 3);
+  if (dgstate.netsim) {
+    size_t count;
+    size_t selected;
+    size_t window_start;
+
+    outtext(ddap, "FRIENDS",16,25,3);
+    count = netsim_friend_count();
+    selected = netsim_friend_selected();
+    if (count > 10 && selected >= 10)
+      window_start = selected - 9;
+    else
+      window_start = 0;
+    for (i=0;i<10;i++) {
+      unsigned int games_played;
+      unsigned int display_games;
+      char friend_name[64];
+      size_t index;
+
+      index = window_start + (size_t)i;
+      if (index >= count)
+        continue;
+      if (!netsim_friend_get(index, friend_name, sizeof(friend_name),
+            &games_played))
+        continue;
+      display_games = games_played > 99 ? 99 : games_played;
+      snprintf(hsbuf, sizeof(hsbuf), "%-8.8s %2u", friend_name, display_games);
+      outtext(ddap, hsbuf, 16, 44 + 13 * i, index == selected ? 2 : 1);
+    }
+    return;
+  }
   outtext(ddap, "HIGH SCORES",16,25,3);
   col=2;
   for (i=1;i<11;i++) {

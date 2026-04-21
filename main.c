@@ -30,6 +30,7 @@ static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.
 #include "digger_log.h"
 #include "netsim.h"
 #include "netsim_debug.h"
+#include "netsim_friends.h"
 #include "title_anim.h"
 
 static struct game
@@ -303,6 +304,9 @@ int mainprog(void)
   int16_t frame,t;
   struct title_anim title_anim;
   bool started_by_remote;
+  enum netsim_title_status title_netsim_status;
+  bool title_up_pressed, title_down_pressed;
+
   loadscores();
   escape=false;
   title_anim_init(&title_anim);
@@ -315,14 +319,43 @@ int mainprog(void)
     ddap->gtitle();
     outtext(ddap, "D I G G E R",100,0,3);
     shownplayers();
+    title_netsim_status = netsim_title_status_get();
     sync_netsim_waiter();
     showtable(ddap);
     started=false;
     started_by_remote=false;
+    input_set_updown_start(!dgstate.netsim);
+    title_up_pressed = false;
+    title_down_pressed = false;
     frame=0;
     newframe();
     teststart();
     while (!started) {
+      sync_netsim_waiter();
+      if (dgstate.netsim && title_netsim_status != netsim_title_status_get()) {
+        shownplayers();
+        title_netsim_status = netsim_title_status_get();
+      }
+      if (dgstate.netsim && netsim_pump_title_events())
+        showtable(ddap);
+      if (dgstate.netsim) {
+        bool title_up_now, title_down_now;
+
+        title_up_now = uppressed;
+        title_down_now = downpressed;
+        if (title_up_now && !title_up_pressed) {
+          netsim_friend_move(-1);
+          showtable(ddap);
+        } else if (title_down_now && !title_down_pressed) {
+          netsim_friend_move(1);
+          showtable(ddap);
+        }
+        title_up_pressed = title_up_now;
+        title_down_pressed = title_down_now;
+      } else {
+        title_up_pressed = false;
+        title_down_pressed = false;
+      }
       started=teststart();
       if (!started && dgstate.netsim && netsim_remote_start_requested()) {
         started=true;
@@ -331,7 +364,10 @@ int mainprog(void)
       if (mode_change) {
         switchnplayers();
         shownplayers();
+        title_netsim_status = netsim_title_status_get();
         sync_netsim_waiter();
+        input_set_updown_start(!dgstate.netsim);
+        showtable(ddap);
         mode_change=false;
       }
       title_anim_step(&title_anim, ddap, frame);
@@ -385,6 +421,8 @@ int mainprog(void)
     escape=false;
   } while (!escape);
   title_anim_cleanup(&title_anim);
+  if (netsim_configured() || netsim_friend_count() != 0)
+    netsim_friends_save();
   netsim_shutdown();
   finish();
   return 0;
@@ -462,12 +500,29 @@ static int getnmode(void)
 static void shownplayers(void)
 {
   const struct game_mode *gmp;
+  int netsim_color;
 
   erasetext(ddap, 10, 180, 25, 3);
   erasetext(ddap, 12, 170, 39, 3);
   gmp = &possible_modes[getnmode()];
   outtext(ddap, gmp->title[0].text, gmp->title[0].xpos, 25, 3);
-  outtext(ddap, gmp->title[1].text, gmp->title[1].xpos, 39, 3);
+  netsim_color = 3;
+  if (gmp->netsim) {
+    switch (netsim_title_status_get()) {
+      case NETSIM_TITLE_STARTING:
+      case NETSIM_TITLE_OFF:
+        netsim_color = 2;
+        break;
+      case NETSIM_TITLE_REGISTERED:
+        netsim_color = 1;
+        break;
+      case NETSIM_TITLE_RUNNING:
+      default:
+        netsim_color = 3;
+        break;
+    }
+  }
+  outtext(ddap, gmp->title[1].text, gmp->title[1].xpos, 39, netsim_color);
 }
 
 static int getalllives(void)
@@ -497,13 +552,7 @@ static void
 sync_netsim_waiter(void)
 {
 
-  if (dgstate.netsim) {
-    if (!netsim_begin_wait()) {
-      escape=true;
-    }
-    return;
-  }
-  netsim_stop_session(false);
+  netsim_sync_enabled(dgstate.netsim);
 }
 
 static void initlevel(void)
@@ -823,7 +872,7 @@ static void parsecmd(int argc,char *argv[])
                "         [/E:playback file] [/R:record file] [/O] [/K[A]] "
                                                            "[/G[:time]] [/2]\n"
                "         [/U] [/I:level] "
-               "[/N:sipuser[-peeruser]|sipuser[[:password]@siphost[:port]]-peeruser] "
+               "[/N:sipuser~peeruser|sipuser[[:password]@siphost[:port]]~peeruser] "
 
 #if defined(UNIX) && defined(_SDL)
                          "[/X:xid] "
@@ -844,7 +893,7 @@ static void parsecmd(int argc,char *argv[])
                "/K = Redefine keyboard\n"
                "/G = Gauntlet mode\n"
                "/2 = Two player simultaneous mode\n"
-               "/N = Enable two-player SIP/RTP NetSim mode\n"
+               "/N = Enable two-player SIP/RTP NetSim mode (~ preferred, - fallback)\n"
 #if defined(UNIX) && defined(_SDL)
                "/X = Embed in window\n"
 #endif

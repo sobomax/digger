@@ -14,6 +14,7 @@ void input_advance_fire_state(void);
 bool input_get_fire_active(int n);
 uint8_t input_snapshot_primary_controls(void);
 bool input_consume_anykey(void);
+void input_set_updown_start(bool enabled);
 void input_reset_network(void);
 void input_enable_network_mode(void);
 void input_set_network_controls(int slot, uint8_t bits);
@@ -30,6 +31,19 @@ extern int16_t akeypressed;
 
 #define NKEYS 19
 
+enum player_key_index {
+  PKEY_RIGHT = 0,
+  PKEY_UP,
+  PKEY_LEFT,
+  PKEY_DOWN,
+  PKEY_FIRE,
+  PKEY_RIGHT2,
+  PKEY_UP2,
+  PKEY_LEFT2,
+  PKEY_DOWN2,
+  PKEY_FIRE2
+};
+
 #define DKEY_CHT 10 /* Cheat */
 #define DKEY_SUP 11 /* Increase speed */
 #define DKEY_SDN 12 /* Decrease speed */
@@ -40,6 +54,19 @@ extern int16_t akeypressed;
 #define DKEY_MCH 17 /* Mode change */
 #define DKEY_SDR 18 /* Save DRF */
 
+bool kbd_async_key_state(int key);
+
 extern int keycodes[NKEYS][5];
 extern bool krdf[NKEYS];
 extern bool pausef,mode_change;
+
+#define rightpressed  (kbd_async_key_state(keycodes[PKEY_RIGHT][0]))
+#define uppressed     (kbd_async_key_state(keycodes[PKEY_UP][0]))
+#define leftpressed   (kbd_async_key_state(keycodes[PKEY_LEFT][0]))
+#define downpressed   (kbd_async_key_state(keycodes[PKEY_DOWN][0]))
+#define f1pressed     (kbd_async_key_state(keycodes[PKEY_FIRE][0]))
+#define right2pressed (kbd_async_key_state(keycodes[PKEY_RIGHT2][0]))
+#define up2pressed    (kbd_async_key_state(keycodes[PKEY_UP2][0]))
+#define left2pressed  (kbd_async_key_state(keycodes[PKEY_LEFT2][0]))
+#define down2pressed  (kbd_async_key_state(keycodes[PKEY_DOWN2][0]))
+#define f12pressed    (kbd_async_key_state(keycodes[PKEY_FIRE2][0]))
