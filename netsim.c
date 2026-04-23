@@ -22,6 +22,7 @@
 
 #define NETSIM_QUEUE_LEN 32
 #define NETSIM_FRAME_WINDOW 32
+#define NETSIM_PEER_SEQ_WINDOW 4
 #define NETSIM_RETRY_LIMIT 100
 #define NETSIM_RETRY_MS 10
 #define NETSIM_RTP_VERSION 2U
@@ -194,6 +195,11 @@ struct peer_frame_seen_slot {
   bool valid;
   uint32_t frame;
   int count;
+};
+
+struct peer_seq_slot {
+  bool valid;
+  uint32_t tx_seq;
 };
 
 struct netsim_thread_state;
@@ -1024,6 +1030,13 @@ clear_peer_seen_slots(struct peer_frame_seen_slot *slots)
 }
 
 static void
+clear_peer_seq_slots(struct peer_seq_slot *slots)
+{
+
+  memset(slots, '\0', sizeof(*slots) * NETSIM_PEER_SEQ_WINDOW);
+}
+
+static void
 set_pending(struct pending_tx *ptx, int type, uint32_t frame, uint8_t bits,
   uint64_t nonce, uint32_t seq)
 {
@@ -1177,6 +1190,7 @@ send_pending(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
 struct netsim_thread_state {
   struct remote_frame_slot slots[NETSIM_FRAME_WINDOW];
   struct peer_frame_seen_slot peer_seen[NETSIM_FRAME_WINDOW];
+  struct peer_seq_slot peer_seq[NETSIM_PEER_SEQ_WINDOW];
   struct pending_tx prev_tx;
   struct pending_tx tx;
   uint32_t pending_frame;
@@ -1286,6 +1300,7 @@ thread_clear_session(struct netsim_thread_state *tsp)
   tsp->media_source_valid = false;
   clear_frame_slots(tsp->slots);
   clear_peer_seen_slots(tsp->peer_seen);
+  clear_peer_seq_slots(tsp->peer_seq);
   tsp->local_player = 0;
   tsp->remote_player = 1;
 }
@@ -1471,15 +1486,32 @@ enum peer_seq_result {
 static enum peer_seq_result
 thread_accept_peer_seq(struct netsim_thread_state *tsp, uint32_t peer_seq)
 {
+  struct peer_seq_slot *ssp;
 
   if (peer_seq == 0)
     return (PEER_SEQ_DUPLICATE);
   thread_ack_tx(tsp, peer_seq);
   if (peer_seq <= tsp->last_peer_tx_seq)
     return (PEER_SEQ_DUPLICATE);
-  if (peer_seq != tsp->last_peer_tx_seq + 1)
+  if (peer_seq > tsp->last_peer_tx_seq + NETSIM_PEER_SEQ_WINDOW)
     return (PEER_SEQ_GAP);
-  tsp->last_peer_tx_seq = peer_seq;
+  ssp = &tsp->peer_seq[peer_seq % NETSIM_PEER_SEQ_WINDOW];
+  if (ssp->valid) {
+    if (ssp->tx_seq == peer_seq)
+      return (PEER_SEQ_DUPLICATE);
+    return (PEER_SEQ_GAP);
+  }
+  ssp->valid = true;
+  ssp->tx_seq = peer_seq;
+  for (;;) {
+    const uint32_t next_peer_seq = tsp->last_peer_tx_seq + 1;
+
+    ssp = &tsp->peer_seq[next_peer_seq % NETSIM_PEER_SEQ_WINDOW];
+    if (!ssp->valid || ssp->tx_seq != next_peer_seq)
+      break;
+    ssp->valid = false;
+    tsp->last_peer_tx_seq = next_peer_seq;
+  }
   return (PEER_SEQ_ACCEPTED);
 }
 
@@ -1579,6 +1611,18 @@ thread_resend_matching_frame(struct netsim_thread_state *tsp,
     thread_resend_to_match(&tsp->prev_tx, tsp->sock, &tsp->media_target,
       tsp->local_ctrl_ssrc, tsp->local_stream_ssrc, peer_frame, "previous",
       &send_meta);
+}
+
+static void
+thread_nudge_missing_peer_frame(struct netsim_thread_state *tsp)
+{
+  const uint32_t missing_frame = tsp->last_delivered + 1;
+
+  if (missing_frame == 0)
+    return;
+  netsim_log("peer frame gap missing_frame=%u last_delivered=%u, resend matching local frame",
+    (unsigned int)missing_frame, (unsigned int)tsp->last_delivered);
+  thread_resend_matching_frame(tsp, missing_frame);
 }
 
 enum thread_step_result {
@@ -1694,7 +1738,7 @@ thread_process_rx_packet(struct netsim_thread_state *tsp, struct thread_ctx *ctx
       return;
 
     case PEER_SEQ_GAP:
-      netsim_log("peer seq gap peer_seq=%u expected=%u frame=%u last_delivered=%u",
+      netsim_log("peer seq overflow peer_seq=%u expected=%u frame=%u last_delivered=%u",
         (unsigned int)pkt.tx_seq, (unsigned int)(tsp->last_peer_tx_seq + 1),
         (unsigned int)pkt.frame, (unsigned int)tsp->last_delivered);
       thread_fail_session(tsp, ctxp, pkt.frame);
@@ -1743,6 +1787,8 @@ thread_process_rx_packet(struct netsim_thread_state *tsp, struct thread_ctx *ctx
     rslot.first_recv_ns = recv_ns;
     tsp->slots[pkt.frame % NETSIM_FRAME_WINDOW] = rslot;
   }
+  if (pkt.frame > tsp->last_delivered + 1)
+    thread_nudge_missing_peer_frame(tsp);
 }
 
 static void *
