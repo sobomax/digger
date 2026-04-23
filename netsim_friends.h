@@ -13,9 +13,9 @@ void netsim_friends_reset(void);
 void netsim_friends_load(void);
 void netsim_friends_save(void);
 void netsim_friends_configure(const struct usipy_str *primary_friend);
-void netsim_friend_registered(const char *name);
-void netsim_friend_touch(const char *name);
-const char *netsim_friend_selected_name(void);
+void netsim_friend_registered(const struct usipy_str *name);
+void netsim_friend_touch(const struct usipy_str *name);
+const struct usipy_str *netsim_friend_selected_name(void);
 
 size_t netsim_friend_count(void);
 size_t netsim_friend_selected(void);

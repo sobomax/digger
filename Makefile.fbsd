@@ -7,7 +7,7 @@ COMMON_SRCS=	main.c digger.c drawing.c sprite.c scores.c record.c sound.c \
 		alpha.c vgagrafx.c cgagrafx.c title_gz.c title_anim.c \
 		digger_math.c monster_obj.c digger_obj.c bullet_obj.c \
 		keyboard.c soundgen.c spinlock.c game.c digger_log.c \
-		netsim.c netsim_platform.c netsim_debug.c
+		netsim.c netsim_rx.c netsim_platform.c netsim_debug.c
 
 SRCS=		${COMMON_SRCS}
 

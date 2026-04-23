@@ -5,6 +5,7 @@
 #include "netsim.h"
 #include "netsim_friends.h"
 #include "netsim_platform.h"
+#include "netsim_rx.h"
 #include "netsim_sip.h"
 
 #include <stdbool.h>
@@ -20,7 +21,6 @@
 
 #include "digger_log.h"
 
-#define NETSIM_QUEUE_LEN 32
 #define NETSIM_FRAME_WINDOW 32
 #define NETSIM_PEER_SEQ_WINDOW 4
 #define NETSIM_RETRY_LIMIT 100
@@ -32,23 +32,9 @@
 #define NETSIM_RTP_VPXCC_FLAGS_MASK 0x3fU
 #define NETSIM_RTP_MPT_PT_MASK 0x7fU
 #define NETSIM_RTP_SSRC_FALLBACK 0x4e53494dU
-#define NETSIM_RX_BUFSIZE 4096
 #define NETSIM_IDLE_WAKE_MS 100
 #define NETSIM_BEGIN_WAIT_RETRY_MS 10000
 #define NETSIM_PKT_FRAME 0U
-
-enum netsim_out_type {
-  NETSIM_OUT_HELLO = 100,
-  NETSIM_OUT_FRAME = 101,
-  NETSIM_OUT_EXIT = 102,
-  NETSIM_OUT_STOP = 103,
-  NETSIM_OUT_START = 104,
-  NETSIM_OUT_START_ACK = 105,
-  NETSIM_OUT_SHUTDOWN = 106,
-  NETSIM_OUT_RX_PACKET = 107,
-  NETSIM_OUT_RX_ERROR = 108,
-  NETSIM_OUT_ABORT = 109
-};
 
 enum netsim_in_type {
   NETSIM_IN_START = 201,
@@ -109,19 +95,6 @@ struct netsim_pkt_meta {
   uint64_t nonce;
 };
 
-struct netsim_out_ev {
-  int type;
-  uint32_t frame;
-  uint8_t bits;
-  uint64_t nonce;
-  char peer_user[NETSIM_SIP_USER_BUFSIZE];
-  uint64_t recv_ns;
-  int err;
-  size_t pkt_len;
-  netsim_sockaddr_t peer_addr;
-  uint8_t *pkt_buf;
-};
-
 struct netsim_in_ev {
   int type;
   uint32_t frame;
@@ -131,15 +104,6 @@ struct netsim_in_ev {
   uint64_t nonce;
   char peer_user_buf[NETSIM_SIP_USER_BUFSIZE];
   struct usipy_str peer_user;
-};
-
-struct netsim_out_queue {
-  netsim_mutex_t mutex;
-  netsim_cond_t cond;
-  struct netsim_out_ev items[NETSIM_QUEUE_LEN];
-  size_t head;
-  size_t tail;
-  size_t len;
 };
 
 struct netsim_in_queue {
@@ -155,6 +119,37 @@ typedef bool (*queue_in_fill_fn)(struct netsim_in_ev *evp, const void *arg);
 
 static void
 netsim_in_ev_rebind_peer_user(struct netsim_in_ev *evp)
+{
+
+  evp->peer_user = evp->peer_user.l != 0 ? (struct usipy_str){
+    .s.ro = evp->peer_user_buf,
+    .l = evp->peer_user.l,
+  } : USIPY_STR_NULL;
+}
+
+static bool
+netsim_out_ev_set_peer_user(struct netsim_out_ev *evp,
+  const struct usipy_str *peer_user)
+{
+
+  if (peer_user->l == 0) {
+    evp->peer_user = USIPY_STR_NULL;
+    evp->peer_user_buf[0] = '\0';
+    return (true);
+  }
+  if (peer_user->l >= sizeof(evp->peer_user_buf))
+    return (false);
+  memcpy(evp->peer_user_buf, peer_user->s.ro, peer_user->l);
+  evp->peer_user_buf[peer_user->l] = '\0';
+  evp->peer_user = (struct usipy_str){
+    .s.ro = evp->peer_user_buf,
+    .l = peer_user->l,
+  };
+  return (true);
+}
+
+static void
+netsim_out_ev_rebind_peer_user(struct netsim_out_ev *evp)
 {
 
   evp->peer_user = evp->peer_user.l != 0 ? (struct usipy_str){
@@ -239,7 +234,8 @@ struct netsim_session {
   enum netsim_session_state state;
   int local_player;
   uint64_t session_nonce;
-  char peer_user[NETSIM_SIP_USER_BUFSIZE];
+  char peer_user_buf[NETSIM_SIP_USER_BUFSIZE];
+  struct usipy_str peer_user;
   netsim_thread_t thr;
   struct netsim_out_queue outq;
   struct netsim_in_queue inq;
@@ -251,7 +247,7 @@ struct thread_ctx {
   netsim_sockaddr_t local_addr;
   char local_host[64];
   char local_port[16];
-  atomic_bool stop_requested;
+  struct netsim_rx_ctx rx;
   netsim_thread_t rx_thr;
   bool rx_started;
   struct netsim_sip *sip;
@@ -340,6 +336,27 @@ netsim_proto_log(const char *fmt, ...)
 #endif
 
 static void
+netsim_session_set_peer_user(struct netsim_session *sessionp,
+  const struct usipy_str *peer_user)
+{
+
+  assert(sessionp != NULL);
+  assert(peer_user != NULL);
+  if (peer_user->l == 0) {
+    sessionp->peer_user = USIPY_STR_NULL;
+    sessionp->peer_user_buf[0] = '\0';
+    return;
+  }
+  assert(peer_user->l < sizeof(sessionp->peer_user_buf));
+  memcpy(sessionp->peer_user_buf, peer_user->s.ro, peer_user->l);
+  sessionp->peer_user_buf[peer_user->l] = '\0';
+  sessionp->peer_user = (struct usipy_str){
+    .s.ro = sessionp->peer_user_buf,
+    .l = peer_user->l,
+  };
+}
+
+static void
 netsim_reset_state(enum netsim_session_state state)
 {
 
@@ -347,7 +364,7 @@ netsim_reset_state(enum netsim_session_state state)
   g_session.state = state;
   g_session.local_player = 0;
   g_session.session_nonce = 0;
-  g_session.peer_user[0] = '\0';
+  netsim_session_set_peer_user(&g_session, &USIPY_STR_NULL);
 }
 
 enum netsim_title_status
@@ -463,7 +480,7 @@ pending_name(int type)
     return ("exit");
   if (type == NETSIM_OUT_STOP)
     return ("stop");
-  if (type == NETSIM_OUT_ABORT)
+  if (type == NETSIM_INT_ABORT)
     return ("abort");
   if (type == NETSIM_OUT_START)
     return ("start");
@@ -555,20 +572,21 @@ queue_in_destroy(struct netsim_in_queue *qp)
   netsim_mutex_destroy(&qp->mutex);
 }
 
-static void
+void
 queue_out_put(struct netsim_out_queue *qp, const struct netsim_out_ev *evp)
 {
   netsim_mutex_lock(&qp->mutex);
   while (qp->len == NETSIM_QUEUE_LEN)
     netsim_cond_wait(&qp->cond, &qp->mutex);
   qp->items[qp->tail] = *evp;
+  netsim_out_ev_rebind_peer_user(&qp->items[qp->tail]);
   qp->tail = (qp->tail + 1) % NETSIM_QUEUE_LEN;
   qp->len++;
   netsim_cond_broadcast(&qp->cond);
   netsim_mutex_unlock(&qp->mutex);
 }
 
-static void
+void
 queue_out_wake(struct netsim_out_queue *qp)
 {
 
@@ -585,6 +603,7 @@ queue_out_tryget(struct netsim_out_queue *qp, struct netsim_out_ev *evp)
   netsim_mutex_lock(&qp->mutex);
   if (qp->len > 0) {
     *evp = qp->items[qp->head];
+    netsim_out_ev_rebind_peer_user(evp);
     qp->head = (qp->head + 1) % NETSIM_QUEUE_LEN;
     qp->len--;
     netsim_cond_broadcast(&qp->cond);
@@ -738,7 +757,7 @@ static void
 netsim_out_ev_cleanup(struct netsim_out_ev *evp)
 {
 
-  if (evp->type == NETSIM_OUT_RX_PACKET && evp->pkt_buf != NULL) {
+  if (evp->type == NETSIM_INT_RX_PACKET && evp->pkt_buf != NULL) {
     free(evp->pkt_buf);
     evp->pkt_buf = NULL;
   }
@@ -780,12 +799,14 @@ open_socket(const struct netsim_config *cfgp, netsim_socket_t *sockp,
   char bind_host[64], local_desc[64], errbuf[160];
   const struct sockaddr_in *sin;
   const bool peer_mode = (cfgp->sip.server_host.l == 0);
-  const struct usipy_str server_host = peer_mode ?
-    (struct usipy_str)USIPY_2STR("<peer>") : cfgp->sip.server_host;
-  const struct usipy_str server_sep = peer_mode ?
-    USIPY_STR_NULL : (struct usipy_str)USIPY_2STR(":");
-  const struct usipy_str server_port = peer_mode ?
-    USIPY_STR_NULL : cfgp->sip.server_port;
+  const struct usipy_str peer_host = (struct usipy_str)USIPY_2STR("<peer>");
+  const struct usipy_str host_sep = (struct usipy_str)USIPY_2STR(":");
+  const struct usipy_str empty = USIPY_STR_NULL;
+  const struct usipy_str *server_host = peer_mode ? &peer_host :
+    &cfgp->sip.server_host;
+  const struct usipy_str *server_sep = peer_mode ? &empty : &host_sep;
+  const struct usipy_str *server_port = peer_mode ? &empty :
+    &cfgp->sip.server_port;
 
   if (!peer_mode &&
       !netsim_sockaddr_local_for_peer(cfgp->sip.server_host_buf,
@@ -814,7 +835,7 @@ open_socket(const struct netsim_config *cfgp, netsim_socket_t *sockp,
   }
   snprintf(local_port, local_port_len, "%u", (unsigned int)ntohs(sin->sin_port));
   netsim_log("socket ready local=%s server=%.*s%.*s%.*s", local_desc,
-    USIPY_SFMT(&server_host), USIPY_SFMT(&server_sep), USIPY_SFMT(&server_port));
+    USIPY_SFMT(server_host), USIPY_SFMT(server_sep), USIPY_SFMT(server_port));
   return (true);
 }
 
@@ -900,7 +921,7 @@ fill_in_type(struct netsim_in_ev *evp, const void *arg)
 struct start_fill_arg {
   int player;
   uint64_t nonce;
-  struct usipy_str peer_user;
+  const struct usipy_str *peer_user;
 };
 
 static bool
@@ -914,7 +935,7 @@ fill_in_start(struct netsim_in_ev *evp, const void *arg)
     .player = fp->player,
     .nonce = fp->nonce,
   };
-  return (netsim_in_ev_set_peer_user(evp, &fp->peer_user));
+  return (netsim_in_ev_set_peer_user(evp, fp->peer_user));
 }
 
 struct frame_fill_arg {
@@ -960,7 +981,7 @@ push_error(struct netsim_in_queue *inqp)
 
 static bool
 push_start(struct netsim_in_queue *inqp, int player, uint64_t nonce,
-  struct usipy_str peer_user)
+  const struct usipy_str *peer_user)
 {
   const struct start_fill_arg fill_arg = {
     .player = player,
@@ -1579,25 +1600,31 @@ thread_fill_send_meta(struct netsim_send_meta *outp,
 static void
 thread_resend_to_match(struct pending_tx *ptx, netsim_socket_t sock,
   const netsim_sockaddr_t *addrp, uint32_t control_ssrc, uint32_t stream_ssrc,
-  uint32_t peer_frame, const char *which,
+  uint32_t peer_frame, const char *which, bool ignore_parity_gate,
   const struct netsim_send_meta *send_metap)
 {
   if (ptx->type != NETSIM_OUT_FRAME || ptx->pkt.frame != peer_frame)
     return;
   if (ptx->matched)
     return;
-  if (ptx->send_count >= ptx->peer_frame_count)
+  if (!ignore_parity_gate && ptx->send_count >= ptx->peer_frame_count)
     return;
   if (send_pending_now(sock, addrp, control_ssrc, stream_ssrc, ptx,
-        send_metap))
-    netsim_log("peer repeated frame=%u, resend %s seq=%u parity=%d/%d",
-      (unsigned int)peer_frame, which, (unsigned int)ptx->pkt.tx_seq,
-      ptx->send_count, ptx->peer_frame_count);
+        send_metap)) {
+    if (ignore_parity_gate) {
+      netsim_log("peer frame gap missing_frame=%u, resend %s seq=%u",
+        (unsigned int)peer_frame, which, (unsigned int)ptx->pkt.tx_seq);
+    } else {
+      netsim_log("peer repeated frame=%u, resend %s seq=%u parity=%d/%d",
+        (unsigned int)peer_frame, which, (unsigned int)ptx->pkt.tx_seq,
+        ptx->send_count, ptx->peer_frame_count);
+    }
+  }
 }
 
 static void
 thread_resend_matching_frame(struct netsim_thread_state *tsp,
-  uint32_t peer_frame)
+  uint32_t peer_frame, bool ignore_parity_gate)
 {
   struct netsim_send_meta send_meta;
 
@@ -1606,11 +1633,11 @@ thread_resend_matching_frame(struct netsim_thread_state *tsp,
   if (tsp->tx.active)
     thread_resend_to_match(&tsp->tx, tsp->sock, &tsp->media_target,
       tsp->local_ctrl_ssrc, tsp->local_stream_ssrc, peer_frame, "current",
-      &send_meta);
+      ignore_parity_gate, &send_meta);
   if (tsp->prev_tx_valid)
     thread_resend_to_match(&tsp->prev_tx, tsp->sock, &tsp->media_target,
       tsp->local_ctrl_ssrc, tsp->local_stream_ssrc, peer_frame, "previous",
-      &send_meta);
+      ignore_parity_gate, &send_meta);
 }
 
 static void
@@ -1620,9 +1647,9 @@ thread_nudge_missing_peer_frame(struct netsim_thread_state *tsp)
 
   if (missing_frame == 0)
     return;
-  netsim_log("peer frame gap missing_frame=%u last_delivered=%u, resend matching local frame",
+  netsim_log("peer frame gap missing_frame=%u last_delivered=%u, force resend matching local frame",
     (unsigned int)missing_frame, (unsigned int)tsp->last_delivered);
-  thread_resend_matching_frame(tsp, missing_frame);
+  thread_resend_matching_frame(tsp, missing_frame, true);
 }
 
 enum thread_step_result {
@@ -1647,7 +1674,7 @@ thread_apply_sip_event(struct netsim_thread_state *tsp, struct thread_ctx *ctxp,
       tsp->peer_stream_ssrc = evp->session.peer_stream_ssrc;
       tsp->media_target = evp->session.media_addr;
       if (!push_start(ctxp->inq, tsp->local_player, tsp->session_nonce,
-          evp->peer_user)) {
+          &evp->peer_user)) {
         push_error(ctxp->inq);
         thread_reset_session(tsp, ctxp->outq);
         break;
@@ -1734,7 +1761,7 @@ thread_process_rx_packet(struct netsim_thread_state *tsp, struct thread_ctx *ctx
   seq_rval = thread_accept_peer_seq(tsp, pkt.tx_seq);
   switch (seq_rval) {
     case PEER_SEQ_DUPLICATE:
-      thread_resend_matching_frame(tsp, pkt.frame);
+      thread_resend_matching_frame(tsp, pkt.frame, false);
       return;
 
     case PEER_SEQ_GAP:
@@ -1789,46 +1816,6 @@ thread_process_rx_packet(struct netsim_thread_state *tsp, struct thread_ctx *ctx
   }
   if (pkt.frame > tsp->last_delivered + 1)
     thread_nudge_missing_peer_frame(tsp);
-}
-
-static void *
-netsim_rx_thread(void *arg)
-{
-  struct thread_ctx *ctxp;
-  struct netsim_out_ev outev = {};
-  netsim_sockaddr_t peer_addr;
-  uint8_t *buf;
-  int rlen, err;
-
-  ctxp = (struct thread_ctx *)arg;
-  while (!atomic_load_explicit(&ctxp->stop_requested, memory_order_relaxed)) {
-    buf = malloc(NETSIM_RX_BUFSIZE);
-    if (buf == NULL) {
-      outev.type = NETSIM_OUT_RX_ERROR;
-      outev.err = ENOMEM;
-      queue_out_put(ctxp->outq, &outev);
-      return (NULL);
-    }
-    rlen = netsim_socket_recvfrom(ctxp->sock, buf, NETSIM_RX_BUFSIZE, &peer_addr);
-    if (rlen < 0) {
-      err = netsim_socket_last_error();
-      free(buf);
-      if (netsim_socket_err_wouldblock(err) || netsim_socket_err_transient(err))
-        continue;
-      outev.type = NETSIM_OUT_RX_ERROR;
-      outev.err = err;
-      queue_out_put(ctxp->outq, &outev);
-      return (NULL);
-    }
-    outev.type = NETSIM_OUT_RX_PACKET;
-    outev.recv_ns = netsim_monotonic_ns();
-    outev.pkt_len = (size_t)rlen;
-    outev.peer_addr = peer_addr;
-    outev.pkt_buf = buf;
-    queue_out_put(ctxp->outq, &outev);
-  }
-  queue_out_wake(ctxp->outq);
-  return (NULL);
 }
 
 static bool
@@ -1891,7 +1878,7 @@ thread_handle_outgoing(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
     return (THREAD_STEP_NEXT);
   rval = THREAD_STEP_NEXT;
   switch (outev.type) {
-    case NETSIM_OUT_RX_ERROR:
+    case NETSIM_INT_RX_ERROR:
       netsim_log("recv failed: %s",
         netsim_socket_strerror(outev.err, errbuf, sizeof(errbuf)));
       push_error(ctxp->inq);
@@ -1899,7 +1886,7 @@ thread_handle_outgoing(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
       rval = THREAD_STEP_CONTINUE;
       break;
 
-    case NETSIM_OUT_RX_PACKET:
+    case NETSIM_INT_RX_PACKET:
       thread_process_rx_packet(tsp, ctxp, &outev);
       break;
 
@@ -1914,14 +1901,19 @@ thread_handle_outgoing(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
         .session_nonce = tsp->session_nonce,
         .local_stream_ssrc = tsp->local_stream_ssrc,
         .local_player = tsp->local_player,
+        .peer_user = USIPY_STR_NULL,
       };
-      snprintf(call_in.peer_user, sizeof(call_in.peer_user), "%s",
-        outev.peer_user);
+      if (outev.peer_user.l != 0) {
+        memcpy(call_in.peer_user_buf, outev.peer_user_buf, outev.peer_user.l);
+        call_in.peer_user = (struct usipy_str){
+          .s.ro = call_in.peer_user_buf,
+          .l = outev.peer_user.l,
+        };
+      }
       netsim_log("local start offer session=0x%016llx local_player=%d",
         (unsigned long long)tsp->session_nonce, tsp->local_player + 1);
       if (!push_start(ctxp->inq, tsp->local_player, tsp->session_nonce,
-          (struct usipy_str){.s.ro = outev.peer_user,
-            .l = strlen(outev.peer_user)})) {
+          &outev.peer_user)) {
         push_error(ctxp->inq);
         thread_reset_session(tsp, ctxp->outq);
         rval = THREAD_STEP_CONTINUE;
@@ -2006,7 +1998,7 @@ thread_handle_outgoing(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
       rval = THREAD_STEP_CONTINUE;
       break;
 
-    case NETSIM_OUT_ABORT:
+    case NETSIM_INT_ABORT:
       netsim_log("abort requested");
       tsp->exiting = true;
       tsp->session_active = false;
@@ -2109,7 +2101,7 @@ netsim_thread(void *arg)
     queue_out_wait_until(ctxp->outq,
       netsim_sip_next_wakeup(ctxp->sip, thread_next_wakeup(&ts)));
   }
-  atomic_store_explicit(&ctxp->stop_requested, true, memory_order_relaxed);
+  atomic_store_explicit(&ctxp->rx.stop_requested, true, memory_order_relaxed);
   queue_out_wake(ctxp->outq);
   if (ctxp->rx_started)
     netsim_thread_join(ctxp->rx_thr);
@@ -2200,18 +2192,22 @@ netsim_configure(const char *spec)
   g_cfg.configured = true;
   netsim_friends_configure(&g_cfg.sip.peer_user);
   {
-    const struct usipy_str server_host = g_cfg.sip.server_host.l != 0 ?
-      g_cfg.sip.server_host : (struct usipy_str)USIPY_2STR("<peer>");
-    const struct usipy_str server_sep = g_cfg.sip.server_host.l != 0 ?
-      (struct usipy_str)USIPY_2STR(":") : USIPY_STR_NULL;
-    const struct usipy_str server_port = g_cfg.sip.server_host.l != 0 ?
-      g_cfg.sip.server_port : USIPY_STR_NULL;
-    const struct usipy_str peer_user = g_cfg.sip.peer_user.l != 0 ?
-      g_cfg.sip.peer_user : (struct usipy_str)USIPY_2STR("<any>");
+    const struct usipy_str peer_host = (struct usipy_str)USIPY_2STR("<peer>");
+    const struct usipy_str host_sep = (struct usipy_str)USIPY_2STR(":");
+    const struct usipy_str any_peer = (struct usipy_str)USIPY_2STR("<any>");
+    const struct usipy_str empty = USIPY_STR_NULL;
+    const struct usipy_str *server_host = g_cfg.sip.server_host.l != 0 ?
+      &g_cfg.sip.server_host : &peer_host;
+    const struct usipy_str *server_sep = g_cfg.sip.server_host.l != 0 ?
+      &host_sep : &empty;
+    const struct usipy_str *server_port = g_cfg.sip.server_host.l != 0 ?
+      &g_cfg.sip.server_port : &empty;
+    const struct usipy_str *peer_user = g_cfg.sip.peer_user.l != 0 ?
+      &g_cfg.sip.peer_user : &any_peer;
 
     netsim_log("configured sip_user=%.*s server=%.*s%.*s%.*s peer=%.*s",
-      USIPY_SFMT(&g_cfg.sip.username), USIPY_SFMT(&server_host), USIPY_SFMT(&server_sep),
-      USIPY_SFMT(&server_port), USIPY_SFMT(&peer_user));
+      USIPY_SFMT(&g_cfg.sip.username), USIPY_SFMT(server_host), USIPY_SFMT(server_sep),
+      USIPY_SFMT(server_port), USIPY_SFMT(peer_user));
   }
   return (true);
 }
@@ -2241,18 +2237,21 @@ netsim_startup(void)
   if (!netsim_platform_init())
     return (false);
   {
-    const struct usipy_str server_host = g_cfg.sip.server_host.l != 0 ?
-      g_cfg.sip.server_host : (struct usipy_str)USIPY_2STR("<peer>");
-    const struct usipy_str server_sep = g_cfg.sip.server_host.l != 0 ?
-      (struct usipy_str)USIPY_2STR(":") : USIPY_STR_NULL;
-    const struct usipy_str server_port = g_cfg.sip.server_host.l != 0 ?
-      g_cfg.sip.server_port : USIPY_STR_NULL;
-    const struct usipy_str peer_user = g_cfg.sip.peer_user.l != 0 ?
-      g_cfg.sip.peer_user : USIPY_STR_NULL;
+    const struct usipy_str peer_host = (struct usipy_str)USIPY_2STR("<peer>");
+    const struct usipy_str host_sep = (struct usipy_str)USIPY_2STR(":");
+    const struct usipy_str empty = USIPY_STR_NULL;
+    const struct usipy_str *server_host = g_cfg.sip.server_host.l != 0 ?
+      &g_cfg.sip.server_host : &peer_host;
+    const struct usipy_str *server_sep = g_cfg.sip.server_host.l != 0 ?
+      &host_sep : &empty;
+    const struct usipy_str *server_port = g_cfg.sip.server_host.l != 0 ?
+      &g_cfg.sip.server_port : &empty;
+    const struct usipy_str *peer_user = g_cfg.sip.peer_user.l != 0 ?
+      &g_cfg.sip.peer_user : &empty;
 
     netsim_log("startup requested sip_user=%.*s server=%.*s%.*s%.*s peer=%.*s",
-      USIPY_SFMT(&g_cfg.sip.username), USIPY_SFMT(&server_host), USIPY_SFMT(&server_sep),
-      USIPY_SFMT(&server_port), USIPY_SFMT(&peer_user));
+      USIPY_SFMT(&g_cfg.sip.username), USIPY_SFMT(server_host), USIPY_SFMT(server_sep),
+      USIPY_SFMT(server_port), USIPY_SFMT(peer_user));
   }
   queue_out_init(&g_session.outq);
   queue_in_init(&g_session.inq);
@@ -2278,10 +2277,12 @@ netsim_startup(void)
   ctxp->cfg = g_cfg;
   netsim_sip_config_clone(&ctxp->cfg.sip, &g_cfg.sip);
   ctxp->sock = sock;
+  ctxp->rx.sock = sock;
   ctxp->outq = &g_session.outq;
+  ctxp->rx.outq = &g_session.outq;
   ctxp->inq = &g_session.inq;
-  atomic_init(&ctxp->stop_requested, false);
-  if (!netsim_thread_create(&ctxp->rx_thr, netsim_rx_thread, ctxp)) {
+  atomic_init(&ctxp->rx.stop_requested, false);
+  if (!netsim_thread_create(&ctxp->rx_thr, netsim_rx_thread, &ctxp->rx)) {
     netsim_sip_destroy(ctxp->sip);
     netsim_socket_close(sock);
     free(ctxp);
@@ -2289,7 +2290,7 @@ netsim_startup(void)
   }
   ctxp->rx_started = true;
   if (!netsim_thread_create(&g_session.thr, netsim_thread, ctxp)) {
-    atomic_store_explicit(&ctxp->stop_requested, true, memory_order_relaxed);
+    atomic_store_explicit(&ctxp->rx.stop_requested, true, memory_order_relaxed);
     if (ctxp->rx_started)
       netsim_thread_join(ctxp->rx_thr);
     netsim_sip_destroy(ctxp->sip);
@@ -2358,9 +2359,7 @@ netsim_handle_prestart_event(const struct netsim_in_ev *inev)
     case NETSIM_IN_START:
       g_session.local_player = inev->player;
       g_session.session_nonce = inev->nonce;
-      if (inev->peer_user.l != 0)
-        snprintf(g_session.peer_user, sizeof(g_session.peer_user), "%.*s",
-          USIPY_SFMT(&inev->peer_user));
+      netsim_session_set_peer_user(&g_session, &inev->peer_user);
       if (g_session.state == NETSIM_SESSION_REMOTE_START)
         g_session.state = NETSIM_SESSION_READY_TO_ACK;
       else if (g_session.state != NETSIM_SESSION_START_ACK &&
@@ -2379,7 +2378,7 @@ netsim_handle_prestart_event(const struct netsim_in_ev *inev)
       g_session.state = NETSIM_SESSION_START_ACK;
       break;
     case NETSIM_IN_FRIEND_REGISTERED:
-      netsim_friend_registered(inev->peer_user_buf);
+      netsim_friend_registered(&inev->peer_user);
       redraw = true;
       break;
     case NETSIM_IN_EXIT:
@@ -2413,9 +2412,6 @@ netsim_start_session(bool initiated_locally)
   struct netsim_out_ev outev = {};
   bool ack_queued = false;
   bool got_event;
-  char selected_peer_user[NETSIM_SIP_USER_BUFSIZE];
-
-  selected_peer_user[0] = '\0';
 
   if (!g_cfg.configured)
     return (false);
@@ -2431,20 +2427,23 @@ netsim_start_session(bool initiated_locally)
   if (netsim_is_started())
     return (true);
   if (initiated_locally) {
-    const char *peer_user;
+    const struct usipy_str *peer_user = netsim_friend_selected_name();
 
     g_session.state = NETSIM_SESSION_WAITING;
     g_session.session_nonce = make_nonce();
     outev.type = NETSIM_OUT_START;
     outev.frame = 0;
     outev.nonce = g_session.session_nonce;
-    peer_user = netsim_friend_selected_name();
-    snprintf(selected_peer_user, sizeof(selected_peer_user), "%s", peer_user);
-    snprintf(outev.peer_user, sizeof(outev.peer_user), "%s", peer_user);
+    if (!netsim_out_ev_set_peer_user(&outev, peer_user))
+      return (false);
     queue_out_put(&g_session.outq, &outev);
-    netsim_log("start_session waiting for start ack session=0x%016llx peer=%s",
-      (unsigned long long)g_session.session_nonce,
-      outev.peer_user[0] != '\0' ? outev.peer_user : g_cfg.sip.peer_user_buf);
+    {
+      const struct usipy_str *target_peer = outev.peer_user.l != 0 ?
+        &outev.peer_user : &g_cfg.sip.peer_user;
+
+      netsim_log("start_session waiting for start ack session=0x%016llx peer=%.*s",
+        (unsigned long long)g_session.session_nonce, USIPY_SFMT(target_peer));
+    }
   } else {
     netsim_log("start_session waiting for remote start");
   }
@@ -2460,10 +2459,10 @@ netsim_start_session(bool initiated_locally)
     }
     if (netsim_has_start_ack()) {
       g_session.state = NETSIM_SESSION_STARTED;
-      if (initiated_locally && selected_peer_user[0] != '\0')
-        netsim_friend_touch(selected_peer_user);
-      if (!initiated_locally && g_session.peer_user[0] != '\0')
-        netsim_friend_touch(g_session.peer_user);
+      if (initiated_locally && outev.peer_user.l != 0)
+        netsim_friend_touch(&outev.peer_user);
+      if (!initiated_locally && g_session.peer_user.l != 0)
+        netsim_friend_touch(&g_session.peer_user);
       netsim_log("session started local_player=%d session=0x%016llx",
         g_session.local_player + 1, (unsigned long long)g_session.session_nonce);
       return (true);
@@ -2488,7 +2487,7 @@ fail:
       (g_session.session_nonce != 0 ||
        g_session.state != NETSIM_SESSION_WAITING)) {
     outev = (struct netsim_out_ev){
-      .type = NETSIM_OUT_ABORT,
+      .type = NETSIM_INT_ABORT,
     };
     queue_out_put(&g_session.outq, &outev);
   }

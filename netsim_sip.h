@@ -68,7 +68,8 @@ struct netsim_sip_start_call_in {
   uint64_t session_nonce;
   uint32_t local_stream_ssrc;
   int local_player;
-  char peer_user[NETSIM_SIP_USER_BUFSIZE];
+  char peer_user_buf[NETSIM_SIP_USER_BUFSIZE];
+  struct usipy_str peer_user;
 };
 
 struct netsim_sip *netsim_sip_create(const struct netsim_sip_config *cfgp,

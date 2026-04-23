@@ -3,6 +3,7 @@
 
 #include "netsim_friends.h"
 
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -92,7 +93,8 @@ netsim_friend_set_name(struct netsim_friend *friendp,
   const struct usipy_str *name)
 {
 
-  if (name == NULL || name->l == 0 || name->l >= sizeof(friendp->name_buf))
+  assert(name != NULL);
+  if (name->l == 0 || name->l >= sizeof(friendp->name_buf))
     return (false);
   memcpy(friendp->name_buf, name->s.ro, name->l);
   friendp->name_buf[name->l] = '\0';
@@ -374,50 +376,48 @@ netsim_friends_configure(const struct usipy_str *primary_friend)
 }
 
 void
-netsim_friend_registered(const char *name)
+netsim_friend_registered(const struct usipy_str *name)
 {
-  struct usipy_str namestr;
-
-  if (name == NULL || name[0] == '\0')
+  assert(name != NULL);
+  if (name->l == 0)
     return;
-  namestr = (struct usipy_str){.s.ro = name, .l = strlen(name)};
-  if (namestr.l >= NETSIM_SIP_USER_BUFSIZE)
+  if (name->l >= NETSIM_SIP_USER_BUFSIZE)
     return;
   netsim_friends_ensure_loaded();
-  if (!netsim_friend_ensure_present(&namestr, NULL))
+  if (!netsim_friend_ensure_present(name, NULL))
     return;
   netsim_friends_sort();
 }
 
 void
-netsim_friend_touch(const char *name)
+netsim_friend_touch(const struct usipy_str *name)
 {
-  struct usipy_str namestr;
   int index;
 
-  if (name == NULL || name[0] == '\0')
+  assert(name != NULL);
+  if (name->l == 0)
     return;
-  namestr = (struct usipy_str){.s.ro = name, .l = strlen(name)};
-  if (namestr.l >= NETSIM_SIP_USER_BUFSIZE)
+  if (name->l >= NETSIM_SIP_USER_BUFSIZE)
     return;
   netsim_friends_ensure_loaded();
-  if (!netsim_friend_ensure_present(&namestr, &index))
+  if (!netsim_friend_ensure_present(name, &index))
     return;
   g_friends[index].games_played++;
   g_friends[index].last_play_ts = netsim_friends_now();
   netsim_friends_sort();
-  index = netsim_friend_find(&namestr);
+  index = netsim_friend_find(name);
   if (index >= 0)
     g_friend_selected = (size_t)index;
 }
 
-const char *
+const struct usipy_str *
 netsim_friend_selected_name(void)
 {
+  static const struct usipy_str empty_name = USIPY_STR_NULL;
 
   if (g_friend_count == 0)
-    return ("");
-  return (g_friends[g_friend_selected].name_buf);
+    return (&empty_name);
+  return (&g_friends[g_friend_selected].name);
 }
 
 size_t

@@ -109,7 +109,7 @@ extract_register_binding(const struct usipy_msg *msg,
   struct usipy_msg *cmsg;
   struct usipy_sip_hdr_match *from_hdrs;
   const struct usipy_sip_hdr_nameaddr *contactp;
-  struct usipy_str actual_peer_user;
+  const struct usipy_str *actual_peer_user;
   struct usipy_sip_uri *urip;
   unsigned int expires;
 
@@ -135,14 +135,14 @@ extract_register_binding(const struct usipy_msg *msg,
     if (from_uri == NULL || from_uri->user.l == 0 ||
         from_uri->user.l >= sizeof(outp->peer_user))
       return (USIPY_SIP_TM_ERR_BADMSG);
-    actual_peer_user = from_uri->user;
+    actual_peer_user = &from_uri->user;
     if (peer_user != NULL && peer_user->l != 0 &&
-        !usipy_str_eq(&actual_peer_user, peer_user))
+        !usipy_str_eq(actual_peer_user, peer_user))
       return (USIPY_SIP_TM_ERR_UNSUPPORTED);
-    memcpy(outp->peer_user, actual_peer_user.s.ro, actual_peer_user.l);
-    outp->peer_user[actual_peer_user.l] = '\0';
+    memcpy(outp->peer_user, actual_peer_user->s.ro, actual_peer_user->l);
+    outp->peer_user[actual_peer_user->l] = '\0';
   }
-  if (usipy_tm_uac_extract_register_expires(msg, &actual_peer_user, &expires,
+  if (usipy_tm_uac_extract_register_expires(msg, actual_peer_user, &expires,
         &contactp) != 0 || contactp == NULL || contactp->addr_spec.l == 0)
     return (USIPY_SIP_TM_ERR_BADMSG);
   urip = usipy_sip_uri_parse(&cmsg->heap, &contactp->addr_spec);
@@ -164,6 +164,7 @@ send_register_ok(struct netsim_sip *sp,
   struct usipy_sip_tm_new_uas_tr_params tp;
   struct usipy_sip_tm_uas_response_params rp;
   struct usipy_sip_tm_extra_header eh;
+  struct usipy_str contact_value;
   char contact_raw[NETSIM_SIP_CONTACT_BUFSIZE];
   size_t tx_index;
   int blen;
@@ -176,7 +177,7 @@ send_register_ok(struct netsim_sip *sp,
     .local = hin->local,
   };
   rp = (struct usipy_sip_tm_uas_response_params){
-    .status = usipy_sip_res_ok,
+    .status = &usipy_sip_res_ok,
   };
   eh = (struct usipy_sip_tm_extra_header){
     .hf_type = USIPY_HF_CONTACT,
@@ -186,7 +187,8 @@ send_register_ok(struct netsim_sip *sp,
     (int)contact_urip->l, contact_urip->s.ro, expires);
   if (blen < 0 || (size_t)blen >= sizeof(contact_raw))
     return (USIPY_SIP_TM_ERR_INVAL);
-  eh.value = (struct usipy_str){.s.ro = contact_raw, .l = (size_t)blen};
+  contact_value = (struct usipy_str){.s.ro = contact_raw, .l = (size_t)blen};
+  eh.value = &contact_value;
   rp.extra_headers = &eh;
   rp.nextra_headers = 1;
   rval = usipy_sip_tm_new_uas_tr(sp->tm, &tp, &tx_index);

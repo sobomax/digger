@@ -485,18 +485,20 @@ resolve_local_tm_addr_for_peer(const struct netsim_sip *sp,
 static int
 init_tm_ua(struct netsim_sip *sp, char *errbuf, size_t errbuf_len)
 {
+  const struct usipy_sip_tm_callbacks callbacks = {
+    .arg = sp,
+    .incoming_request = incoming_request,
+  };
+  const struct usipy_sip_tm_id_policy id_policy = {
+    .arg = &sp->production_ids,
+    .cb = usipy_tm_uac_production_id_policy,
+  };
   struct usipy_sip_tm_ctor_params tm_ctorp = {
     .sock = (int)sp->sock,
     .transport = USIPY_SIP_TM_TRANSPORT_UDP,
     .max_transactions = NETSIM_SIP_MAX_TX,
-    .callbacks = {
-      .arg = sp,
-      .incoming_request = incoming_request,
-    },
-    .id_policy = {
-      .arg = &sp->production_ids,
-      .cb = usipy_tm_uac_production_id_policy,
-    },
+    .callbacks = &callbacks,
+    .id_policy = &id_policy,
   };
 
   sp->tm = usipy_sip_tm_ctor(&tm_ctorp);
@@ -571,7 +573,7 @@ answer_incoming_invite(struct netsim_sip *sp, char *errbuf, size_t errbuf_len)
         sp->incoming_local_host[0] != '\0' ? sp->incoming_local_host : sp->local_host,
         sp->local_port) != 0) {
     ev.type = USIPY_SIP_UA_EVENT_CONNECT;
-    ev.data.response.status = netsim_sip_res_bad_sdp;
+    ev.data.response.status = &netsim_sip_res_bad_sdp;
     rval = usipy_sip_ua_on_event(sp->ua, &ev, &tx_index);
     sip_log("answer INVITE with 488 rval=%d tx=%zu", rval, tx_index);
     if (rval == USIPY_SIP_TM_OK)
@@ -581,9 +583,9 @@ answer_incoming_invite(struct netsim_sip *sp, char *errbuf, size_t errbuf_len)
   }
   crp->sdp = (struct usipy_str){.s.ro = crp->sdp_buf, .l = strlen(crp->sdp_buf)};
   ev.type = USIPY_SIP_UA_EVENT_CONNECT;
-  ev.data.response.status = usipy_sip_res_ok;
-  ev.data.response.content_type = (struct usipy_str)USIPY_2STR("application/sdp");
-  ev.data.response.body = crp->sdp;
+  ev.data.response.status = &usipy_sip_res_ok;
+  ev.data.response.content_type = &(const struct usipy_str)USIPY_2STR("application/sdp");
+  ev.data.response.body = &crp->sdp;
   rval = usipy_sip_ua_on_event(sp->ua, &ev, &tx_index);
   sip_log("answer INVITE with 200 rval=%d tx=%zu body=%zu",
     rval, tx_index, crp->sdp.l);
@@ -625,19 +627,22 @@ apply_ua_reset(struct netsim_sip *sp)
 static int
 start_register(struct netsim_sip *sp)
 {
+  const struct usipy_sip_tm_addr target = server_target(sp);
+  const struct usipy_sip_tm_uac_callbacks callbacks = {
+    .arg = sp,
+    .response = outgoing_response,
+    .timeout = outgoing_timeout,
+  };
+
   if (local_registrar_mode(sp))
     return (USIPY_SIP_TM_ERR_UNSUPPORTED);
   return (usipy_sip_register_start(&sp->reg,
     &(const struct usipy_sip_register_start_params){
       .tm = sp->tm,
-      .call_id = sp->call_id,
-      .target = server_target(sp),
-      .username = sp->username,
-      .callbacks = {
-        .arg = sp,
-        .response = outgoing_response,
-        .timeout = outgoing_timeout,
-      },
+      .call_id = &sp->call_id,
+      .target = &target,
+      .username = &sp->username,
+      .callbacks = &callbacks,
     }, NULL));
 }
 
@@ -655,7 +660,7 @@ start_pending_call(struct netsim_sip *sp)
   struct usipy_sip_ua_dial_params *dialp = &ev.data.dial;
   char local_host[NETSIM_SIP_HOST_BUFSIZE];
   const struct netsim_sip_peer_binding *bp = NULL;
-  struct usipy_str to_user;
+  const struct usipy_str *to_user;
   struct usipy_sip_tm_addr target;
   size_t tx_index;
 
@@ -676,19 +681,19 @@ start_pending_call(struct netsim_sip *sp)
   sp->pending_call.sdp = (struct usipy_str){.s.ro = sp->pending_call.sdp_buf,
     .l = strlen(sp->pending_call.sdp_buf)};
   ev.type = USIPY_SIP_UA_EVENT_DIAL;
-  to_user = sp->pending_call.target_user;
+  to_user = &sp->pending_call.target_user;
   *dialp = (struct usipy_sip_ua_dial_params){
-    .request = {
-      .request_id = {
+    .request = &(struct usipy_sip_tm_new_uac_tr_params){
+      .request_id = &(struct usipy_sip_tm_request_id){
         .cseq = sp->next_invite_cseq++,
         .method_type = USIPY_SIP_METHOD_INVITE,
       },
       .request_target = local_registrar_mode(sp) ?
-        (struct usipy_sip_tm_request_target){
-          .request_uri = bp->contact_uri,
-          .target = bp->target,
-        } : (struct usipy_sip_tm_request_target){0},
-      .local = {
+        &(struct usipy_sip_tm_request_target){
+          .request_uri = &bp->contact_uri,
+          .target = &bp->target,
+        } : &(struct usipy_sip_tm_request_target){0},
+      .local = &(struct usipy_sip_tm_addr){
         .af = AF_INET,
         .port = (uint16_t)atoi(sp->local_port),
         .transport = USIPY_SIP_TM_TRANSPORT_UDP,
@@ -697,25 +702,27 @@ start_pending_call(struct netsim_sip *sp)
           .l = strlen(local_host),
         },
       },
-      .parties_by_username = {
-        .from = sp->username,
+      .parties_by_username = &(struct usipy_sip_tm_request_parties){
+        .from = &sp->username,
         .to = to_user,
-        .contact = sp->username,
+        .contact = &sp->username,
       },
       .invite_expires = 60,
-      .content_type = (struct usipy_str)USIPY_2STR("application/sdp"),
-      .body = sp->pending_call.sdp,
-      .callbacks = {
+      .payload = &(struct usipy_sip_tm_request_payload){
+        .content_type = &(struct usipy_str)USIPY_2STR("application/sdp"),
+        .body = &sp->pending_call.sdp,
+      },
+      .callbacks = &(struct usipy_sip_tm_uac_callbacks){
         .arg = sp,
         .response = outgoing_response,
         .timeout = outgoing_timeout,
       },
     },
-    .to_user = sp->pending_call.target_user,
-    .auth = {
-      .username = sp->username,
-      .password = sp->password,
-      .qop = sp->qop,
+    .to_user = &sp->pending_call.target_user,
+    .auth = &(struct usipy_sip_ua_credentials){
+      .username = &sp->username,
+      .password = &sp->password,
+      .qop = &sp->qop,
     },
   };
   if (usipy_sip_ua_on_event(sp->ua, &ev, &tx_index) != USIPY_SIP_TM_OK)
@@ -808,7 +815,8 @@ incoming_request(void *arg, const struct usipy_sip_tm_handle_incoming_in *hin,
   if (apply_ua_reset(sp) != USIPY_SIP_TM_OK)
     return;
   sp->incoming_local_host[0] = '\0';
-  if (tm_addr_to_sockaddr(&hin->peer, &peer_addr) != true)
+  if (hin->peer == NULL || hin->local == NULL || hin->timers == NULL ||
+      tm_addr_to_sockaddr(hin->peer, &peer_addr) != true)
     memset(&peer_addr, '\0', sizeof(peer_addr));
   method_type = msg->sline.parsed.rl.method->cantype;
   if (local_registrar_mode(sp) && method_type == USIPY_SIP_METHOD_REGISTER) {
@@ -836,23 +844,25 @@ incoming_request(void *arg, const struct usipy_sip_tm_handle_incoming_in *hin,
     }
     return;
   }
-  if (!local_registrar_mode(sp) && !usipy_sip_tm_addr_same(&sp->server_addr, &hin->peer)) {
+  if (!local_registrar_mode(sp) && !usipy_sip_tm_addr_same(&sp->server_addr, hin->peer)) {
     (void)usipy_sip_tm_send_simple_response(sp->tm, hin, msg,
       &netsim_sip_res_forbidden);
     return;
   }
   if (sp->ua != NULL && usipy_sip_ua_matches_transaction(sp->ua, msg)) {
+    const struct usipy_sip_tm_addr *localp = hin->local;
     struct usipy_sip_tm_new_uas_tr_params tp = {
       .request = msg,
       .timers = hin->timers,
       .peer = hin->peer,
-      .local = hin->local,
+      .local = localp,
     };
     size_t tx_index;
 
-    if (resolve_local_tm_addr_for_peer(sp, &hin->peer, hin->local.port, &local_addr,
+    if (resolve_local_tm_addr_for_peer(sp, hin->peer, hin->local->port, &local_addr,
           local_host, sizeof(local_host))) {
-      tp.local = local_addr;
+      localp = &local_addr;
+      tp.local = localp;
       strcpy(sp->incoming_local_host, local_host);
     }
     if (usipy_sip_tm_new_uas_tr(sp->tm, &tp, &tx_index) != USIPY_SIP_TM_OK ||
@@ -867,11 +877,12 @@ incoming_request(void *arg, const struct usipy_sip_tm_handle_incoming_in *hin,
     return;
   }
   if (method_type == USIPY_SIP_METHOD_INVITE) {
+    const struct usipy_sip_tm_addr *localp = hin->local;
     struct usipy_sip_tm_new_uas_tr_params tp = {
       .request = msg,
       .timers = hin->timers,
       .peer = hin->peer,
-      .local = hin->local,
+      .local = localp,
     };
     size_t tx_index;
 
@@ -883,9 +894,10 @@ incoming_request(void *arg, const struct usipy_sip_tm_handle_incoming_in *hin,
         }){sp, &peer_addr});
       return;
     }
-    if (resolve_local_tm_addr_for_peer(sp, &hin->peer, hin->local.port, &local_addr,
+    if (resolve_local_tm_addr_for_peer(sp, hin->peer, hin->local->port, &local_addr,
           local_host, sizeof(local_host))) {
-      tp.local = local_addr;
+      localp = &local_addr;
+      tp.local = localp;
       strcpy(sp->incoming_local_host, local_host);
     }
     if (usipy_sip_tm_new_uas_tr(sp->tm, &tp, &tx_index) != USIPY_SIP_TM_OK ||
@@ -938,7 +950,7 @@ ua_emit(void *arg, const struct usipy_sip_ua_emit *emitp)
           };
           size_t tx_index;
 
-          ev.data.response.status = netsim_sip_res_bad_sdp;
+          ev.data.response.status = &netsim_sip_res_bad_sdp;
           (void)usipy_sip_ua_on_event(sp->ua, &ev, &tx_index);
           return;
         }
@@ -1191,24 +1203,30 @@ bool
 netsim_sip_handle_packet(struct netsim_sip *sp, const void *buf, size_t len,
   const netsim_sockaddr_t *peerp, const netsim_sockaddr_t *localp)
 {
+  struct usipy_sip_tm_timer_policy timers = {0};
+  struct usipy_sip_tm_addr peer;
+  struct usipy_sip_tm_addr local;
   struct usipy_sip_tm_handle_incoming_in hin = {0};
   struct usipy_sip_tm_handle_incoming_out hout;
 
-  if (!sockaddr_to_tm_addr(peerp, &hin.peer) || !sockaddr_to_tm_addr(localp, &hin.local))
+  if (!sockaddr_to_tm_addr(peerp, &peer) || !sockaddr_to_tm_addr(localp, &local))
     return (false);
   hin.now_ms = netsim_sip_now_ms();
   hin.tm = sp->tm;
+  hin.timers = &timers;
+  hin.peer = &peer;
+  hin.local = &local;
   hin.buf = buf;
   hin.len = len;
   if (usipy_sip_tm_handle_incoming(&hin, &hout) != USIPY_SIP_TM_OK &&
       hout.error != USIPY_SIP_TM_ERR_NOT_FOUND) {
-    tm_addr_cleanup(&hin.peer);
-    tm_addr_cleanup(&hin.local);
+    tm_addr_cleanup(&peer);
+    tm_addr_cleanup(&local);
     event_push(sp, NETSIM_SIP_EVENT_ERROR, NULL);
     return (false);
   }
-  tm_addr_cleanup(&hin.peer);
-  tm_addr_cleanup(&hin.local);
+  tm_addr_cleanup(&peer);
+  tm_addr_cleanup(&local);
   usipy_sip_tm_reap_terminated(sp->tm);
   return (true);
 }
@@ -1224,21 +1242,19 @@ bool
 netsim_sip_start_call(struct netsim_sip *sp,
   const struct netsim_sip_start_call_in *inp, char *errbuf, size_t errbuf_len)
 {
-  struct usipy_str target_user;
+  const struct usipy_str *target_user;
 
   if (inp == NULL) {
     snprintf(errbuf, errbuf_len, "missing call params");
     return (false);
   }
-  target_user = inp->peer_user[0] != '\0' ?
-    (struct usipy_str){.s.ro = inp->peer_user, .l = strlen(inp->peer_user)} :
-    sp->cfg.peer_user;
+  target_user = inp->peer_user.l != 0 ? &inp->peer_user : &sp->cfg.peer_user;
   memset(&sp->pending_call, '\0', sizeof(sp->pending_call));
   sp->pending_call.valid = true;
   sp->pending_call.session_nonce = inp->session_nonce;
   sp->pending_call.local_stream_ssrc = inp->local_stream_ssrc;
   sp->pending_call.local_player = inp->local_player;
-  if (!copy_str_to_buf(&target_user, sp->pending_call.target_user_buf,
+  if (!copy_str_to_buf(target_user, sp->pending_call.target_user_buf,
         sizeof(sp->pending_call.target_user_buf), &sp->pending_call.target_user)) {
     snprintf(errbuf, errbuf_len, "peer name too long");
     return (false);

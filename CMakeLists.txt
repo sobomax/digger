@@ -170,6 +170,7 @@ IF ( EMSCRIPTEN )
 ELSE ()
   SET( DIGGER_SOURCE
        ${DIGGER_SOURCE}
+       netsim_rx.c
        netsim.c
   )
 ENDIF ()
