@@ -198,6 +198,7 @@ struct peer_seq_slot {
 };
 
 struct netsim_thread_state;
+static int thread_retry_ms(const struct netsim_thread_state *tsp);
 
 struct pending_tx {
   bool active;
@@ -765,11 +766,8 @@ netsim_out_ev_cleanup(struct netsim_out_ev *evp)
 }
 
 static void
-pending_schedule(struct pending_tx *ptx)
+pending_schedule(struct pending_tx *ptx, int retry_ms)
 {
-  int retry_ms;
-
-  retry_ms = NETSIM_RETRY_MS;
   if (ptx->next_tx != 0) {
     ptx->next_tx += retry_ms;
     return;
@@ -1126,11 +1124,13 @@ send_pending_now(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
 }
 
 static bool
-send_pending(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
+send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
+  const netsim_sockaddr_t *addrp,
   uint32_t control_ssrc, uint32_t stream_ssrc,
   struct pending_tx *ptx, bool *sentp, const struct netsim_send_meta *send_metap)
 {
   int err;
+  int retry_ms;
   char errbuf[128];
   uint32_t rtp_ssrc;
 
@@ -1143,6 +1143,7 @@ send_pending(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
     pending_unschedule(ptx);
     return (true);
   }
+  retry_ms = thread_retry_ms(tsp);
   rtp_ssrc = pending_rtp_ssrc(control_ssrc, stream_ssrc, ptx->type);
   if (send_packet(sock, addrp, rtp_ssrc,
         pending_stream_ssrc(stream_ssrc, ptx->type), &ptx->pkt,
@@ -1167,7 +1168,7 @@ send_pending(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
     }
     if (!netsim_socket_err_transient(err))
       return (false);
-    pending_schedule(ptx);
+    pending_schedule(ptx, retry_ms);
     return (true);
   }
   ptx->retries++;
@@ -1204,7 +1205,7 @@ send_pending(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
     pending_unschedule(ptx);
     return (true);
   }
-  pending_schedule(ptx);
+  pending_schedule(ptx, retry_ms);
   return (true);
 }
 
@@ -1222,7 +1223,7 @@ struct netsim_thread_state {
   uint32_t local_ctrl_ssrc;
   uint32_t local_stream_ssrc;
   uint32_t peer_stream_ssrc;
-  int32_t rtprop_lpf_ms;
+  int32_t rtprop_lpf_us;
   uint32_t last_peer_ct_ms;
   uint32_t last_peer_tor_local_ms;
   netsim_sockaddr_t media_target;
@@ -1268,24 +1269,36 @@ thread_next_wakeup(const struct netsim_thread_state *tsp)
 }
 
 static void
-thread_update_rtprop_lpf(struct netsim_thread_state *tsp, int32_t sample_ms,
-  int32_t *filtered_msp)
+thread_update_rtprop_lpf(struct netsim_thread_state *tsp, int32_t sample_us,
+  int32_t *filtered_usp)
 {
   int32_t delta, adjust;
 
-  sample_ms *= 1000;
   if (!tsp->rtprop_lpf_valid) {
-    tsp->rtprop_lpf_ms = sample_ms;
+    tsp->rtprop_lpf_us = sample_us;
     tsp->rtprop_lpf_valid = true;
-    *filtered_msp = sample_ms;
+    *filtered_usp = sample_us;
     return;
   }
-  delta = sample_ms - tsp->rtprop_lpf_ms;
+  delta = sample_us - tsp->rtprop_lpf_us;
   adjust = 1 << (NETSIM_RTPROP_LPF_SHIFT - 1);
   if (delta < 0)
     adjust = -adjust;
-  tsp->rtprop_lpf_ms += (delta + adjust) >> NETSIM_RTPROP_LPF_SHIFT;
-  *filtered_msp = tsp->rtprop_lpf_ms;
+  tsp->rtprop_lpf_us += (delta + adjust) >> NETSIM_RTPROP_LPF_SHIFT;
+  *filtered_usp = tsp->rtprop_lpf_us;
+}
+
+static int
+thread_retry_ms(const struct netsim_thread_state *tsp)
+{
+  uint32_t retry_ms;
+
+  if (!tsp->rtprop_lpf_valid || tsp->rtprop_lpf_us <= 0)
+    return (NETSIM_RETRY_MS);
+  retry_ms = (uint32_t)(tsp->rtprop_lpf_us + 999) / 1000;
+  if (retry_ms < NETSIM_RETRY_MS)
+    retry_ms = NETSIM_RETRY_MS;
+  return ((int)retry_ms);
 }
 
 static void
@@ -1299,7 +1312,7 @@ thread_clear_session(struct netsim_thread_state *tsp)
   tsp->session_nonce = 0;
   tsp->local_stream_ssrc = 0;
   tsp->peer_stream_ssrc = 0;
-  tsp->rtprop_lpf_ms = 0;
+  tsp->rtprop_lpf_us = 0;
   tsp->rtprop_lpf_valid = false;
   tsp->last_peer_ct_ms = 0;
   tsp->last_peer_tor_local_ms = 0;
@@ -1775,20 +1788,20 @@ thread_process_rx_packet(struct netsim_thread_state *tsp, struct thread_ctx *ctx
       break;
   }
   if (pkt.echo_peer_ct_ms != 0 && pkt.echo_local_tor_ms != 0) {
-    int32_t ab_term_ms, ba_term_ms, rtprop_ms, rtprop_lpf_ms, ct_ms;
+    int32_t ab_term_ms, ba_term_ms, rtprop_ms, rtprop_lpf_us, ct_ms;
 
     ct_ms = pkt.echo_local_tor_ms + pkt.hold_ms;
     ab_term_ms = ms_delta_between(recv_ms, (uint32_t)ct_ms);
     ba_term_ms = ms_delta_between(pkt.echo_local_tor_ms, pkt.echo_peer_ct_ms);
     rtprop_ms = ab_term_ms + ba_term_ms;
-    thread_update_rtprop_lpf(tsp, rtprop_ms, &rtprop_lpf_ms);
+    thread_update_rtprop_lpf(tsp, rtprop_ms * 1000, &rtprop_lpf_us);
 #if defined(DIGGER_DEBUG)
     int32_t theta_ms;
 
     theta_ms = (ab_term_ms - ba_term_ms) / 2;
-    netsim_proto_log("rtprop: frame=%u seq=%u ab_ms=%d ba_ms=%d rtprop_ms=%d one_way_ms=%d theta_ms=%d",
+    netsim_proto_log("rtprop: frame=%u seq=%u ab_ms=%d ba_ms=%d rtprop_us=%d one_way_us=%d theta_ms=%d",
       (unsigned int)pkt.frame, (unsigned int)pkt.tx_seq,
-      ab_term_ms, ba_term_ms, rtprop_lpf_ms, rtprop_lpf_ms / 2, theta_ms);
+      ab_term_ms, ba_term_ms, rtprop_lpf_us, rtprop_lpf_us / 2, theta_ms);
 #endif
   }
   tsp->last_peer_ct_ms = (pkt.echo_local_tor_ms != 0) ?
@@ -2046,7 +2059,7 @@ thread_send_ready(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
   if (!tsp->session_active || tsp->media_target.len == 0)
     return (THREAD_STEP_NEXT);
   thread_fill_send_meta(&send_meta, tsp);
-  if (!send_pending(tsp->sock, &tsp->media_target, tsp->local_ctrl_ssrc,
+  if (!send_pending(tsp, tsp->sock, &tsp->media_target, tsp->local_ctrl_ssrc,
         tsp->local_stream_ssrc, &tsp->tx, &data_sent, &send_meta)) {
     netsim_log("session data send failed permanently, resetting session");
     thread_fail_session(tsp, ctxp, tsp->tx.pkt.frame);
