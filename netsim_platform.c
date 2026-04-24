@@ -6,6 +6,7 @@
 #endif
 
 #include "def.h"
+#include "digger_log.h"
 #include "netsim_platform.h"
 
 #if NETSIM_PLATFORM_SUPPORTED
@@ -13,6 +14,43 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+static bool
+netsim_tx_drop_check(size_t len)
+{
+  static bool ready = false;
+  static uint32_t drop_every = 0;
+  static uint32_t drop_count = 0;
+
+  if (!ready) {
+    const char *envp;
+    char *endp;
+    unsigned long v;
+
+    envp = getenv("DIGGER_NETSIM_TX_DROP_EVERY");
+    if (envp != NULL && envp[0] != '\0') {
+      v = strtoul(envp, &endp, 10);
+      if (endp == envp || *endp != '\0' || v == 0 || v > UINT32_MAX) {
+        digger_log_printf(
+          "netsim: ignoring invalid DIGGER_NETSIM_TX_DROP_EVERY=%s\n", envp);
+      } else {
+        drop_every = (uint32_t)v;
+        digger_log_printf(
+          "netsim: synthetic tx loss enabled, dropping every %uth packet\n",
+          (unsigned int)drop_every);
+      }
+    }
+    ready = true;
+  }
+  if (drop_every == 0)
+    return (false);
+  drop_count++;
+  if (drop_count % drop_every != 0)
+    return (false);
+  digger_log_printf("netsim: synthetic tx drop packet=%u len=%u\n",
+    (unsigned int)drop_count, (unsigned int)len);
+  return (true);
+}
 
 #if defined(_WIN32)
 
@@ -442,6 +480,8 @@ int
 netsim_socket_send(netsim_socket_t sock, const void *buf, size_t len)
 {
 
+  if (netsim_tx_drop_check(len))
+    return ((int)len);
   return ((int)send((SOCKET)sock, (const char *)buf, (int)len, 0));
 }
 
@@ -457,6 +497,8 @@ netsim_socket_sendto(netsim_socket_t sock, const void *buf, size_t len,
   const netsim_sockaddr_t *addrp)
 {
 
+  if (netsim_tx_drop_check(len))
+    return ((int)len);
   return ((int)sendto((SOCKET)sock, (const char *)buf, (int)len, 0,
     (const struct sockaddr *)&addrp->ss, (int)addrp->len));
 }
@@ -978,6 +1020,8 @@ int
 netsim_socket_send(netsim_socket_t sock, const void *buf, size_t len)
 {
 
+  if (netsim_tx_drop_check(len))
+    return ((int)len);
   return ((int)send((int)sock, buf, len, 0));
 }
 
@@ -993,6 +1037,8 @@ netsim_socket_sendto(netsim_socket_t sock, const void *buf, size_t len,
   const netsim_sockaddr_t *addrp)
 {
 
+  if (netsim_tx_drop_check(len))
+    return ((int)len);
   return ((int)sendto((int)sock, buf, len, 0,
     (const struct sockaddr *)&addrp->ss, addrp->len));
 }
