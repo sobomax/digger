@@ -362,7 +362,8 @@ socket_send_to(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
   (void)tx_index;
   (void)txp;
   if (outp->target.host.l == 0 || outp->target.host.l >= sizeof(hostbuf)) {
-    sip_log("send target host invalid len=%zu", outp->target.host.l);
+    sip_log("send target host invalid len=%lu",
+      (unsigned long)outp->target.host.l);
     return (-1);
   }
   memcpy(hostbuf, outp->target.host.s.ro, outp->target.host.l);
@@ -377,13 +378,13 @@ socket_send_to(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
   }
   sent = netsim_socket_sendto(sp->sock, outp->raw.s.ro, outp->raw.l, &target);
   if (sent == (int)outp->raw.l) {
-    sip_log("sent %zu bytes to %.*s:%u", outp->raw.l,
+    sip_log("sent %lu bytes to %.*s:%u", (unsigned long)outp->raw.l,
       (int)outp->target.host.l, outp->target.host.s.ro,
       (unsigned int)outp->target.port);
   } else {
-    sip_log("send failed to %.*s:%u sent=%d expected=%zu",
+    sip_log("send failed to %.*s:%u sent=%d expected=%lu",
       (int)outp->target.host.l, outp->target.host.s.ro,
-      (unsigned int)outp->target.port, sent, outp->raw.l);
+      (unsigned int)outp->target.port, sent, (unsigned long)outp->raw.l);
   }
   return (sent == (int)outp->raw.l ? 0 : -1);
 }
@@ -575,7 +576,8 @@ answer_incoming_invite(struct netsim_sip *sp, char *errbuf, size_t errbuf_len)
     ev.type = USIPY_SIP_UA_EVENT_CONNECT;
     ev.data.response.status = &netsim_sip_res_bad_sdp;
     rval = usipy_sip_ua_on_event(sp->ua, &ev, &tx_index);
-    sip_log("answer INVITE with 488 rval=%d tx=%zu", rval, tx_index);
+    sip_log("answer INVITE with 488 rval=%d tx=%lu", rval,
+      (unsigned long)tx_index);
     if (rval == USIPY_SIP_TM_OK)
       (void)run_tm_now(sp, netsim_sip_now_ms());
     snprintf(errbuf, errbuf_len, "cannot build answer SDP");
@@ -587,8 +589,8 @@ answer_incoming_invite(struct netsim_sip *sp, char *errbuf, size_t errbuf_len)
   ev.data.response.content_type = &(const struct usipy_str)USIPY_2STR("application/sdp");
   ev.data.response.body = &crp->sdp;
   rval = usipy_sip_ua_on_event(sp->ua, &ev, &tx_index);
-  sip_log("answer INVITE with 200 rval=%d tx=%zu body=%zu",
-    rval, tx_index, crp->sdp.l);
+  sip_log("answer INVITE with 200 rval=%d tx=%lu body=%lu",
+    rval, (unsigned long)tx_index, (unsigned long)crp->sdp.l);
   if (rval == USIPY_SIP_TM_OK) {
     rval = run_tm_now(sp, netsim_sip_now_ms());
     sip_log("post-answer run_tm rval=%d", rval);
@@ -937,8 +939,9 @@ ua_emit(void *arg, const struct usipy_sip_ua_emit *emitp)
   }
   switch (emitp->type) {
     case USIPY_SIP_UA_EMIT_DIAL:
-      sip_log("UA incoming INVITE role=%d body=%zu",
-        (int)emitp->role, emitp->message != NULL ? emitp->message->body.l : 0);
+      sip_log("UA incoming INVITE role=%d body=%lu",
+        (int)emitp->role, (unsigned long)(emitp->message != NULL ?
+        emitp->message->body.l : 0));
       if (emitp->message != NULL && emitp->message->body.l > 0) {
         struct netsim_sdp_desc remote_desc;
         char peer_user[NETSIM_SIP_USER_BUFSIZE];
@@ -990,7 +993,8 @@ ua_emit(void *arg, const struct usipy_sip_ua_emit *emitp)
       return;
 
     case USIPY_SIP_UA_EMIT_CONNECT:
-      sip_log("UA connected role=%d body=%zu", (int)emitp->role, emitp->body.l);
+      sip_log("UA connected role=%d body=%lu", (int)emitp->role,
+        (unsigned long)emitp->body.l);
       if (emitp->role == USIPY_SIP_TM_ROLE_UAS) {
         sp->current = sp->pending_remote;
         sp->current_role = emitp->role;
