@@ -305,6 +305,7 @@ int mainprog(void)
   struct title_anim title_anim;
   bool started_by_remote;
   enum netsim_title_status title_netsim_status;
+  enum netsim_title_status cur_netsim_status;
   bool title_up_pressed, title_down_pressed;
 
   loadscores();
@@ -332,9 +333,11 @@ int mainprog(void)
     teststart();
     while (!started) {
       sync_netsim_waiter();
-      if (dgstate.netsim && title_netsim_status != netsim_title_status_get()) {
+      cur_netsim_status = netsim_title_status_get();
+      if (dgstate.netsim && title_netsim_status != cur_netsim_status) {
         shownplayers();
-        title_netsim_status = netsim_title_status_get();
+        title_netsim_status = cur_netsim_status;
+        ddap->gflush_sync();
       }
       if (dgstate.netsim && netsim_pump_title_events())
         showtable(ddap);
