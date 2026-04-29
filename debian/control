@@ -1,0 +1,21 @@
+Source: digger
+Section: games
+Priority: optional
+Maintainer: Maksym Sobolyev <sobomax@sippysoft.com>
+Build-Depends:
+ cmake,
+ debhelper-compat (= 13),
+ libx11-dev,
+ libsdl2-dev,
+ pkg-config,
+ zlib1g-dev
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://github.com/sobomax/digger
+
+Package: digger
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: Digger Remastered arcade game
+ Digger is a classic arcade game originally released for IBM PC compatibles.
+ This package contains the SDL-based Digger Reloaded/Remastered executable.

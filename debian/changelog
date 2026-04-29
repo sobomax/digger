@@ -1,0 +1,5 @@
+digger (20110912-1) unstable; urgency=medium
+
+  * Initial Debian/Ubuntu package skeleton.
+
+ -- Maksym Sobolyev <sobomax@sippysoft.com>  Wed, 29 Apr 2026 07:50:56 -0700

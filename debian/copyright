@@ -1,0 +1,13 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Digger Reloaded
+Source: https://github.com/sobomax/digger
+
+Files: *
+Copyright:
+ 1983 Windmill Software
+ 1989-2004 Andrew Jenner <aj@digger.org>
+ 2002-2026 Maksym Sobolyev <sobomax@sippysoft.com>
+License: mixed
+ This source tree contains files under several licenses, including public
+ domain, Beer-Ware, BSD-2-Clause, and GNU General Public License version 2.
+ See individual source file headers and pkg/windows/LICENSE for details.

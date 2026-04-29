@@ -4,9 +4,10 @@ set -e
 
 DIFF="diff -u"
 TEST_TYPES=${TEST_TYPES:-"quick short long xlong"}
+DIGGER_BIN=${DIGGER_BIN:-}
 
 run_test() {
-  SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy DIGGER_CI_RUN=1 ./digger ${3} > "${4}" 2>/dev/null
+  SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy DIGGER_CI_RUN=1 "${DIGGER_BIN}" ${3} > "${4}" 2>/dev/null
   echo -n "${1} (${2}): "
   ${DIFF} "tests/results/${4}" "${4}"
   echo "PASS"
@@ -20,7 +21,18 @@ wait_pids() {
   PIDS=""
 }
 
-mv ./production/* ./
+if [ -z "${DIGGER_BIN}" ]
+then
+  if [ -d ./production ]
+  then
+    mv ./production/* ./
+    DIGGER_BIN=./digger
+  elif ! DIGGER_BIN=`command -v digger`
+  then
+    echo "digger binary not found; set DIGGER_BIN or provide production/digger" >&2
+    exit 1
+  fi
+fi
 for TTYPE in ${TEST_TYPES}
 do
   for x in tests/data/*.drf
