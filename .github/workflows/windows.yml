@@ -4,10 +4,17 @@ name: Windows Build
 on:
   # Triggers the workflow on all push or pull request events
   push:
+    branches:
+      - '**'
   pull_request:
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+  workflow_call:
+    outputs:
+      package_artifacts:
+        description: Package artifact names uploaded by this workflow.
+        value: ${{ jobs.build.outputs.package_artifacts }}
 
   schedule:
     - cron: "0 0 * * *"
@@ -17,6 +24,8 @@ jobs:
   build:
     # Run on a Windows host so the produced binaries are native Windows PE files
     runs-on: windows-latest
+    outputs:
+      package_artifacts: ${{ steps.package_artifacts.outputs.names }}
 
     permissions:
       contents: read
@@ -79,3 +88,13 @@ jobs:
         with:
           name: digger-win64-installer
           path: pkg/windows/DiggerRemastered-Setup.exe
+
+      - name: Set package artifact output
+        id: package_artifacts
+        run: |
+          {
+            echo 'names<<EOF'
+            echo 'digger-win64'
+            echo 'digger-win64-installer'
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"

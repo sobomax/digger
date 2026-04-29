@@ -2,12 +2,21 @@ name: macOS Package
 
 on:
   push:
+    branches:
+      - '**'
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    outputs:
+      package_artifacts:
+        description: Package artifact names uploaded by this workflow.
+        value: ${{ jobs.build_pkg.outputs.package_artifacts }}
 
 jobs:
   build_pkg:
     runs-on: macos-latest
+    outputs:
+      package_artifacts: ${{ steps.package_artifacts.outputs.names }}
 
     steps:
       - uses: actions/checkout@v6
@@ -54,3 +63,12 @@ jobs:
         with:
           name: digger-macos-pkg
           path: dist/digger-macos.pkg
+
+      - name: Set package artifact output
+        id: package_artifacts
+        run: |
+          {
+            echo 'names<<EOF'
+            echo 'digger-macos-pkg'
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"

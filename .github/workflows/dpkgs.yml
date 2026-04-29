@@ -2,8 +2,15 @@ name: Debian Packages
 
 on:
   push:
+    branches:
+      - '**'
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    outputs:
+      package_artifacts:
+        description: Package artifact names uploaded by this workflow.
+        value: ${{ jobs.build_dpkgs.outputs.dpkgs_artifacts }}
 
 jobs:
   build_dpkgs:

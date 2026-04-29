@@ -1,0 +1,42 @@
+name: Release Draft
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  linux_packages:
+    name: Linux Packages
+    uses: ./.github/workflows/dpkgs.yml
+    secrets: inherit
+
+  windows_packages:
+    name: Windows Packages
+    uses: ./.github/workflows/windows.yml
+    secrets: inherit
+
+  macos_package:
+    name: macOS Package
+    uses: ./.github/workflows/macos.yml
+    secrets: inherit
+
+  release_draft:
+    name: Roll Release Draft
+    needs:
+      - linux_packages
+      - windows_packages
+      - macos_package
+    permissions:
+      actions: read
+      contents: write
+    uses: sippy/cimagic/.github/workflows/RollReleaseDraft.yml@master
+    with:
+      distname: digger
+      submodules_recursive: true
+      release_files_artifacts: |
+        ${{ needs.linux_packages.outputs.package_artifacts }}
+        ${{ needs.windows_packages.outputs.package_artifacts }}
+        ${{ needs.macos_package.outputs.package_artifacts }}
+    secrets: inherit
