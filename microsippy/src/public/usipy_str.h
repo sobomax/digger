@@ -40,6 +40,8 @@ int usipy_str_eq(const struct usipy_str *, const struct usipy_str *);
 #define USIPY_STR_NULL (struct usipy_str){.l = 0, .s.ro = NULL}
 #define USIPY_2STR(cstring) \
     {.l = (sizeof(cstring) - 1), .s.ro = (cstring)}
+#define USIPY_2STRC(cstring) \
+    ((const struct usipy_str)USIPY_2STR(cstring))
 #define USIPY_B2STR(barray) \
     {.l = (sizeof(barray)), .s._uro = (barray)}
 

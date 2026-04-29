@@ -4,6 +4,8 @@
 
 #include "public/microsippy.h"
 
+struct usipy_sip_hdr_nameaddr;
+
 #define USIPY_TM_UAC_ID_SEED_HEXLEN 16u
 
 struct usipy_tm_uac_production_ids {
@@ -20,7 +22,8 @@ int usipy_tm_uac_register_reply_auth(struct usipy_sip_tm *, size_t,
   const struct usipy_msg *, const struct usipy_str *, const struct usipy_str *,
   const struct usipy_str *, const struct usipy_sip_tm_extra_header *, size_t);
 int usipy_tm_uac_extract_register_expires(const struct usipy_msg *,
-  const struct usipy_str *, unsigned int *);
+  const struct usipy_str *, unsigned int *,
+  const struct usipy_sip_hdr_nameaddr **);
 
 int usipy_tm_uac_production_ids_init(struct usipy_tm_uac_production_ids *);
 int usipy_tm_uac_production_id_policy(void *, struct usipy_msg_heap *,

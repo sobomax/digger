@@ -391,12 +391,11 @@ usipy_sip_res_build_fromreq_tagged(struct usipy_msg_heap *hp,
   const struct usipy_msg *reqp, const struct usipy_sip_status *slp,
   const struct usipy_str *tagp)
 {
-    struct usipy_msg_heap_cnt cnt;
+    struct usipy_msg_heap_cnt cnt = {};
     struct usipy_msg *rp;
     const size_t tlen = usipy_sip_res_alloc_size_build(reqp, tagp);
 
     USIPY_DASSERT(hp != NULL);
-    memset(&cnt, '\0', sizeof(cnt));
     rp = usipy_msg_heap_alloc_cnt(hp, tlen, &cnt);
     if (rp == NULL) {
         return (NULL);

@@ -92,9 +92,11 @@ main(int argc, char **argv)
 {
     enum usipy_register_cli_id_mode id_mode = USIPY_REGISTER_CLI_ID_PRODUCTION;
     struct usipy_tm_uac_production_ids production_ids = {0};
+    struct usipy_sip_tm_id_policy tm_id_policy = {0};
     struct usipy_sip_tm_ctor_params tm_ctorp = {
       .transport = USIPY_SIP_TM_TRANSPORT_UDP,
       .max_transactions = 2,
+      .id_policy = &tm_id_policy,
     };
     struct usipy_register_cli_ctx ctx = {
       .sock = -1,
@@ -107,19 +109,18 @@ main(int argc, char **argv)
     socklen_t peer_slen = 0;
     struct usipy_sip_tm_run_in rin;
     struct usipy_sip_tm_run_out rout;
+    struct usipy_sip_tm_timer_policy hin_timers = {0};
     struct usipy_sip_tm_handle_incoming_in hin;
     struct usipy_sip_tm_handle_incoming_out hout;
     struct pollfd pfd;
     struct usipy_sip_tm_tx const *txp;
     size_t tx_index = USIPY_SIP_TM_TX_INDEX_NONE;
     char uri_host[INET6_ADDRSTRLEN + 2];
-    char request_uri_buf[128];
     char debug_call_id[96];
     char rxbuf[2048];
     const char *server_ip;
     const char *username;
     const char *password;
-    struct usipy_str request_uri;
     struct usipy_str call_id;
     uint32_t expires = 300;
     uint32_t timeout_ms = 0;
@@ -192,15 +193,6 @@ main(int argc, char **argv)
         fprintf(stderr, "unable to format URI host\n");
         return (1);
     }
-    blen = (port == 5060 ?
-      snprintf(request_uri_buf, sizeof(request_uri_buf), "sip:%s", uri_host) :
-      snprintf(request_uri_buf, sizeof(request_uri_buf), "sip:%s:%u", uri_host, port));
-    if (blen < 0 || (size_t)blen >= sizeof(request_uri_buf)) {
-        fprintf(stderr, "unable to format request URI\n");
-        return (1);
-    }
-    request_uri = (struct usipy_str){.s.ro = request_uri_buf,
-      .l = (size_t)blen};
     ctx.username = (struct usipy_str){.s.ro = username, .l = strlen(username)};
     ctx.password = (struct usipy_str){.s.ro = password, .l = strlen(password)};
 
@@ -218,8 +210,8 @@ main(int argc, char **argv)
             fprintf(stderr, "unable to initialize production identifiers\n");
             goto done;
         }
-        tm_ctorp.id_policy.arg = &production_ids;
-        tm_ctorp.id_policy.cb = usipy_tm_uac_production_id_policy;
+        tm_id_policy.arg = &production_ids;
+        tm_id_policy.cb = usipy_tm_uac_production_id_policy;
         call_id = production_ids.call_id_s;
     } else {
         blen = snprintf(debug_call_id, sizeof(debug_call_id), "reg-1@%s", server_ip);
@@ -231,7 +223,7 @@ main(int argc, char **argv)
     }
     tm_ctorp.sock = ctx.sock;
     if (id_mode != USIPY_REGISTER_CLI_ID_PRODUCTION) {
-        memset(&tm_ctorp.id_policy, '\0', sizeof(tm_ctorp.id_policy));
+        tm_ctorp.id_policy = NULL;
     }
     ctx.tm = usipy_sip_tm_ctor(&tm_ctorp);
     if (ctx.tm == NULL) {
@@ -239,18 +231,25 @@ main(int argc, char **argv)
         goto done;
     }
     ctx.reg.requested_expires = expires;
+    const struct usipy_sip_tm_addr target = {
+      .af = ctx.peer.af,
+      .port = (uint16_t)port,
+      .transport = ctx.peer.transport,
+      .host = (struct usipy_str){.s.ro = uri_host,
+        .l = strlen(uri_host)},
+    };
+    const struct usipy_sip_tm_uac_callbacks callbacks = {
+      .arg = &ctx,
+      .response = register_response,
+      .timeout = register_timeout,
+    };
     if (usipy_sip_register_start(&ctx.reg,
           &(const struct usipy_sip_register_start_params){
             .tm = ctx.tm,
-            .call_id = call_id,
-            .request_uri = request_uri,
-            .target = ctx.peer,
-            .username = ctx.username,
-            .callbacks = {
-              .arg = &ctx,
-              .response = register_response,
-              .timeout = register_timeout,
-            },
+            .call_id = &call_id,
+            .target = &target,
+            .username = &ctx.username,
+            .callbacks = &callbacks,
           }, &tx_index) != USIPY_SIP_TM_OK) {
         fprintf(stderr, "unable to create SIP transaction\n");
         goto done;
@@ -267,8 +266,9 @@ main(int argc, char **argv)
     rin.send_to_arg = &ctx;
     memset(&hin, '\0', sizeof(hin));
     hin.tm = ctx.tm;
-    hin.peer = ctx.peer;
-    hin.local = ctx.local;
+    hin.timers = &hin_timers;
+    hin.peer = &ctx.peer;
+    hin.local = &ctx.local;
     if (timeout_ms != 0) {
         deadline_ms = usipy_tm_uac_mono_ms() + timeout_ms;
     }

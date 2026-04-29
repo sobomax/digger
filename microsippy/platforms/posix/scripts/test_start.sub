@@ -1,1 +1,8 @@
-${BUILDDIR}/usipy_test 2>&1 | tee "${MLOG}" &
+MON_PIDFILE="${BUILDDIR}/usipy_test.pid"
+rm -f "${MON_PIDFILE}"
+(
+  "${BUILDDIR}/usipy_test" 2>&1 &
+  echo ${!} > "${MON_PIDFILE}"
+  wait ${!}
+) | tee "${MLOG}" &
+MON_PIPE_PID=${!}

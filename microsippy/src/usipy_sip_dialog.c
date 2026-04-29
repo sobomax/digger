@@ -22,14 +22,22 @@
 #define USIPY_SIP_DIALOG_HEAP_SIZE 1024u
 
 struct usipy_sip_dialog_state {
-    struct usipy_str call_id;
+    struct usipy_sip_tm_request_id request_id;
     struct usipy_sip_tm_request_target request_target;
+    struct usipy_sip_tm_addr request_target_addr;
+    struct usipy_sip_tm_addr local;
     struct usipy_sip_tm_request_parties parties_by_uri;
     struct usipy_sip_tm_route_set route_set;
     struct usipy_sip_tm_dialog_tags dialog_tags;
     struct usipy_sip_tm_timer_policy timers;
+    struct usipy_str call_id;
+    struct usipy_str request_uri;
+    struct usipy_str contact_uri;
+    struct usipy_str from_uri;
+    struct usipy_str to_uri;
+    struct usipy_str local_tag;
+    struct usipy_str remote_tag;
     uint32_t match_hash;
-    uint32_t cseq;
 };
 
 struct usipy_sip_dialog {
@@ -48,15 +56,37 @@ usipy_sip_dialog_store_state(struct usipy_sip_dialog_state *dstp,
     USIPY_DASSERT(srcp != NULL);
 
     memset(dstp, '\0', sizeof(*dstp));
-    dstp->call_id = srcp->request_id.call_id;
-    dstp->request_target = srcp->request_target;
-    dstp->parties_by_uri = srcp->parties_by_uri;
-    dstp->route_set = srcp->route_set;
-    dstp->dialog_tags = srcp->dialog_tags;
-    dstp->timers = srcp->timers;
-    dstp->match_hash = usipy_sip_dialog_hash(&srcp->request_id.call_id,
-      &srcp->dialog_tags.remote_tag, &srcp->dialog_tags.local_tag);
-    dstp->cseq = srcp->request_id.cseq;
+    USIPY_DASSERT(srcp->request_id != NULL);
+    USIPY_DASSERT(srcp->request_target != NULL);
+    USIPY_DASSERT(srcp->parties_by_uri != NULL);
+    USIPY_DASSERT(srcp->route_set != NULL);
+    USIPY_DASSERT(srcp->dialog_tags != NULL);
+    USIPY_DASSERT(srcp->timers != NULL);
+    dstp->call_id = *srcp->request_id->call_id;
+    dstp->request_id = *srcp->request_id;
+    dstp->request_id.call_id = &dstp->call_id;
+    dstp->request_uri = *srcp->request_target->request_uri;
+    dstp->request_target_addr = *srcp->request_target->target;
+    dstp->request_target = *srcp->request_target;
+    dstp->request_target.request_uri = &dstp->request_uri;
+    dstp->request_target.target = &dstp->request_target_addr;
+    dstp->local = *srcp->local;
+    dstp->contact_uri = *srcp->parties_by_uri->contact;
+    dstp->from_uri = *srcp->parties_by_uri->from;
+    dstp->to_uri = *srcp->parties_by_uri->to;
+    dstp->parties_by_uri = *srcp->parties_by_uri;
+    dstp->parties_by_uri.contact = &dstp->contact_uri;
+    dstp->parties_by_uri.from = &dstp->from_uri;
+    dstp->parties_by_uri.to = &dstp->to_uri;
+    dstp->route_set = *srcp->route_set;
+    dstp->local_tag = *srcp->dialog_tags->local_tag;
+    dstp->remote_tag = *srcp->dialog_tags->remote_tag;
+    dstp->dialog_tags = *srcp->dialog_tags;
+    dstp->dialog_tags.local_tag = &dstp->local_tag;
+    dstp->dialog_tags.remote_tag = &dstp->remote_tag;
+    dstp->timers = *srcp->timers;
+    dstp->match_hash = usipy_sip_dialog_hash(srcp->request_id->call_id,
+      srcp->dialog_tags->remote_tag, srcp->dialog_tags->local_tag);
 }
 
 static int
@@ -108,9 +138,9 @@ usipy_sip_dialog_match_uas_request(const struct usipy_sip_dialog *dp,
     }
     hash = usipy_sip_dialog_hash(call_idp, from_tagp, to_tagp);
     if (hash != dp->state.match_hash ||
-      !usipy_str_eq(call_idp, &dp->state.call_id) ||
-      !usipy_str_eq(from_tagp, &dp->state.dialog_tags.remote_tag) ||
-      !usipy_str_eq(to_tagp, &dp->state.dialog_tags.local_tag)) {
+      !usipy_str_eq(call_idp, dp->state.request_id.call_id) ||
+      !usipy_str_eq(from_tagp, dp->state.dialog_tags.remote_tag) ||
+      !usipy_str_eq(to_tagp, dp->state.dialog_tags.local_tag)) {
         return (0);
     }
     if (call_idpp != NULL) {
@@ -130,7 +160,8 @@ usipy_sip_dialog_uac_ctor(struct usipy_sip_tm *tm, size_t invite_index,
   const struct usipy_msg *msg)
 {
     struct usipy_sip_dialog *dp;
-    struct usipy_sip_tm_new_in_dialog_transaction_params tpp = {0};
+    struct usipy_sip_tm_new_in_dialog_transaction_params params;
+    struct usipy_sip_tm_dialog_request tpp;
 
     USIPY_DASSERT(tm != NULL);
     USIPY_DASSERT(msg != NULL);
@@ -145,7 +176,8 @@ usipy_sip_dialog_uac_ctor(struct usipy_sip_tm *tm, size_t invite_index,
         free(dp);
         return (NULL);
     }
-    usipy_sip_dialog_store_state(&dp->state, &tpp);
+    usipy_sip_tm_dialog_request_get_params(&tpp, &params);
+    usipy_sip_dialog_store_state(&dp->state, &params);
     return (dp);
 }
 
@@ -154,11 +186,13 @@ usipy_sip_dialog_uas_ctor(struct usipy_sip_tm *tm, size_t invite_index,
   const struct usipy_sip_tm_uas_response_params *rpp)
 {
     struct usipy_sip_dialog *dp;
-    struct usipy_sip_tm_new_in_dialog_transaction_params tpp = {0};
+    struct usipy_sip_tm_new_in_dialog_transaction_params params;
+    struct usipy_sip_tm_dialog_request tpp;
 
     USIPY_DASSERT(tm != NULL);
     USIPY_DASSERT(rpp != NULL);
-    if (rpp->status.code < 200 || rpp->status.code > 299) {
+    USIPY_DASSERT(rpp->status != NULL);
+    if (rpp->status->code < 200 || rpp->status->code > 299) {
         return (NULL);
     }
     dp = calloc(1, sizeof(*dp));
@@ -173,7 +207,8 @@ usipy_sip_dialog_uas_ctor(struct usipy_sip_tm *tm, size_t invite_index,
         free(dp);
         return (NULL);
     }
-    usipy_sip_dialog_store_state(&dp->state, &tpp);
+    usipy_sip_tm_dialog_request_get_params(&tpp, &params);
+    usipy_sip_dialog_store_state(&dp->state, &params);
     return (dp);
 }
 
@@ -199,7 +234,7 @@ usipy_sip_dialog_handle_uas_transaction(struct usipy_sip_dialog *dp, size_t tx_i
 {
     const struct usipy_sip_tm_tx *txp;
     const struct usipy_sip_tm_uas_response_params ok = {
-      .status = usipy_sip_res_ok,
+      .status = &usipy_sip_res_ok,
     };
     int rval;
 
@@ -230,7 +265,7 @@ usipy_sip_dialog_end(struct usipy_sip_dialog *dp,
   const struct usipy_sip_tm_uac_callbacks *cbp, size_t *indexp)
 {
     struct usipy_sip_tm_new_in_dialog_transaction_params tp = {0};
-    struct usipy_sip_tm_uac_callbacks callbacks = {0};
+    struct usipy_sip_tm_request_id request_id;
     int rval;
 
     USIPY_DASSERT(dp != NULL);
@@ -238,24 +273,23 @@ usipy_sip_dialog_end(struct usipy_sip_dialog *dp,
     if (dp->ended) {
         return (USIPY_SIP_TM_ERR_UNSUPPORTED);
     }
-    if (cbp != NULL) {
-        callbacks = *cbp;
-    }
-    tp.request_id.call_id = dp->state.call_id;
-    tp.request_id.cseq = dp->state.cseq + 1;
-    tp.request_id.method_type = USIPY_SIP_METHOD_BYE;
-    tp.request_target = dp->state.request_target;
-    tp.parties_by_uri = dp->state.parties_by_uri;
-    tp.route_set = dp->state.route_set;
-    tp.dialog_tags = dp->state.dialog_tags;
-    tp.timers = dp->state.timers;
-    tp.callbacks = callbacks;
+    request_id = dp->state.request_id;
+    request_id.cseq += 1;
+    request_id.method_type = USIPY_SIP_METHOD_BYE;
+    tp.request_id = &request_id;
+    tp.request_target = &dp->state.request_target;
+    tp.local = &dp->state.local;
+    tp.parties_by_uri = &dp->state.parties_by_uri;
+    tp.route_set = &dp->state.route_set;
+    tp.dialog_tags = &dp->state.dialog_tags;
+    tp.timers = &dp->state.timers;
+    tp.callbacks = cbp;
     rval = usipy_sip_tm_new_in_dialog_transaction(dp->tm, &tp, indexp);
 
     if (rval != USIPY_SIP_TM_OK) {
         return (rval);
     }
-    dp->state.cseq = tp.request_id.cseq;
+    dp->state.request_id.cseq = request_id.cseq;
     dp->ended = 1;
     return (USIPY_SIP_TM_OK);
 }

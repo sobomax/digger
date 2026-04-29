@@ -138,6 +138,8 @@ usipy_platform_default_log_vwrite(int lvl, const char *tag, const char *fmt,
 }
 
 const struct usipy_platform usipy_platform_default = {
+  .default_udp_port = &DEFAULT_UDP_PORT_s,
+  .default_udp_port_i = DEFAULT_UDP_PORT,
   .mono_ms = usipy_platform_default_mono_ms,
   .sleep_until_ms = usipy_platform_default_sleep_until_ms,
   .random_fill = usipy_platform_default_random_fill,
@@ -147,6 +149,8 @@ const struct usipy_platform usipy_platform_default = {
 };
 
 const struct usipy_platform usipy_platform USIPY_WEAK = {
+  .default_udp_port = &DEFAULT_UDP_PORT_s,
+  .default_udp_port_i = DEFAULT_UDP_PORT,
   .mono_ms = usipy_platform_default_mono_ms,
   .sleep_until_ms = usipy_platform_default_sleep_until_ms,
   .random_fill = usipy_platform_default_random_fill,

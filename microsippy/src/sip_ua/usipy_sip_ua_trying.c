@@ -20,6 +20,7 @@ usipy_sip_ua_trying_on_event(struct usipy_sip_ua *uap,
 {
     const struct usipy_sip_tm_uas_response_params *rpp;
     struct usipy_sip_tm_uas_response_params def_resp;
+    struct usipy_sip_status def_status;
     int rval;
 
     USIPY_DASSERT(uap != NULL);
@@ -28,14 +29,16 @@ usipy_sip_ua_trying_on_event(struct usipy_sip_ua *uap,
 
     *indexp = USIPY_SIP_TM_TX_INDEX_NONE;
     if (eventp->type == USIPY_SIP_UA_EVENT_CONNECT) {
-        if (eventp->data.response.status.code == 0) {
+        USIPY_DASSERT(eventp->data.response.status != NULL);
+        if (eventp->data.response.status->code == 0) {
             def_resp = eventp->data.response;
-            def_resp.status = usipy_sip_res_ok;
+            def_status = usipy_sip_res_ok;
+            def_resp.status = &def_status;
             rpp = &def_resp;
         } else {
             rpp = &eventp->data.response;
         }
-        if (rpp->status.code < 200 || rpp->status.code > 299) {
+        if (rpp->status->code < 200 || rpp->status->code > 299) {
             return (USIPY_SIP_TM_ERR_INVAL);
         }
         uap->dialogp = usipy_sip_dialog_uas_ctor(uap->tm, uap->tx_index, rpp);
@@ -50,14 +53,16 @@ usipy_sip_ua_trying_on_event(struct usipy_sip_ua *uap,
     if (eventp->type != USIPY_SIP_UA_EVENT_DISCONNECT) {
         return (USIPY_SIP_TM_ERR_UNSUPPORTED);
     }
-    if (eventp->data.response.status.code == 0) {
+    USIPY_DASSERT(eventp->data.response.status != NULL);
+    if (eventp->data.response.status->code == 0) {
         def_resp = eventp->data.response;
-        def_resp.status = usipy_sip_res_req_term;
+        def_status = usipy_sip_res_req_term;
+        def_resp.status = &def_status;
         rpp = &def_resp;
     } else {
         rpp = &eventp->data.response;
     }
-    if (rpp->status.code < 300) {
+    if (rpp->status->code < 300) {
         return (USIPY_SIP_TM_ERR_INVAL);
     }
     rval = usipy_sip_tm_send_uas_response(uap->tm, uap->tx_index, rpp);

@@ -10,7 +10,7 @@ usipy_sip_ua_idle_on_transaction(struct usipy_sip_ua *uap, size_t tx_index,
 {
     const struct usipy_sip_tm_tx *txp;
     const struct usipy_sip_tm_uas_response_params trying = {
-      .status = usipy_sip_res_trying,
+      .status = &usipy_sip_res_trying,
     };
     int rval;
 
@@ -37,6 +37,7 @@ static int
 usipy_sip_ua_idle_on_event(struct usipy_sip_ua *uap,
   const struct usipy_sip_ua_event *eventp, size_t *indexp)
 {
+    struct usipy_sip_tm_new_uac_tr_params tpp;
     size_t tx_index;
     int rval;
 
@@ -53,7 +54,8 @@ usipy_sip_ua_idle_on_event(struct usipy_sip_ua *uap,
         return (rval);
     }
     USIPY_DASSERT(uap->dialingp != NULL);
-    rval = usipy_sip_tm_new_uac_tr(uap->tm, &uap->dialingp->params.request, &tx_index);
+    usipy_sip_ua_fill_new_uac_tr_params(uap->dialingp, &tpp);
+    rval = usipy_sip_tm_new_uac_tr(uap->tm, &tpp, &tx_index);
     if (rval != USIPY_SIP_TM_OK) {
         usipy_sip_ua_clear_dialing_request(uap);
         return (rval);

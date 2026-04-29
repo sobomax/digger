@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  posix:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Ubuntu 22.04 GCC
+            os: ubuntu-22.04
+            cc: gcc
+            cxx: g++
+            packages: build-essential
+            cc_flags: -march=native
+
+          - name: Ubuntu 22.04 Clang
+            os: ubuntu-22.04
+            cc: clang
+            cxx: clang++
+            packages: clang
+            cc_flags: -march=native
+
+          - name: Ubuntu 24.04 GCC
+            os: ubuntu-24.04
+            cc: gcc
+            cxx: g++
+            packages: build-essential
+            cc_flags: -march=native
+
+          - name: Ubuntu 24.04 Clang
+            os: ubuntu-24.04
+            cc: clang
+            cxx: clang++
+            packages: clang
+            cc_flags: -march=native
+
+    env:
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+      CC_FLAGS: ${{ matrix.cc_flags }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake expect netcat-openbsd ${{ matrix.packages }}
+
+      - name: Show tool versions
+        run: |
+          cmake --version
+          "${CC}" --version
+
+      - name: Configure
+        run: |
+          cmake \
+            -DCMAKE_C_FLAGS="-Werror ${CC_FLAGS}" \
+            -S platforms/posix \
+            -B platforms/posix/build
+
+      - name: Build
+        run: cmake --build platforms/posix/build
+
+      - name: Test
+        working-directory: platforms/posix/build
+        run: ctest -V

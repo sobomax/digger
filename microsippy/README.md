@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/sobomax/microsippy.svg?branch=master)](https://travis-ci.com/sobomax/microsippy)
+[![CI](https://github.com/sobomax/microsippy/actions/workflows/main.yml/badge.svg)](https://github.com/sobomax/microsippy/actions/workflows/main.yml)
 
 # microsippy
 Extremely fast and lean, yet fully functional, SIP (RFC3261) and RTP (RFC3550)

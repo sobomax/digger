@@ -241,6 +241,10 @@ usipy_sip_tm_tx_fini(struct usipy_sip_tm_txi *tp)
 struct usipy_sip_tm *
 usipy_sip_tm_ctor(const struct usipy_sip_tm_ctor_params *ipp)
 {
+    static const struct usipy_sip_tm_callbacks empty_callbacks;
+    static const struct usipy_sip_tm_id_policy empty_id_policy;
+    const struct usipy_sip_tm_callbacks *callbacksp;
+    const struct usipy_sip_tm_id_policy *id_policyp;
     struct usipy_sip_tm *rp;
     size_t total_size;
 
@@ -251,6 +255,8 @@ usipy_sip_tm_ctor(const struct usipy_sip_tm_ctor_params *ipp)
     total_size = usipy_sip_tm_ctor_size(ipp->max_transactions);
     USIPY_DASSERT(ipp->max_transactions > 0);
     USIPY_DASSERT(ipp->transport != USIPY_SIP_TM_TRANSPORT_UNSPEC);
+    callbacksp = ipp->callbacks != NULL ? ipp->callbacks : &empty_callbacks;
+    id_policyp = ipp->id_policy != NULL ? ipp->id_policy : &empty_id_policy;
     rp = malloc(total_size);
     if (rp == NULL) {
         return (NULL);
@@ -261,8 +267,8 @@ usipy_sip_tm_ctor(const struct usipy_sip_tm_ctor_params *ipp)
     rp->max_transactions = ipp->max_transactions;
     rp->transactions = (struct usipy_sip_tm_txi *)(rp + 1);
     rp->heap_buf = rp->transactions + ipp->max_transactions;
-    rp->callbacks = ipp->callbacks;
-    rp->id_policy = ipp->id_policy;
+    rp->callbacks = *callbacksp;
+    rp->id_policy = *id_policyp;
     usipy_msg_heap_init(&rp->heap, rp->heap_buf, USIPY_SIP_TM_HEAP_SIZE, NULL, 0);
     if (usipy_sip_tm_init_laddr(rp) != 0) {
         free(rp);

@@ -1,4 +1,5 @@
 #include <sys/socket.h>
+#include <arpa/inet.h>
 #include <netinet/in.h>
 #include <unistd.h>
 
@@ -41,9 +42,12 @@ bind_loopback_udp(void)
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     assert(sock >= 0);
     sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    assert(inet_pton(AF_INET, "127.0.0.1", &sin.sin_addr) == 1);
     sin.sin_port = 0;
-    assert(bind(sock, (struct sockaddr *)&sin, sizeof(sin)) == 0);
+    if (bind(sock, (struct sockaddr *)&sin, sizeof(sin)) != 0) {
+        perror("bind_loopback_udp bind");
+        assert(0);
+    }
     return (sock);
 }
 
@@ -94,11 +98,13 @@ static void
 handle_incoming_msg(struct usipy_sip_tm *tm, const struct usipy_sip_tm_tx *txp,
   const struct usipy_msg *msg, uint64_t now_ms)
 {
+    static const struct usipy_sip_tm_timer_policy no_timers;
     struct usipy_sip_tm_handle_incoming_in hin = {
       .now_ms = now_ms,
       .tm = tm,
-      .peer = txp->common.peer,
-      .local = txp->common.local,
+      .timers = &no_timers,
+      .peer = &txp->common.peer,
+      .local = &txp->common.local,
       .buf = msg->onwire.s.ro,
       .len = msg->onwire.l,
     };
@@ -302,34 +308,37 @@ test_ua_outgoing_connect_disconnect(void)
 
     ev.type = USIPY_SIP_UA_EVENT_DIAL;
     ev.data.dial = (struct usipy_sip_ua_dial_params){
-      .request = {
-        .request_id = {
-        .call_id = USIPY_2STR("ua-out-1@example.test"),
+      .request = &(struct usipy_sip_tm_new_uac_tr_params){
+        .request_id = &(struct usipy_sip_tm_request_id){
+        .call_id = &(struct usipy_str)USIPY_2STR("ua-out-1@example.test"),
         .cseq = 1,
         .method_type = USIPY_SIP_METHOD_INVITE,
         },
-        .request_target = {
-        .request_uri = USIPY_2STR("sip:bob@example.test"),
-        .target = {
+        .request_target = &(struct usipy_sip_tm_request_target){
+        .request_uri = &(struct usipy_str)USIPY_2STR("sip:bob@example.test"),
+        .target = &(struct usipy_sip_tm_addr){
           .af = AF_INET,
           .port = 5060,
           .transport = USIPY_SIP_TM_TRANSPORT_UDP,
           .host = USIPY_2STR("198.51.100.10"),
         },
         },
-        .parties_by_username = {
-        .from = USIPY_2STR("alice"),
-        .to = USIPY_2STR("bob"),
-        .contact = USIPY_2STR("alice"),
+        .parties_by_username = &(struct usipy_sip_tm_request_parties){
+        .from = &(struct usipy_str)USIPY_2STR("alice"),
+        .to = &(struct usipy_str)USIPY_2STR("bob"),
+        .contact = &(struct usipy_str)USIPY_2STR("alice"),
         },
         .invite_expires = 1,
-        .content_type = USIPY_2STR("application/sdp"),
-        .body = USIPY_2STR("v=0\r\n"),
+        .payload = &(struct usipy_sip_tm_request_payload){
+          .content_type = &(struct usipy_str)USIPY_2STR("application/sdp"),
+          .body = &(struct usipy_str)USIPY_2STR("v=0\r\n"),
+        },
+        .callbacks = &(struct usipy_sip_tm_uac_callbacks){0},
       },
-      .auth = {
-        .username = USIPY_2STR("alice"),
-        .password = USIPY_2STR("secret"),
-        .qop = USIPY_2STR("auth"),
+      .auth = &(struct usipy_sip_ua_credentials){
+        .username = &(struct usipy_str)USIPY_2STR("alice"),
+        .password = &(struct usipy_str)USIPY_2STR("secret"),
+        .qop = &(struct usipy_str)USIPY_2STR("auth"),
       },
     };
     assert(usipy_sip_ua_on_event(uap, &ev, &invite_index) == USIPY_SIP_TM_OK);
@@ -397,27 +406,28 @@ test_ua_outgoing_reject(void)
 
     ev.type = USIPY_SIP_UA_EVENT_DIAL;
     ev.data.dial = (struct usipy_sip_ua_dial_params){
-      .request = {
-        .request_id = {
-        .call_id = USIPY_2STR("ua-out-2@example.test"),
+      .request = &(struct usipy_sip_tm_new_uac_tr_params){
+        .request_id = &(struct usipy_sip_tm_request_id){
+        .call_id = &(struct usipy_str)USIPY_2STR("ua-out-2@example.test"),
         .cseq = 1,
         .method_type = USIPY_SIP_METHOD_INVITE,
         },
-        .request_target = {
-        .request_uri = USIPY_2STR("sip:bob@example.test"),
-        .target = {
+        .request_target = &(struct usipy_sip_tm_request_target){
+        .request_uri = &(struct usipy_str)USIPY_2STR("sip:bob@example.test"),
+        .target = &(struct usipy_sip_tm_addr){
           .af = AF_INET,
           .port = 5060,
           .transport = USIPY_SIP_TM_TRANSPORT_UDP,
           .host = USIPY_2STR("198.51.100.10"),
         },
         },
-        .parties_by_username = {
-        .from = USIPY_2STR("alice"),
-        .to = USIPY_2STR("bob"),
-        .contact = USIPY_2STR("alice"),
+        .parties_by_username = &(struct usipy_sip_tm_request_parties){
+        .from = &(struct usipy_str)USIPY_2STR("alice"),
+        .to = &(struct usipy_str)USIPY_2STR("bob"),
+        .contact = &(struct usipy_str)USIPY_2STR("alice"),
         },
         .invite_expires = 1,
+        .callbacks = &(struct usipy_sip_tm_uac_callbacks){0},
       },
     };
     assert(usipy_sip_ua_on_event(uap, &ev, &invite_index) == USIPY_SIP_TM_OK);
@@ -465,34 +475,37 @@ test_ua_outgoing_auth_retry(void)
 
     ev.type = USIPY_SIP_UA_EVENT_DIAL;
     ev.data.dial = (struct usipy_sip_ua_dial_params){
-      .request = {
-        .request_id = {
-          .call_id = USIPY_2STR("ua-out-auth@example.test"),
+      .request = &(struct usipy_sip_tm_new_uac_tr_params){
+        .request_id = &(struct usipy_sip_tm_request_id){
+          .call_id = &(struct usipy_str)USIPY_2STR("ua-out-auth@example.test"),
           .cseq = 1,
           .method_type = USIPY_SIP_METHOD_INVITE,
         },
-        .request_target = {
-          .request_uri = USIPY_2STR("sip:bob@example.test"),
-          .target = {
+        .request_target = &(struct usipy_sip_tm_request_target){
+          .request_uri = &(struct usipy_str)USIPY_2STR("sip:bob@example.test"),
+          .target = &(struct usipy_sip_tm_addr){
             .af = AF_INET,
             .port = 5060,
             .transport = USIPY_SIP_TM_TRANSPORT_UDP,
             .host = USIPY_2STR("198.51.100.10"),
           },
         },
-        .parties_by_username = {
-          .from = USIPY_2STR("alice"),
-          .to = USIPY_2STR("bob"),
-          .contact = USIPY_2STR("alice"),
+        .parties_by_username = &(struct usipy_sip_tm_request_parties){
+          .from = &(struct usipy_str)USIPY_2STR("alice"),
+          .to = &(struct usipy_str)USIPY_2STR("bob"),
+          .contact = &(struct usipy_str)USIPY_2STR("alice"),
         },
         .invite_expires = 1,
-        .content_type = USIPY_2STR("application/sdp"),
-        .body = USIPY_2STR("v=0\r\n"),
+        .payload = &(struct usipy_sip_tm_request_payload){
+          .content_type = &(struct usipy_str)USIPY_2STR("application/sdp"),
+          .body = &(struct usipy_str)USIPY_2STR("v=0\r\n"),
+        },
+        .callbacks = &(struct usipy_sip_tm_uac_callbacks){0},
       },
-      .auth = {
-        .username = USIPY_2STR("alice"),
-        .password = USIPY_2STR("secret"),
-        .qop = USIPY_2STR("auth"),
+      .auth = &(struct usipy_sip_ua_credentials){
+        .username = &(struct usipy_str)USIPY_2STR("alice"),
+        .password = &(struct usipy_str)USIPY_2STR("secret"),
+        .qop = &(struct usipy_str)USIPY_2STR("auth"),
       },
     };
     assert(usipy_sip_ua_on_event(uap, &ev, &invite_index) == USIPY_SIP_TM_OK);
@@ -561,18 +574,18 @@ test_ua_incoming_connect_bye(void)
     invp = build_uas_invite_request();
     tpp = (struct usipy_sip_tm_new_uas_tr_params){
       .request = invp,
-      .timers = {
+      .timers = &(struct usipy_sip_tm_timer_policy){
         .t1_ms = 50,
         .t2_ms = 200,
         .t4_ms = 400,
       },
-      .peer = {
+      .peer = &(struct usipy_sip_tm_addr){
         .af = AF_INET,
         .port = 5060,
         .transport = USIPY_SIP_TM_TRANSPORT_UDP,
         .host = USIPY_2STR("198.51.100.10"),
       },
-      .local = {
+      .local = &(struct usipy_sip_tm_addr){
         .af = AF_INET,
         .port = 5060,
         .transport = USIPY_SIP_TM_TRANSPORT_UDP,
@@ -591,7 +604,7 @@ test_ua_incoming_connect_bye(void)
 
     ev.type = USIPY_SIP_UA_EVENT_CONNECT;
     ev.data.response = (struct usipy_sip_tm_uas_response_params){
-      .status = usipy_sip_res_ok,
+      .status = &usipy_sip_res_ok,
     };
     assert(usipy_sip_ua_on_event(uap, &ev, &invite_index) == USIPY_SIP_TM_OK);
     assert(usipy_sip_ua_get_state(uap) == USIPY_SIP_UA_STATE_CONNECTED);

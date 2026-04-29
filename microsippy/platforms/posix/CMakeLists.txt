@@ -93,7 +93,10 @@ ENDIF (IS_BIG_ENDIAN)
 
 enable_testing()
 
-add_test(basic ${CMAKE_SOURCE_DIR}/../../scripts/do-test.sh ${CMAKE_SOURCE_DIR})
+add_test(NAME basic COMMAND
+  ${CMAKE_COMMAND} -E env BUILDDIR=${CMAKE_CURRENT_BINARY_DIR}
+  ${CMAKE_SOURCE_DIR}/../../scripts/do-test.sh ${CMAKE_SOURCE_DIR}
+)
 add_test(NAME usipy_test_uac COMMAND usipy_test_uac)
 add_test(NAME usipy_test_ua COMMAND usipy_test_ua)
 
