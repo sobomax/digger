@@ -58,6 +58,19 @@ usipy_platform_default_mono_ms(void)
 static void
 usipy_platform_default_sleep_until_ms(uint64_t when_ms)
 {
+#if defined(HAVE_CMAKE_SYMBOL_CHECKS) && \
+    (!defined(HAVE_CLOCK_NANOSLEEP) || !defined(HAVE_TIMER_ABSTIME))
+    uint64_t now_ms;
+    uint64_t delay_ms;
+
+    while ((now_ms = usipy_platform_default_mono_ms()) < when_ms) {
+        delay_ms = when_ms - now_ms;
+        if (delay_ms > 1000u) {
+            delay_ms = 1000u;
+        }
+        usleep((useconds_t)(delay_ms * 1000u));
+    }
+#else
     struct timespec ts;
 
     ts.tv_sec = when_ms / 1000u;
@@ -65,6 +78,7 @@ usipy_platform_default_sleep_until_ms(uint64_t when_ms)
     while (clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &ts, NULL) != 0) {
         assert(errno == EINTR);
     }
+#endif
 }
 
 static void

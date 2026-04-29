@@ -725,7 +725,9 @@ netsim_cond_init(netsim_cond_t *cp)
   pthread_condattr_t attr;
 
   pthread_condattr_init(&attr);
+#if defined(HAVE_PTHREAD_CONDATTR_SETCLOCK) || !defined(HAVE_CMAKE_SYMBOL_CHECKS)
   pthread_condattr_setclock(&attr, CLOCK_MONOTONIC);
+#endif
   pthread_cond_init(&cp->cond, &attr);
   pthread_condattr_destroy(&attr);
 }
@@ -750,10 +752,25 @@ netsim_cond_timedwait(netsim_cond_t *cp, netsim_mutex_t *mp,
 {
   struct timespec ts;
   uint64_t secs;
+#if defined(HAVE_CMAKE_SYMBOL_CHECKS) && !defined(HAVE_PTHREAD_CONDATTR_SETCLOCK)
+  uint64_t now_ms, delta_ms, realtime_ms;
+
+  now_ms = netsim_now_ms();
+  if (deadline <= now_ms)
+    return (false);
+  delta_ms = deadline - now_ms;
+  clock_gettime(CLOCK_REALTIME, &ts);
+  realtime_ms = ((uint64_t)ts.tv_sec * 1000ULL) +
+    ((uint64_t)ts.tv_nsec / 1000000ULL) + delta_ms;
+  secs = realtime_ms / 1000ULL;
+  ts.tv_sec = (time_t)secs;
+  ts.tv_nsec = (long)((realtime_ms % 1000ULL) * 1000000ULL);
+#else
 
   secs = deadline / 1000ULL;
   ts.tv_sec = (time_t)secs;
   ts.tv_nsec = (long)((deadline % 1000ULL) * 1000000ULL);
+#endif
   return (pthread_cond_timedwait(&cp->cond, &mp->mutex, &ts) == 0);
 }
 
@@ -1166,7 +1183,9 @@ netsim_socket_err_transient(int err)
 
   switch (err) {
     case ECONNREFUSED:
+#ifdef EHOSTDOWN
     case EHOSTDOWN:
+#endif
     case EHOSTUNREACH:
     case ENETDOWN:
     case ENETUNREACH:

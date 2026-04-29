@@ -509,7 +509,7 @@ pending_log_retries(int type)
 }
 
 static uint64_t
-htonll(uint64_t v)
+netsim_htonll(uint64_t v)
 {
   uint32_t hi, lo;
 
@@ -519,7 +519,7 @@ htonll(uint64_t v)
 }
 
 static uint64_t
-ntohll(uint64_t v)
+netsim_ntohll(uint64_t v)
 {
   uint32_t hi, lo;
 
@@ -897,7 +897,7 @@ send_packet(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
     payload.reserved |= NETSIM_PKT_REPAIR_PREV;
   }
   payload.bits = htonl(packed_bits);
-  payload.nonce = htonll(pktp->nonce);
+  payload.nonce = netsim_htonll(pktp->nonce);
   payload.stream_ssrc = htonl(stream_ssrc);
   payload.hold_ms = htons(sendp->hold_ms);
   payload.unseen_off = netsim_unseen_off_encode(pktp->frame, sendp->unseen_frame);
@@ -944,7 +944,7 @@ decode_packet(const void *buf, size_t len, struct netsim_pkt *pktp)
   pkt.repair_frame = pkt.repair_valid ? (pkt.frame - 1) : 0;
   if (pkt.repair_valid && pkt.frame == 0)
     return (false);
-  pkt.nonce = ntohll(payload.nonce);
+  pkt.nonce = netsim_ntohll(payload.nonce);
   pkt.rtp_ssrc = ntohl(hdr.ssrc);
   pkt.stream_ssrc = ntohl(payload.stream_ssrc);
   pkt.hold_ms = ntohs(payload.hold_ms);

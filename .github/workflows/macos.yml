@@ -1,0 +1,56 @@
+name: macOS Package
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build_pkg:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: 'recursive'
+
+      - name: Install dependencies
+        run: |
+          brew update
+          brew install cmake sdl2 zlib
+
+      - name: Configure
+        run: |
+          cmake -S . -B build-macos \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr/local
+
+      - name: Build
+        run: |
+          cmake --build build-macos --parallel
+
+      - name: Stage install
+        run: |
+          rm -rf pkgroot dist
+          cmake --install build-macos --prefix "${PWD}/pkgroot/usr/local"
+
+      - name: Build package
+        run: |
+          mkdir -p dist
+          pkgbuild \
+            --root pkgroot \
+            --identifier org.digger.digger \
+            --version 20110912 \
+            --install-location / \
+            dist/digger-macos.pkg
+
+      - name: Test package
+        run: |
+          sudo installer -pkg dist/digger-macos.pkg -target /
+          TEST_TYPES=quick DIGGER_BIN=/usr/local/bin/digger sh -x ./scripts/do-test-run.sh
+
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: digger-macos-pkg
+          path: dist/digger-macos.pkg
