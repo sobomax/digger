@@ -17,5 +17,5 @@ then
   . "${SRCDIR}/scripts/test.common.sub"
 fi
 
-BUILDDIR="${SRCDIR}/build"
+BUILDDIR="${BUILDDIR:-${SRCDIR}/build}"
 DIFF="diff -u"

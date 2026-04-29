@@ -29,14 +29,15 @@ enum usipy_sip_ua_emit_type {
 };
 
 struct usipy_sip_ua_credentials {
-    struct usipy_str username;
-    struct usipy_str password;
-    struct usipy_str qop;
+    const struct usipy_str *username;
+    const struct usipy_str *password;
+    const struct usipy_str *qop;
 };
 
 struct usipy_sip_ua_dial_params {
-    struct usipy_sip_tm_new_uac_tr_params request;
-    struct usipy_sip_ua_credentials auth;
+    const struct usipy_sip_tm_new_uac_tr_params *request;
+    const struct usipy_sip_ua_credentials *auth;
+    const struct usipy_str *to_user;
 };
 
 struct usipy_sip_ua_event {
@@ -62,6 +63,7 @@ struct usipy_sip_ua_ctor_params {
     struct usipy_sip_tm *tm;
     usipy_sip_ua_emit_cb emit;
     void *emit_arg;
+    const struct usipy_sip_tm_addr *default_target;
 };
 
 struct usipy_sip_ua *usipy_sip_ua_ctor(const struct usipy_sip_ua_ctor_params *);

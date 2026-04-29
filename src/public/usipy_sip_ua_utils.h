@@ -23,11 +23,10 @@ struct usipy_sip_register_state {
 
 struct usipy_sip_register_start_params {
     struct usipy_sip_tm *tm;
-    struct usipy_str call_id;
-    struct usipy_str request_uri;
-    struct usipy_sip_tm_addr target;
-    struct usipy_str username;
-    struct usipy_sip_tm_uac_callbacks callbacks;
+    const struct usipy_str *call_id;
+    const struct usipy_sip_tm_addr *target;
+    const struct usipy_str *username;
+    const struct usipy_sip_tm_uac_callbacks *callbacks;
 };
 
 enum usipy_sip_register_response_result {

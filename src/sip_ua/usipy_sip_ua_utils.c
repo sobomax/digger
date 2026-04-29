@@ -3,6 +3,7 @@
 #include "public/usipy_sip_msg.h"
 #include "public/usipy_sip_ua_utils.h"
 #include "public/usipy_str.h"
+#include "usipy_debug.h"
 #include "usipy_tm_uac.h"
 #include "usipy_tvpair.h"
 #include "usipy_sip_uri.h"
@@ -41,26 +42,37 @@ int
 usipy_sip_register_start(struct usipy_sip_register_state *statep,
   const struct usipy_sip_register_start_params *paramsp, size_t *indexp)
 {
+    static const struct usipy_sip_tm_uac_callbacks empty_callbacks;
     struct usipy_sip_tm_new_uac_tr_params tp = {0};
+    struct usipy_sip_tm_request_id request_id = {0};
+    struct usipy_sip_tm_request_target request_target = {0};
+    struct usipy_sip_tm_request_parties parties_by_username = {0};
+    const struct usipy_sip_tm_uac_callbacks *callbacksp;
     size_t tx_index;
     int rval;
 
-    if (statep == NULL || paramsp == NULL || paramsp->tm == NULL) {
-        return (USIPY_SIP_TM_ERR_INVAL);
-    }
+    USIPY_DASSERT(statep != NULL);
+    USIPY_DASSERT(paramsp != NULL);
+    USIPY_DASSERT(paramsp->tm != NULL);
+    USIPY_DASSERT(paramsp->call_id != NULL);
+    USIPY_DASSERT(paramsp->target != NULL);
+    USIPY_DASSERT(paramsp->username != NULL);
     if (statep->registering) {
         return (USIPY_SIP_TM_ERR_UNSUPPORTED);
     }
-    tp.request_id.call_id = paramsp->call_id;
-    tp.request_id.cseq = statep->next_cseq;
-    tp.request_id.method_type = USIPY_SIP_METHOD_REGISTER;
-    tp.request_target.request_uri = paramsp->request_uri;
-    tp.request_target.target = paramsp->target;
-    tp.parties_by_username.from = paramsp->username;
-    tp.parties_by_username.to = paramsp->username;
-    tp.parties_by_username.contact = paramsp->username;
+    callbacksp = paramsp->callbacks != NULL ? paramsp->callbacks : &empty_callbacks;
+    request_id.call_id = paramsp->call_id;
+    request_id.cseq = statep->next_cseq;
+    request_id.method_type = USIPY_SIP_METHOD_REGISTER;
+    request_target.target = paramsp->target;
+    parties_by_username.from = paramsp->username;
+    parties_by_username.to = paramsp->username;
+    parties_by_username.contact = paramsp->username;
+    tp.request_id = &request_id;
+    tp.request_target = &request_target;
+    tp.parties_by_username = &parties_by_username;
     tp.contact_expires = statep->requested_expires;
-    tp.callbacks = paramsp->callbacks;
+    tp.callbacks = callbacksp;
     statep->auth_retry_started = 0;
     statep->registering = 1;
     statep->status = 0;
@@ -118,7 +130,7 @@ usipy_sip_register_handle_response(struct usipy_sip_register_state *statep,
     statep->auth_retry_started = 0;
     if (scode < 300) {
         if (usipy_tm_uac_extract_register_expires(msg, usernamep,
-              &statep->expires) != 0 ||
+              &statep->expires, NULL) != 0 ||
           usipy_sip_ua_schedule_refresh(statep->expires, now_ms,
             &statep->next_refresh_at_ms) != 0) {
             return (USIPY_SIP_TM_ERR_BADMSG);

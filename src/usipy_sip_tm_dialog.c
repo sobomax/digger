@@ -17,6 +17,79 @@
 static int usipy_sip_tm_dialog_uri_has_param(const struct usipy_sip_uri *, const char *);
 static void usipy_sip_tm_dialog_set_target_from_uri(struct usipy_sip_tm_addr *,
   const struct usipy_sip_tm_addr *, const struct usipy_sip_uri *);
+static int usipy_sip_tm_dialog_copy_addr(struct usipy_msg_heap *,
+  struct usipy_sip_tm_addr *, const struct usipy_sip_tm_addr *);
+
+static int
+usipy_sip_tm_dialog_copy_addr(struct usipy_msg_heap *mhp,
+  struct usipy_sip_tm_addr *dstp, const struct usipy_sip_tm_addr *srcp)
+{
+    USIPY_DASSERT(mhp != NULL);
+    USIPY_DASSERT(dstp != NULL);
+    USIPY_DASSERT(srcp != NULL);
+
+    *dstp = *srcp;
+    if (srcp->host.l == 0) {
+        return (USIPY_SIP_TM_OK);
+    }
+    if (usipy_msg_heap_append(mhp, &dstp->host, &srcp->host) != 0) {
+        return (USIPY_SIP_TM_ERR_NOSPC);
+    }
+    return (USIPY_SIP_TM_OK);
+}
+
+static int
+usipy_sip_tm_dialog_heap_str_dup(struct usipy_msg_heap *mhp,
+  const struct usipy_str *srcp, struct usipy_str *dstp)
+{
+    USIPY_DASSERT(mhp != NULL);
+    USIPY_DASSERT(srcp != NULL);
+    USIPY_DASSERT(dstp != NULL);
+
+    if (srcp->l != 0) {
+        if (usipy_msg_heap_append(mhp, dstp, srcp) != 0) {
+            return (USIPY_SIP_TM_ERR_NOSPC);
+        }
+    } else {
+        *dstp = USIPY_STR_NULL;
+    }
+    return (USIPY_SIP_TM_OK);
+}
+
+static void
+usipy_sip_tm_dialog_request_init(struct usipy_sip_tm_dialog_request *outp)
+{
+    USIPY_DASSERT(outp != NULL);
+
+    memset(outp, '\0', sizeof(*outp));
+    outp->request_id.call_id = &outp->call_id;
+    outp->request_target.request_uri = &outp->request_uri;
+    outp->request_target.target = &outp->request_target_addr;
+    outp->parties_by_uri.contact = &outp->contact_uri;
+    outp->parties_by_uri.from = &outp->from_uri;
+    outp->parties_by_uri.to = &outp->to_uri;
+    outp->dialog_tags.local_tag = &outp->local_tag;
+    outp->dialog_tags.remote_tag = &outp->remote_tag;
+}
+
+void
+usipy_sip_tm_dialog_request_get_params(
+  const struct usipy_sip_tm_dialog_request *srcp,
+  struct usipy_sip_tm_new_in_dialog_transaction_params *dstp)
+{
+    USIPY_DASSERT(srcp != NULL);
+    USIPY_DASSERT(dstp != NULL);
+
+    *dstp = (struct usipy_sip_tm_new_in_dialog_transaction_params){
+      .request_id = &srcp->request_id,
+      .request_target = &srcp->request_target,
+      .local = &srcp->local,
+      .parties_by_uri = &srcp->parties_by_uri,
+      .route_set = &srcp->route_set,
+      .dialog_tags = &srcp->dialog_tags,
+      .timers = &srcp->timers,
+    };
+}
 
 static int
 usipy_sip_tm_dialog_resolve_target(struct usipy_msg_heap *mhp,
@@ -126,7 +199,7 @@ int
 usipy_sip_tm_init_uac_dialog_request_params(const struct usipy_sip_tm *tm,
   size_t anchor_index, const struct usipy_msg *msg, uint8_t method_type,
   struct usipy_msg_heap *mhp,
-  struct usipy_sip_tm_new_in_dialog_transaction_params *outp)
+  struct usipy_sip_tm_dialog_request *outp)
 {
     const struct usipy_sip_tm_txi *anchorp;
     const struct usipy_sip_hdr_nameaddr *top, *contactp;
@@ -201,30 +274,38 @@ usipy_sip_tm_init_uac_dialog_request_params(const struct usipy_sip_tm *tm,
             routes[i] = shp->parsed.recordroute->addr_spec;
         }
     }
-    memset(outp, '\0', sizeof(*outp));
+    usipy_sip_tm_dialog_request_init(outp);
     rval = usipy_sip_tm_dialog_resolve_target(mhp, &anchorp->pub.common.peer,
       &contactp->addr_spec, routes, nrecordroutes, 1, &request_uri, &next_target,
       &owned_routes, &neffective_routes);
     if (rval != USIPY_SIP_TM_OK) {
         return (rval);
     }
-    if (usipy_msg_heap_append(mhp, &outp->request_id.call_id,
-      &anchorp->cache.call_id) != 0 ||
-      usipy_msg_heap_append(mhp, &outp->parties_by_uri.contact,
-        &anchorp->cache.uac.contact_uri) != 0 ||
-      usipy_msg_heap_append(mhp, &outp->parties_by_uri.from,
-        &anchorp->cache.uac.from_uri) != 0 ||
-      usipy_msg_heap_append(mhp, &outp->parties_by_uri.to,
-        &anchorp->cache.uac.to_uri) != 0 ||
-      usipy_msg_heap_append(mhp, &outp->dialog_tags.local_tag,
+    if (usipy_sip_tm_dialog_heap_str_dup(mhp, &anchorp->cache.call_id,
+        &outp->call_id) != 0 ||
+      usipy_sip_tm_dialog_heap_str_dup(mhp, &anchorp->cache.uac.contact_uri,
+        &outp->contact_uri) != 0 ||
+      usipy_sip_tm_dialog_heap_str_dup(mhp, &anchorp->cache.uac.from_uri,
+        &outp->from_uri) != 0 ||
+      usipy_sip_tm_dialog_heap_str_dup(mhp, &anchorp->cache.uac.to_uri,
+        &outp->to_uri) != 0 ||
+      usipy_msg_heap_append(mhp, &outp->local_tag,
         &anchorp->cache.from_tag) != 0 ||
-      usipy_msg_heap_append(mhp, &outp->dialog_tags.remote_tag, tagp) != 0) {
+      usipy_msg_heap_append(mhp, &outp->remote_tag,
+        tagp) != 0) {
         return (USIPY_SIP_TM_ERR_NOSPC);
     }
-    outp->request_target.request_uri = request_uri;
+    if (usipy_sip_tm_dialog_heap_str_dup(mhp, &request_uri,
+          &outp->request_uri) != 0) {
+        return (USIPY_SIP_TM_ERR_NOSPC);
+    }
     outp->route_set.routes = owned_routes;
     outp->route_set.nroutes = neffective_routes;
-    outp->request_target.target = next_target;
+    outp->request_target_addr = next_target;
+    if (usipy_sip_tm_dialog_copy_addr(mhp, &outp->local,
+      &anchorp->pub.common.local) != USIPY_SIP_TM_OK) {
+        return (USIPY_SIP_TM_ERR_NOSPC);
+    }
     outp->request_id.cseq = anchorp->cache.cseq.val;
     outp->request_id.method_type = method_type;
     outp->timers = anchorp->pub.common.timers;
@@ -234,7 +315,7 @@ usipy_sip_tm_init_uac_dialog_request_params(const struct usipy_sip_tm *tm,
 int
 usipy_sip_tm_init_uas_dialog_request_params(const struct usipy_sip_tm *tm,
   size_t anchor_index, uint8_t method_type, struct usipy_msg_heap *mhp,
-  struct usipy_sip_tm_new_in_dialog_transaction_params *outp)
+  struct usipy_sip_tm_dialog_request *outp)
 {
     const struct usipy_sip_tm_txi *anchorp;
     const struct usipy_sip_hdr_nameaddr *rrp;
@@ -272,7 +353,7 @@ usipy_sip_tm_init_uas_dialog_request_params(const struct usipy_sip_tm *tm,
     if (remote_targetp->l == 0) {
         return (USIPY_SIP_TM_ERR_BADMSG);
     }
-    memset(outp, '\0', sizeof(*outp));
+    usipy_sip_tm_dialog_request_init(outp);
     if (anchorp->cache.uas.nrecord_routes == 0) {
         if (usipy_msg_heap_append(mhp, &request_uri, remote_targetp) != 0) {
             return (USIPY_SIP_TM_ERR_NOSPC);
@@ -347,23 +428,31 @@ usipy_sip_tm_init_uas_dialog_request_params(const struct usipy_sip_tm *tm,
         local_contactp = &tm->luri;
     }
     if (
-      usipy_msg_heap_append(mhp, &outp->request_id.call_id,
-        &anchorp->cache.call_id) != 0 ||
-      usipy_msg_heap_append(mhp, &outp->parties_by_uri.contact, local_contactp) != 0 ||
-      usipy_msg_heap_append(mhp, &outp->parties_by_uri.from,
-        &anchorp->cache.uas.to_uri) != 0 ||
-      usipy_msg_heap_append(mhp, &outp->parties_by_uri.to,
-        &anchorp->cache.uas.from_uri) != 0 ||
-      usipy_msg_heap_append(mhp, &outp->dialog_tags.local_tag,
+      usipy_sip_tm_dialog_heap_str_dup(mhp, &anchorp->cache.call_id,
+        &outp->call_id) != 0 ||
+      usipy_sip_tm_dialog_heap_str_dup(mhp, local_contactp,
+        &outp->contact_uri) != 0 ||
+      usipy_sip_tm_dialog_heap_str_dup(mhp, &anchorp->cache.uas.to_uri,
+        &outp->from_uri) != 0 ||
+      usipy_sip_tm_dialog_heap_str_dup(mhp, &anchorp->cache.uas.from_uri,
+        &outp->to_uri) != 0 ||
+      usipy_msg_heap_append(mhp, &outp->local_tag,
         &anchorp->cache.to_tag) != 0 ||
-      usipy_msg_heap_append(mhp, &outp->dialog_tags.remote_tag,
+      usipy_msg_heap_append(mhp, &outp->remote_tag,
         &anchorp->cache.from_tag) != 0) {
         return (USIPY_SIP_TM_ERR_NOSPC);
     }
-    outp->request_target.request_uri = request_uri;
-    outp->request_target.target = next_target;
+    if (usipy_sip_tm_dialog_heap_str_dup(mhp, &request_uri,
+          &outp->request_uri) != 0) {
+        return (USIPY_SIP_TM_ERR_NOSPC);
+    }
+    outp->request_target_addr = next_target;
     outp->route_set.routes = owned_routes;
     outp->route_set.nroutes = neffective_routes;
+    if (usipy_sip_tm_dialog_copy_addr(mhp, &outp->local,
+      &anchorp->pub.common.local) != USIPY_SIP_TM_OK) {
+        return (USIPY_SIP_TM_ERR_NOSPC);
+    }
     outp->request_id.cseq = anchorp->cache.cseq.val;
     outp->request_id.method_type = method_type;
     outp->timers = anchorp->pub.common.timers;
@@ -374,7 +463,7 @@ int
 usipy_sip_tm_apply_uac_2xx_ack_dialog(const struct usipy_sip_tm *tm,
   size_t anchor_index, const struct usipy_msg *msg, struct usipy_sip_tm_txi *ackp)
 {
-    struct usipy_sip_tm_new_in_dialog_transaction_params tpp = {0};
+    struct usipy_sip_tm_dialog_request tpp;
 
     USIPY_DASSERT(tm != NULL);
     USIPY_DASSERT(msg != NULL);
@@ -387,18 +476,18 @@ usipy_sip_tm_apply_uac_2xx_ack_dialog(const struct usipy_sip_tm *tm,
         return (rval);
     }
     ackp->cache.uac.request_uri = usipy_sip_uri_parse(&ackp->scratch,
-      &tpp.request_target.request_uri);
+      tpp.request_target.request_uri);
     if (ackp->cache.uac.request_uri == NULL) {
         return (USIPY_SIP_TM_ERR_BADMSG);
     }
-    ackp->cache.uac.from_uri = tpp.parties_by_uri.from;
-    ackp->cache.uac.to_uri = tpp.parties_by_uri.to;
-    ackp->cache.uac.contact_uri = tpp.parties_by_uri.contact;
-    ackp->cache.to_tag = tpp.dialog_tags.remote_tag;
+    ackp->cache.uac.from_uri = *tpp.parties_by_uri.from;
+    ackp->cache.uac.to_uri = *tpp.parties_by_uri.to;
+    ackp->cache.uac.contact_uri = *tpp.parties_by_uri.contact;
+    ackp->cache.to_tag = *tpp.dialog_tags.remote_tag;
     ackp->cache.uac.routes = (struct usipy_str *)tpp.route_set.routes;
     ackp->cache.uac.nroutes = tpp.route_set.nroutes;
-    ackp->pub.common.peer = tpp.request_target.target;
-    ackp->outbound.pub.target = tpp.request_target.target;
+    ackp->pub.common.peer = *tpp.request_target.target;
+    ackp->outbound.pub.target = *tpp.request_target.target;
     ackp->pub.common.outbound = ackp->outbound.pub;
     return (USIPY_SIP_TM_OK);
 }

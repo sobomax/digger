@@ -2,6 +2,7 @@
 
 #include "public/usipy_sip_msg.h"
 #include "public/usipy_sip_response_utils.h"
+#include "usipy_debug.h"
 #include "usipy_sip_res.h"
 
 int
@@ -16,14 +17,18 @@ usipy_sip_tm_send_simple_response(struct usipy_sip_tm *tm,
       .local = hin->local,
     };
     struct usipy_sip_tm_uas_response_params rp = {
-      .status = *statusp,
+      .status = statusp,
     };
     size_t tx_index;
     int rval;
 
-    if (tm == NULL || hin == NULL || msg == NULL || statusp == NULL) {
-        return (USIPY_SIP_TM_ERR_INVAL);
-    }
+    USIPY_DASSERT(tm != NULL);
+    USIPY_DASSERT(hin != NULL);
+    USIPY_DASSERT(msg != NULL);
+    USIPY_DASSERT(statusp != NULL);
+    USIPY_DASSERT(hin->timers != NULL);
+    USIPY_DASSERT(hin->peer != NULL);
+    USIPY_DASSERT(hin->local != NULL);
     rval = usipy_sip_tm_new_uas_tr(tm, &tp, &tx_index);
     if (rval != USIPY_SIP_TM_OK) {
         return (rval);

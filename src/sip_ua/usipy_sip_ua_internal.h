@@ -15,10 +15,30 @@ struct usipy_sip_ua {
     struct usipy_sip_ua_dialing_request *dialingp;
     usipy_sip_ua_emit_cb emit;
     void *emit_arg;
+    struct usipy_sip_tm_addr default_target;
+    int have_default_target;
 };
 
 struct usipy_sip_ua_dialing_request {
-    struct usipy_sip_ua_dial_params params;
+    struct usipy_sip_tm_request_id request_id;
+    struct usipy_sip_tm_request_target request_target;
+    struct usipy_sip_tm_addr request_target_addr;
+    struct usipy_sip_tm_addr local;
+    struct usipy_sip_tm_request_parties parties_by_username;
+    uint32_t contact_expires;
+    uint32_t invite_expires;
+    struct usipy_sip_tm_uac_callbacks callbacks;
+    struct usipy_sip_tm_request_payload payload;
+    struct usipy_str request_call_id;
+    struct usipy_str request_uri;
+    struct usipy_str party_contact;
+    struct usipy_str party_from;
+    struct usipy_str party_to;
+    struct usipy_str content_type;
+    struct usipy_str body;
+    struct usipy_str auth_username;
+    struct usipy_str auth_password;
+    struct usipy_str auth_qop;
     int auth_retry_started;
 };
 
@@ -42,4 +62,6 @@ int usipy_sip_ua_expect_transaction(const struct usipy_sip_ua *, size_t,
   enum usipy_sip_tm_role, uint8_t, const struct usipy_sip_tm_tx **);
 int usipy_sip_ua_store_dialing_request(struct usipy_sip_ua *,
   const struct usipy_sip_ua_dial_params *);
+void usipy_sip_ua_fill_new_uac_tr_params(const struct usipy_sip_ua_dialing_request *,
+  struct usipy_sip_tm_new_uac_tr_params *);
 void usipy_sip_ua_clear_dialing_request(struct usipy_sip_ua *);

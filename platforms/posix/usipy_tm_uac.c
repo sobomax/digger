@@ -104,14 +104,19 @@ usipy_tm_uac_register_reply_auth(struct usipy_sip_tm *tm, size_t tx_index,
 
 int
 usipy_tm_uac_extract_register_expires(const struct usipy_msg *msg,
-  const struct usipy_str *usernamep, unsigned int *expiresp)
+  const struct usipy_str *usernamep, unsigned int *expiresp,
+  const struct usipy_sip_hdr_nameaddr **contactpp)
 {
     struct usipy_msg *cmsg = (struct usipy_msg *)msg;
     unsigned int fallback = 0;
+    const struct usipy_sip_hdr_nameaddr *fallback_contact = NULL;
     int have_fallback = 0;
 
     if (msg == NULL || expiresp == NULL) {
         return (-1);
+    }
+    if (contactpp != NULL) {
+        *contactpp = NULL;
     }
     struct usipy_sip_hdr_match *contact_hdrs = __builtin_alloca(
       USIPY_SIP_HDR_MATCH_SIZE(cmsg->nhdrs));
@@ -162,10 +167,14 @@ usipy_tm_uac_extract_register_expires(const struct usipy_msg *msg,
             }
             if (user_match) {
                 *expiresp = expires;
+                if (contactpp != NULL) {
+                    *contactpp = nap;
+                }
                 return (0);
             }
             if (!have_fallback) {
                 fallback = expires;
+                fallback_contact = nap;
                 have_fallback = 1;
             }
         }
@@ -174,6 +183,9 @@ usipy_tm_uac_extract_register_expires(const struct usipy_msg *msg,
         return (-1);
     }
     *expiresp = fallback;
+    if (contactpp != NULL) {
+        *contactpp = fallback_contact;
+    }
     return (0);
 }
 

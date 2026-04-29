@@ -13,13 +13,13 @@ usipy_sip_ua_dialing_auth_retry(struct usipy_sip_ua *uap, size_t tx_index,
 {
     const struct usipy_sip_ua_dialing_request *dp;
     const struct usipy_sip_hdr_auth *challengep = NULL;
-    struct usipy_sip_tm_request_payload payload;
     struct usipy_sip_tm_extra_header auth_hdr;
     struct usipy_msg_heap auth_heap;
     char auth_storage[512];
     size_t auth_cpts[4];
     struct usipy_msg *cmsg = (struct usipy_msg *)msg;
     struct usipy_sip_hdr_match hdr_match = {.hdrslen = 1};
+    const struct usipy_sip_tm_request_payload *payloadp;
     const struct usipy_str *effective_qopp;
     uint64_t parse_mask;
     uint8_t auth_hf_type;
@@ -30,12 +30,12 @@ usipy_sip_ua_dialing_auth_retry(struct usipy_sip_ua *uap, size_t tx_index,
     USIPY_DASSERT(uap->dialingp != NULL);
 
     dp = uap->dialingp;
-    payload = (struct usipy_sip_tm_request_payload){
-      .content_type = dp->params.request.content_type,
-      .body = dp->params.request.body,
-    };
+    payloadp = (dp->body.l != 0) ? &dp->payload : NULL;
+    auth_hdr = (struct usipy_sip_tm_extra_header){0};
+    USIPY_DASSERT(dp->payload.content_type == &dp->content_type);
+    USIPY_DASSERT(dp->payload.body == &dp->body);
     if (dp->auth_retry_started ||
-      dp->params.auth.username.l == 0 || dp->params.auth.password.l == 0) {
+      dp->auth_username.l == 0 || dp->auth_password.l == 0) {
         return (USIPY_SIP_TM_ERR_UNSUPPORTED);
     }
     switch (msg->sline.parsed.sl.status.code) {
@@ -60,18 +60,18 @@ usipy_sip_ua_dialing_auth_retry(struct usipy_sip_ua *uap, size_t tx_index,
     if (challengep == NULL) {
         return (USIPY_SIP_TM_ERR_BADMSG);
     }
-    effective_qopp = (challengep->qop.l != 0 ? &dp->params.auth.qop : NULL);
+    effective_qopp = (challengep->qop.l != 0 ? &dp->auth_qop : NULL);
     usipy_msg_heap_init(&auth_heap, auth_storage, sizeof(auth_storage),
       auth_cpts, sizeof(auth_cpts) / sizeof(auth_cpts[0]));
     rval = usipy_sip_tm_gen_authz_hf(uap->tm, tx_index, auth_hf_type, &auth_heap,
-      challengep, &dp->params.auth.username, &dp->params.auth.password,
-      (dp->params.request.body.l != 0 ? &dp->params.request.body : NULL), effective_qopp,
+      challengep, &dp->auth_username, &dp->auth_password,
+      (dp->body.l != 0) ? &dp->body : NULL, effective_qopp,
       &auth_hdr);
     if (rval != USIPY_SIP_TM_OK) {
         return (rval);
     }
     rval = usipy_sip_tm_next_transaction(uap->tm, tx_index,
-      (dp->params.request.body.l != 0 ? &payload : NULL), &auth_hdr, 1);
+      payloadp, &auth_hdr, 1);
     if (rval == USIPY_SIP_TM_OK) {
         uap->dialingp->auth_retry_started = 1;
     }

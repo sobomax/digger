@@ -43,7 +43,6 @@ struct ua_cli_ctx {
     struct usipy_str username;
     struct usipy_str password;
     struct usipy_str qop;
-    struct usipy_str request_uri;
     struct usipy_str call_id;
     struct usipy_str sdp;
     int ua_reset_needed;
@@ -271,33 +270,36 @@ start_pending_dial(struct ua_cli_ctx *ctx)
     }
     ev.type = USIPY_SIP_UA_EVENT_DIAL;
     ev.data.dial = (struct usipy_sip_ua_dial_params){
-      .request = {
-        .request_id = {
+      .request = &(struct usipy_sip_tm_new_uac_tr_params){
+        .request_id = &(struct usipy_sip_tm_request_id){
         .cseq = ctx->next_invite_cseq++,
         .method_type = USIPY_SIP_METHOD_INVITE,
         },
-        .request_target = {
-        .request_uri = (struct usipy_str){.s.ro = req_uri_buf, .l = (size_t)strlen(req_uri_buf)},
-        .target = ctx->peer,
+        .request_target = &(struct usipy_sip_tm_request_target){
+        .request_uri = &(struct usipy_str){.s.ro = req_uri_buf,
+          .l = (size_t)strlen(req_uri_buf)},
+        .target = &ctx->peer,
         },
-        .parties_by_username = {
-        .from = ctx->username,
-        .to = to_user,
-        .contact = ctx->username,
+        .parties_by_username = &(struct usipy_sip_tm_request_parties){
+        .from = &ctx->username,
+        .to = &to_user,
+        .contact = &ctx->username,
         },
         .invite_expires = 60,
-        .content_type = (struct usipy_str)USIPY_2STR("application/sdp"),
-        .body = ctx->sdp,
-        .callbacks = {
+        .payload = &(struct usipy_sip_tm_request_payload){
+          .content_type = &(struct usipy_str)USIPY_2STR("application/sdp"),
+          .body = &ctx->sdp,
+        },
+        .callbacks = &(struct usipy_sip_tm_uac_callbacks){
           .arg = ctx,
           .response = outgoing_response,
           .timeout = outgoing_timeout,
         },
       },
-      .auth = {
-        .username = ctx->username,
-        .password = ctx->password,
-        .qop = ctx->qop,
+      .auth = &(struct usipy_sip_ua_credentials){
+        .username = &ctx->username,
+        .password = &ctx->password,
+        .qop = &ctx->qop,
       },
     };
     rval = usipy_sip_ua_on_event(ctx->uap, &ev, &tx_index);
@@ -459,9 +461,9 @@ ua_emit(void *arg, const struct usipy_sip_ua_emit *emitp)
         report_activityf(ctx, "incoming-call");
         ctx->invite_index = emitp->transaction_index;
         ev.type = USIPY_SIP_UA_EVENT_CONNECT;
-        ev.data.response.status = usipy_sip_res_ok;
-        ev.data.response.content_type = (struct usipy_str)USIPY_2STR("application/sdp");
-        ev.data.response.body = ctx->sdp;
+        ev.data.response.status = &usipy_sip_res_ok;
+        ev.data.response.content_type = &(const struct usipy_str)USIPY_2STR("application/sdp");
+        ev.data.response.body = &ctx->sdp;
         rval = usipy_sip_ua_on_event(ctx->uap, &ev, &tx_index);
         if (rval != USIPY_SIP_TM_OK) {
             report_activityf(ctx,
@@ -539,19 +541,27 @@ outgoing_timeout(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
 static int
 start_register(struct ua_cli_ctx *ctx, size_t *indexp)
 {
+    const struct usipy_sip_tm_addr target = {
+      .af = ctx->peer.af,
+      .port = ctx->server_port,
+      .transport = ctx->peer.transport,
+      .host = (struct usipy_str){.s.ro = ctx->server_uri_host,
+        .l = strlen(ctx->server_uri_host)},
+    };
+    const struct usipy_sip_tm_uac_callbacks callbacks = {
+      .arg = ctx,
+      .response = register_response,
+      .timeout = register_timeout,
+    };
+
     report_activityf(ctx, "register cseq=%u", ctx->reg.next_cseq);
     return (usipy_sip_register_start(&ctx->reg,
       &(const struct usipy_sip_register_start_params){
         .tm = ctx->tm,
-        .call_id = ctx->call_id,
-        .request_uri = ctx->request_uri,
-        .target = ctx->peer,
-        .username = ctx->username,
-        .callbacks = {
-          .arg = ctx,
-          .response = register_response,
-          .timeout = register_timeout,
-        },
+        .call_id = &ctx->call_id,
+        .target = &target,
+        .username = &ctx->username,
+        .callbacks = &callbacks,
       }, indexp));
 }
 
@@ -639,7 +649,8 @@ incoming_request(void *arg, const struct usipy_sip_tm_handle_incoming_in *hin,
         return;
     }
     method_type = msg->sline.parsed.rl.method->cantype;
-    if (!usipy_sip_tm_addr_same(&ctx->peer, &hin->peer)) {
+    if (hin->peer == NULL || hin->local == NULL || hin->timers == NULL ||
+      !usipy_sip_tm_addr_same(&ctx->peer, hin->peer)) {
         if (usipy_sip_tm_send_simple_response(ctx->tm, hin, msg,
               &ua_cli_res_forbidden) != USIPY_SIP_TM_OK) {
             ctx->error = 1;
@@ -773,25 +784,28 @@ main(int argc, char **argv)
       .hangup_at_ms = USIPY_SIP_TM_TIME_NONE,
       .invite_index = USIPY_SIP_TM_TX_INDEX_NONE,
     };
+    struct usipy_sip_tm_callbacks tm_callbacks = {
+      .arg = &ctx,
+      .incoming_request = incoming_request,
+    };
+    struct usipy_sip_tm_id_policy tm_id_policy = {0};
     struct usipy_sip_tm_ctor_params tm_ctorp = {
       .transport = USIPY_SIP_TM_TRANSPORT_UDP,
       .max_transactions = ctx.max_transactions,
-      .callbacks = {
-        .arg = &ctx,
-        .incoming_request = incoming_request,
-      },
+      .callbacks = &tm_callbacks,
+      .id_policy = &tm_id_policy,
     };
     struct sockaddr_storage peer_ss;
     socklen_t peer_slen = 0;
     struct usipy_sip_tm_run_in rin;
     struct usipy_sip_tm_run_out rout;
+    struct usipy_sip_tm_timer_policy hin_timers = {0};
     struct usipy_sip_tm_handle_incoming_in hin;
     struct usipy_sip_tm_handle_incoming_out hout;
     struct pollfd pfds[2];
     const struct usipy_sip_tm_tx *txp;
     size_t reg_index;
     char uri_host[INET6_ADDRSTRLEN + 2];
-    char request_uri_buf[128];
     char debug_call_id[96];
     char rxbuf[2048];
     const char *server_ip;
@@ -881,14 +895,6 @@ main(int argc, char **argv)
     }
     memcpy(ctx.server_uri_host, uri_host, strlen(uri_host) + 1);
     ctx.server_port = (uint16_t)port;
-    blen = (port == 5060 ?
-      snprintf(request_uri_buf, sizeof(request_uri_buf), "sip:%s", uri_host) :
-      snprintf(request_uri_buf, sizeof(request_uri_buf), "sip:%s:%u", uri_host, port));
-    if (blen < 0 || (size_t)blen >= sizeof(request_uri_buf)) {
-        fprintf(stderr, "unable to format request URI\n");
-        return (1);
-    }
-    ctx.request_uri = (struct usipy_str){.s.ro = request_uri_buf, .l = (size_t)blen};
     ctx.sock = socket(ctx.peer.af, SOCK_DGRAM, 0);
     if (ctx.sock < 0) {
         perror("socket");
@@ -905,8 +911,8 @@ main(int argc, char **argv)
             exit_reason = "id-init";
             goto done;
         }
-        tm_ctorp.id_policy.arg = &production_ids;
-        tm_ctorp.id_policy.cb = usipy_tm_uac_production_id_policy;
+        tm_id_policy.arg = &production_ids;
+        tm_id_policy.cb = usipy_tm_uac_production_id_policy;
         ctx.call_id = production_ids.call_id_s;
     } else {
         blen = snprintf(debug_call_id, sizeof(debug_call_id), "ua-1@%s", server_ip);
@@ -919,7 +925,7 @@ main(int argc, char **argv)
     }
     tm_ctorp.sock = ctx.sock;
     if (id_mode != UA_CLI_ID_PRODUCTION) {
-        memset(&tm_ctorp.id_policy, '\0', sizeof(tm_ctorp.id_policy));
+        tm_ctorp.id_policy = NULL;
     }
     ctx.tm = usipy_sip_tm_ctor(&tm_ctorp);
     if (ctx.tm == NULL) {
@@ -959,8 +965,9 @@ main(int argc, char **argv)
     rin.send_to_arg = &ctx;
     memset(&hin, '\0', sizeof(hin));
     hin.tm = ctx.tm;
-    hin.peer = ctx.peer;
-    hin.local = ctx.local;
+    hin.timers = &hin_timers;
+    hin.peer = &ctx.peer;
+    hin.local = &ctx.local;
     if (timeout_ms != 0) {
         register_deadline_ms = usipy_tm_uac_mono_ms() + timeout_ms;
     }

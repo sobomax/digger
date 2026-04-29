@@ -248,31 +248,31 @@ struct usipy_sip_tm_extra_header {
     uint8_t hf_type;
     uint8_t value_kind;
     uint8_t _pad0[2];
-    struct usipy_str value;
+    const struct usipy_str *value;
     const void *parsed;
 };
 
 struct usipy_sip_tm_request_id {
-    struct usipy_str call_id;
+    const struct usipy_str *call_id;
     uint32_t cseq;
     uint8_t method_type;
     uint8_t _pad0[3];
 };
 
 struct usipy_sip_tm_request_target {
-    struct usipy_str request_uri;
-    struct usipy_sip_tm_addr target;
+    const struct usipy_str *request_uri;
+    const struct usipy_sip_tm_addr *target;
 };
 
 struct usipy_sip_tm_request_parties {
-    struct usipy_str contact;
-    struct usipy_str from;
-    struct usipy_str to;
+    const struct usipy_str *contact;
+    const struct usipy_str *from;
+    const struct usipy_str *to;
 };
 
 struct usipy_sip_tm_request_payload {
-    struct usipy_str content_type;
-    struct usipy_str body;
+    const struct usipy_str *content_type;
+    const struct usipy_str *body;
 };
 
 struct usipy_sip_tm_route_set {
@@ -281,62 +281,63 @@ struct usipy_sip_tm_route_set {
 };
 
 struct usipy_sip_tm_dialog_tags {
-    struct usipy_str local_tag;
-    struct usipy_str remote_tag;
+    const struct usipy_str *local_tag;
+    const struct usipy_str *remote_tag;
 };
 
 struct usipy_sip_tm_new_uac_tr_params {
-    struct usipy_sip_tm_request_id request_id;
-    struct usipy_sip_tm_request_target request_target;
-    struct usipy_sip_tm_request_parties parties_by_username;
+    const struct usipy_sip_tm_request_id *request_id;
+    const struct usipy_sip_tm_request_target *request_target;
+    const struct usipy_sip_tm_addr *local;
+    const struct usipy_sip_tm_request_parties *parties_by_username;
     uint32_t contact_expires;
     uint32_t invite_expires;
-    struct usipy_str content_type;
-    struct usipy_str body;
-    struct usipy_sip_tm_uac_callbacks callbacks;
+    const struct usipy_sip_tm_request_payload *payload;
+    const struct usipy_sip_tm_uac_callbacks *callbacks;
 };
 
 struct usipy_sip_tm_new_uas_tr_params {
     const struct usipy_msg *request;
-    struct usipy_sip_tm_timer_policy timers;
-    struct usipy_sip_tm_addr peer;
-    struct usipy_sip_tm_addr local;
-    struct usipy_sip_tm_uas_callbacks callbacks;
+    const struct usipy_sip_tm_timer_policy *timers;
+    const struct usipy_sip_tm_addr *peer;
+    const struct usipy_sip_tm_addr *local;
+    const struct usipy_sip_tm_uas_callbacks *callbacks;
 };
 
 struct usipy_sip_tm_uas_response_params {
-    struct usipy_sip_status status;
-    struct usipy_str content_type;
-    struct usipy_str body;
+    const struct usipy_sip_status *status;
+    const struct usipy_str *content_type;
+    const struct usipy_str *body;
     const struct usipy_sip_tm_extra_header *extra_headers;
     size_t nextra_headers;
-    struct usipy_sip_tm_uas_callbacks callbacks;
+    const struct usipy_sip_tm_uas_callbacks *callbacks;
 };
 
 struct usipy_sip_tm_new_in_dialog_transaction_params {
-    struct usipy_sip_tm_request_id request_id;
-    struct usipy_sip_tm_request_target request_target;
-    struct usipy_sip_tm_request_parties parties_by_uri;
-    struct usipy_sip_tm_route_set route_set;
-    struct usipy_sip_tm_dialog_tags dialog_tags;
-    struct usipy_sip_tm_timer_policy timers;
-    struct usipy_sip_tm_uac_callbacks callbacks;
+    const struct usipy_sip_tm_request_id *request_id;
+    const struct usipy_sip_tm_request_target *request_target;
+    const struct usipy_sip_tm_addr *local;
+    const struct usipy_sip_tm_request_parties *parties_by_uri;
+    const struct usipy_sip_tm_route_set *route_set;
+    const struct usipy_sip_tm_dialog_tags *dialog_tags;
+    const struct usipy_sip_tm_timer_policy *timers;
+    const struct usipy_sip_tm_uac_callbacks *callbacks;
 };
 
 struct usipy_sip_tm_ctor_params {
     int sock;
     enum usipy_sip_tm_transport transport;
     size_t max_transactions;
-    struct usipy_sip_tm_callbacks callbacks;
-    struct usipy_sip_tm_id_policy id_policy;
+    const struct usipy_sip_tm_callbacks *callbacks;
+    const struct usipy_sip_tm_id_policy *id_policy;
 };
 
 struct usipy_sip_tm_handle_incoming_in {
     uint64_t now_ms;
     struct usipy_sip_tm *tm;
-    struct usipy_sip_tm_timer_policy timers;
-    struct usipy_sip_tm_addr peer;
-    struct usipy_sip_tm_addr local;
+    const struct usipy_sip_tm_timer_policy *timers;
+    const struct usipy_sip_tm_addr *peer;
+    const struct usipy_sip_tm_addr *local;
     const char *buf;
     size_t len;
 };
