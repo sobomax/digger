@@ -41,6 +41,7 @@ static const int16_t hratio = 2;
 static const int16_t wratio = 2 * 4;
 #define SCREEN_WIDTH 640
 #define SCREEN_HEIGHT 400
+#define DISPLAY_FRAME_SEQ_STARTING UINT32_MAX
 #define virt2scrx(x) (x*xratio)
 #define virt2scry(y) (y*yratio+yoffset)
 #define virt2scrw(w) (w*wratio)
@@ -120,6 +121,7 @@ static void display_async_discard(void);
 static void display_async_stop(void);
 static void display_present_pixels_locked(const void *pixels);
 static void display_present_frame(SDL_Surface *frame16, uint32_t frame_seq);
+static void display_wait_for_startup(void);
 static uint32_t display_submit_frame(void);
 static void display_wait_for_frame(uint32_t frame_seq);
 static bool switchmode_apply(uint32_t desired_addflag, uint32_t fallback_addflag);
@@ -272,6 +274,11 @@ display_thread_main(void *arg)
 			SDL_UnlockMutex(display.queue_lock);
 			if (switchmode_apply(desired_addflag, fallback_addflag))
 				display_present_frame(display.work16, 0);
+			if (atomic_load_explicit(&display.completed_frame_seq,
+			    memory_order_acquire) == DISPLAY_FRAME_SEQ_STARTING) {
+				atomic_store_explicit(&display.completed_frame_seq, 0,
+				    memory_order_release);
+			}
 			continue;
 		}
 		frame16 = display.pending16;
@@ -319,7 +326,8 @@ display_async_start(void)
 	display.mode_change_pending = true;
 	display.next_frame_seq = 0;
 	display.pending_frame_seq = 0;
-	atomic_store_explicit(&display.completed_frame_seq, 0, memory_order_relaxed);
+	atomic_store_explicit(&display.completed_frame_seq,
+	    DISPLAY_FRAME_SEQ_STARTING, memory_order_relaxed);
 	display.thread = SDL_CreateThread(display_thread_main, "digger-display",
 	    NULL);
 	if (display.thread == NULL) {
@@ -329,6 +337,7 @@ display_async_start(void)
 		return (false);
 	}
 	display.thread_started = true;
+	display_wait_for_startup();
 	return (true);
 }
 
@@ -361,6 +370,16 @@ display_async_stop(void)
 	SDL_WaitThread(display.thread, NULL);
 	display_async_discard();
 	display_sync_destroy();
+}
+
+static void
+display_wait_for_startup(void)
+{
+
+	while (atomic_load_explicit(&display.completed_frame_seq,
+	    memory_order_acquire) == DISPLAY_FRAME_SEQ_STARTING) {
+		SDL_Delay(0);
+	}
 }
 
 static uint32_t
