@@ -316,7 +316,7 @@ display_async_start(void)
 	    screen16->format->palette->colors, 0, 16);
 	display.stop = false;
 	display.pending = false;
-	display.mode_change_pending = false;
+	display.mode_change_pending = true;
 	display.next_frame_seq = 0;
 	display.pending_frame_seq = 0;
 	atomic_store_explicit(&display.completed_frame_seq, 0, memory_order_relaxed);
