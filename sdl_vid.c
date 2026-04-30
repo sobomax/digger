@@ -459,6 +459,7 @@ setmode(void)
                     SDL_GetError());
                 return (false);
         }
+	SDL_ShowCursor(0);
 	return(true);
 }
 
@@ -546,11 +547,6 @@ void vgainit(void)
                     SDL_GetError());
                 exit(1);
         }
-        if (setmode() == false) {
-                fprintf(stderr, "Couldn't set 640x400x8 video mode: %s\n",
-                    SDL_GetError());
-                exit(1);
-        }
 
 #if defined(__EMSCRIPTEN__)
 	use_async_screen_updates = false;
@@ -559,7 +555,11 @@ void vgainit(void)
 		fprintf(stderr, "Falling back to synchronous screen updates\n");
 		use_async_screen_updates = false;
 	}
-	SDL_ShowCursor(0);
+	if (!use_async_screen_updates && setmode() == false) {
+		fprintf(stderr, "Couldn't set 640x400x8 video mode: %s\n",
+		    SDL_GetError());
+		exit(1);
+	}
 }
 
 void vgaclear(void)
