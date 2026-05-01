@@ -36,6 +36,7 @@
 #define NETSIM_IDLE_WAKE_MS 100
 #define NETSIM_BEGIN_WAIT_RETRY_MS 10000
 #define NETSIM_PKT_FRAME 0U
+#define NETSIM_RTP_HEADER_LEN 12U
 
 enum netsim_in_type {
   NETSIM_IN_START = 201,
@@ -62,14 +63,6 @@ struct netsim_pkt {
   uint32_t echo_local_tor_ms;
   bool repair_valid;
   uint8_t repair_bits;
-};
-
-struct netsim_rtp_header {
-  uint8_t vpxcc;
-  uint8_t mpt;
-  uint16_t seq;
-  uint32_t timestamp;
-  uint32_t ssrc;
 };
 
 /* Subtype is reserved for future use; the only current value is FRAME=0. */
@@ -508,6 +501,39 @@ pending_log_retries(int type)
     type != NETSIM_OUT_START_ACK);
 }
 
+static void
+netsim_put_be16(uint8_t *buf, uint16_t v)
+{
+
+  buf[0] = (uint8_t)(v >> 8);
+  buf[1] = (uint8_t)v;
+}
+
+static void
+netsim_put_be32(uint8_t *buf, uint32_t v)
+{
+
+  buf[0] = (uint8_t)(v >> 24);
+  buf[1] = (uint8_t)(v >> 16);
+  buf[2] = (uint8_t)(v >> 8);
+  buf[3] = (uint8_t)v;
+}
+
+static uint16_t
+netsim_get_be16(const uint8_t *buf)
+{
+
+  return (((uint16_t)buf[0] << 8) | (uint16_t)buf[1]);
+}
+
+static uint32_t
+netsim_get_be32(const uint8_t *buf)
+{
+
+  return (((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16) |
+    ((uint32_t)buf[2] << 8) | (uint32_t)buf[3]);
+}
+
 static uint64_t
 netsim_htonll(uint64_t v)
 {
@@ -875,17 +901,16 @@ send_packet(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
   uint32_t rtp_ssrc, uint32_t stream_ssrc, const struct netsim_pkt_meta *pktp,
   const struct netsim_send_meta *sendp)
 {
-  struct netsim_rtp_header hdr;
   struct netsim_rtp_payload payload;
   uint32_t packed_bits;
-  uint8_t buf[sizeof(hdr) + sizeof(payload)];
+  uint8_t buf[NETSIM_RTP_HEADER_LEN + sizeof(payload)];
 
-  memset(&hdr, '\0', sizeof(hdr));
-  hdr.vpxcc = NETSIM_RTP_VPXCC;
-  hdr.mpt = NETSIM_RTP_PT;
-  hdr.seq = htons((uint16_t)(pktp->tx_seq & 0xffffU));
-  hdr.timestamp = htonl(pktp->frame);
-  hdr.ssrc = htonl(rtp_ssrc);
+  memset(buf, '\0', sizeof(buf));
+  buf[0] = NETSIM_RTP_VPXCC;
+  buf[1] = NETSIM_RTP_PT;
+  netsim_put_be16(buf + 2, (uint16_t)(pktp->tx_seq & 0xffffU));
+  netsim_put_be32(buf + 4, pktp->frame);
+  netsim_put_be32(buf + 8, rtp_ssrc);
 
   memset(&payload, '\0', sizeof(payload));
   payload.subtype = NETSIM_PKT_FRAME;
@@ -904,8 +929,13 @@ send_packet(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
   payload.echo_peer_ct_ms = htonl(sendp->echo_peer_ct_ms);
   payload.echo_local_tor_ms = htonl(sendp->echo_local_tor_ms);
 
-  memcpy(buf, &hdr, sizeof(hdr));
-  memcpy(buf + sizeof(hdr), &payload, sizeof(payload));
+  memcpy(buf + NETSIM_RTP_HEADER_LEN, &payload, sizeof(payload));
+#if defined(DIGGER_DEBUG)
+  netsim_proto_log("send wire rtp seq=%u frame=%u hdr=%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+    (unsigned int)pktp->tx_seq, (unsigned int)pktp->frame, buf[0], buf[1],
+    buf[2], buf[3], buf[4], buf[5], buf[6], buf[7], buf[8], buf[9], buf[10],
+    buf[11]);
+#endif
   return (netsim_socket_sendto(sock, buf, sizeof(buf), addrp));
 }
 
@@ -913,27 +943,25 @@ static bool
 decode_packet(const void *buf, size_t len, struct netsim_pkt *pktp)
 {
   const uint8_t *bp;
-  struct netsim_rtp_header hdr;
   struct netsim_rtp_payload payload;
   uint32_t packed_bits;
   struct netsim_pkt pkt;
 
-  if (len != sizeof(hdr) + sizeof(payload))
+  if (len != NETSIM_RTP_HEADER_LEN + sizeof(payload))
     return (false);
   bp = buf;
-  memcpy(&hdr, buf, sizeof(hdr));
-  if ((hdr.vpxcc >> 6) != NETSIM_RTP_VERSION ||
-      (hdr.vpxcc & NETSIM_RTP_VPXCC_FLAGS_MASK) != 0)
+  if ((bp[0] >> 6) != NETSIM_RTP_VERSION ||
+      (bp[0] & NETSIM_RTP_VPXCC_FLAGS_MASK) != 0)
     return (false);
-  if ((hdr.mpt & NETSIM_RTP_MPT_PT_MASK) != NETSIM_RTP_PT)
+  if ((bp[1] & NETSIM_RTP_MPT_PT_MASK) != NETSIM_RTP_PT)
     return (false);
-  memcpy(&payload, bp + sizeof(hdr), sizeof(payload));
+  memcpy(&payload, bp + NETSIM_RTP_HEADER_LEN, sizeof(payload));
   if (payload.subtype != NETSIM_PKT_FRAME)
     return (false);
   pkt.player = payload.player;
   pkt.tx_seq = (((uint32_t)ntohs(payload.tx_seq_hi)) << 16) |
-    (uint32_t)ntohs(hdr.seq);
-  pkt.frame = ntohl(hdr.timestamp);
+    (uint32_t)netsim_get_be16(bp + 2);
+  pkt.frame = netsim_get_be32(bp + 4);
   if (!netsim_unseen_off_decode(pkt.frame, payload.unseen_off,
         &pkt.unseen_frame))
     return (false);
@@ -945,7 +973,7 @@ decode_packet(const void *buf, size_t len, struct netsim_pkt *pktp)
   if (pkt.repair_valid && pkt.frame == 0)
     return (false);
   pkt.nonce = netsim_ntohll(payload.nonce);
-  pkt.rtp_ssrc = ntohl(hdr.ssrc);
+  pkt.rtp_ssrc = netsim_get_be32(bp + 8);
   pkt.stream_ssrc = ntohl(payload.stream_ssrc);
   pkt.hold_ms = ntohs(payload.hold_ms);
   pkt.echo_peer_ct_ms = ntohl(payload.echo_peer_ct_ms);
@@ -1313,8 +1341,8 @@ struct netsim_thread_state {
 static void thread_set_tx(struct netsim_thread_state *tsp, int type,
   uint32_t frame, uint8_t bits);
 
-_Static_assert(sizeof(struct netsim_rtp_header) == 12,
-  "netsim_rtp_header must match the RTP fixed header size");
+_Static_assert(NETSIM_RTP_HEADER_LEN == 12,
+  "netsim RTP header length must match the fixed RTP header size");
 _Static_assert(sizeof(struct netsim_rtp_payload) == 32,
   "netsim_rtp_payload must remain fixed-width on the wire");
 
