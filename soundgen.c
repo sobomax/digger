@@ -167,7 +167,9 @@ void
 sgen_setphase(struct sgen_state *ssp, int band, double phase)
 {
     double r1;
+#ifndef NDEBUG
     double perr;
+#endif
 
     r1 = sgen_getphase(ssp, band);
     if (r1 == phase)
@@ -177,8 +179,10 @@ sgen_setphase(struct sgen_state *ssp, int band, double phase)
     } else {
         sgen_addphase(ssp, band, 1.0 - r1 + phase);
     }
+#ifndef NDEBUG
     perr = sgen_getphase(ssp, band) - phase;
     assert(fabs(perr) < 1e-15 || fabs(1.0 - perr) < 1e-15);
+#endif
 }
 
 double

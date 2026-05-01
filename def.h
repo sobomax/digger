@@ -77,6 +77,8 @@
 #define ININAME "/var/games/digger/digger.rc"
 #elif defined UNIX && !defined _VGL && !defined(__EMSCRIPTEN__)
 /* While SDL and other X11 related apps could be runned as ordinary user */
+#include <stdio.h>
+#include <stdlib.h>
 #ifdef __FreeBSD__
 #include <limits.h>
 #else /* I donno what is analog of PATH_MAX for Linux :( */
@@ -84,7 +86,16 @@
 #define PATH_MAX 1024
 #endif
 #endif
-#define ININAME strncat(strncpy((char*)alloca(PATH_MAX),getenv("HOME"),PATH_MAX),"/.digger.rc",PATH_MAX)
+static inline char *
+digger_ininame(void)
+{
+  static char path[PATH_MAX];
+  const char *home = getenv("HOME");
+
+  snprintf(path, sizeof(path), "%s/.digger.rc", home != NULL ? home : ".");
+  return path;
+}
+#define ININAME digger_ininame()
 #else
 #define ININAME "DIGGER.INI"
 #endif
