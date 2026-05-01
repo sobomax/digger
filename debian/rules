@@ -1,6 +1,11 @@
 #!/usr/bin/make -f
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+export CC = clang
+export CXX = clang++
+export DEB_CFLAGS_MAINT_APPEND = -gdwarf-4
+export DEB_CXXFLAGS_MAINT_APPEND = -gdwarf-4
+export DEB_LDFLAGS_MAINT_APPEND = -fuse-ld=lld -Wl,--build-id=sha1
 
 %:
 	dh $@ --buildsystem=cmake
