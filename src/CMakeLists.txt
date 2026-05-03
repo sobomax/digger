@@ -27,7 +27,7 @@ set(src_microsippy
  "external/mackron_md5/md5.c"
  "usipy_sip_tid.c" "usipy_sip_tid.h" "usipy_sip_res.c" "usipy_sip_res.h"
  "usipy_sip_tm_utils.c" "usipy_sip_response_utils.c"
- "bits/turbocompare.h" "bits/endian.h"
+ "bits/turbocompare.h" "usipy_endian.h"
 )
 add_library(microsippy STATIC ${src_microsippy})
 

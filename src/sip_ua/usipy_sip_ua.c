@@ -273,6 +273,7 @@ usipy_sip_ua_state_ops_get(enum usipy_sip_ua_state state)
         return (&usipy_sip_ua_disconnected_ops);
     }
     USIPY_DABORT();
+    return (&usipy_sip_ua_disconnected_ops);
 }
 
 void

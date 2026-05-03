@@ -67,6 +67,7 @@ usipy_sip_tm_transport_name(enum usipy_sip_tm_transport transport)
 
     default:
         USIPY_DABORT();
+        return ((struct usipy_str)USIPY_2STR(""));
     }
 }
 

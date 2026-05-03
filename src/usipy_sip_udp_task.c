@@ -26,17 +26,6 @@
 
 #define MAX_UDP_SIZE 1472 /* MTU 1500, no fragmentation */
 
-static uint16_t
-usipy_sip_udp_task_hton16(uint16_t hp)
-{
-
-#if USIPY_BIGENDIAN
-    return (hp);
-#else
-    return ((uint16_t)((hp << 8) | (hp >> 8)));
-#endif
-}
-
 #define TIME_HDR_PARSE(hm, to) do { \
         timer_opbegin(&ods); \
         rval = usipy_sip_msg_parse_hdrs(msg, hm, to); \
@@ -69,7 +58,7 @@ usipy_sip_udp_task(void *pvParameters)
         if (cfp->sip_af == AF_INET) {
             destAddr.v4.sin_addr.s_addr = htonl(INADDR_ANY);
             destAddr.v4.sin_family = AF_INET;
-            destAddr.v4.sin_port = usipy_sip_udp_task_hton16(cfp->sip_port);
+            destAddr.v4.sin_port = htons(cfp->sip_port);
             addr_family = AF_INET;
             ip_protocol = IPPROTO_IP;
             inet_ntop(AF_INET, &destAddr.v4.sin_addr, addr_str, sizeof(addr_str) - 1);
@@ -77,7 +66,7 @@ usipy_sip_udp_task(void *pvParameters)
 #ifdef IPPROTO_IPV6
             bzero(&destAddr.v6.sin6_addr, sizeof(destAddr.v6.sin6_addr));
             destAddr.v6.sin6_family = AF_INET6;
-            destAddr.v6.sin6_port = usipy_sip_udp_task_hton16(cfp->sip_port);
+            destAddr.v6.sin6_port = htons(cfp->sip_port);
             addr_family = AF_INET6;
             ip_protocol = IPPROTO_IPV6;
             inet_ntop(AF_INET6, &destAddr.v6.sin6_addr, addr_str, sizeof(addr_str) - 1);
