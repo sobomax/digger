@@ -18,7 +18,7 @@ usipy_sip_ua_dialing_auth_retry(struct usipy_sip_ua *uap, size_t tx_index,
     char auth_storage[512];
     size_t auth_cpts[4];
     struct usipy_msg *cmsg = (struct usipy_msg *)msg;
-    struct usipy_sip_hdr_match hdr_match = {.hdrslen = 1};
+    struct usipy_sip_hdr_match *hdr_matchp;
     const struct usipy_sip_tm_request_payload *payloadp;
     const struct usipy_str *effective_qopp;
     uint64_t parse_mask;
@@ -52,11 +52,13 @@ usipy_sip_ua_dialing_auth_retry(struct usipy_sip_ua *uap, size_t tx_index,
     default:
         return (USIPY_SIP_TM_ERR_UNSUPPORTED);
     }
-    if (usipy_sip_msg_parse_hdrs_get(cmsg, parse_mask, 0, &hdr_match) != 0 ||
-      hdr_match.nhdrs == 0) {
+    hdr_matchp = __builtin_alloca(USIPY_SIP_HDR_MATCH_SIZE(1));
+    *hdr_matchp = (struct usipy_sip_hdr_match){.hdrslen = 1};
+    if (usipy_sip_msg_parse_hdrs_get(cmsg, parse_mask, 0, hdr_matchp) != 0 ||
+      hdr_matchp->nhdrs == 0) {
         return (USIPY_SIP_TM_ERR_PARSE);
     }
-    challengep = hdr_match.hdrsp[0]->parsed.auth;
+    challengep = hdr_matchp->hdrsp[0]->parsed.auth;
     if (challengep == NULL) {
         return (USIPY_SIP_TM_ERR_BADMSG);
     }

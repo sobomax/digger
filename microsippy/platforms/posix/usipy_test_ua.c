@@ -14,6 +14,11 @@
 #include "usipy_sip_hdr_cseq.h"
 #include "usipy_sip_res.h"
 
+#define ASSERT_CALL_EQ(expr, expected) do { \
+    int assert_rval = (expr); \
+    assert(assert_rval == (expected)); \
+} while (0)
+
 struct emit_log {
     struct usipy_sip_tm *tm;
     size_t count;
@@ -37,12 +42,14 @@ static int
 bind_loopback_udp(void)
 {
     int sock;
+    int rval;
     struct sockaddr_in sin = {0};
 
     sock = socket(AF_INET, SOCK_DGRAM, 0);
     assert(sock >= 0);
     sin.sin_family = AF_INET;
-    assert(inet_pton(AF_INET, "127.0.0.1", &sin.sin_addr) == 1);
+    rval = inet_pton(AF_INET, "127.0.0.1", &sin.sin_addr);
+    assert(rval == 1);
     sin.sin_port = 0;
     if (bind(sock, (struct sockaddr *)&sin, sizeof(sin)) != 0) {
         perror("bind_loopback_udp bind");
@@ -91,7 +98,7 @@ run_tm_once(struct usipy_sip_tm *tm, uint64_t now_ms)
     struct usipy_sip_tm_run_out rout;
 
     assert(tm != NULL);
-    assert(usipy_sip_tm_run(&rin, &rout) == USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_tm_run(&rin, &rout), USIPY_SIP_TM_OK);
 }
 
 static void
@@ -113,7 +120,7 @@ handle_incoming_msg(struct usipy_sip_tm *tm, const struct usipy_sip_tm_tx *txp,
     assert(tm != NULL);
     assert(txp != NULL);
     assert(msg != NULL);
-    assert(usipy_sip_tm_handle_incoming(&hin, &hout) == USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_tm_handle_incoming(&hin, &hout), USIPY_SIP_TM_OK);
 }
 
 static const struct usipy_sip_hdr *
@@ -254,11 +261,11 @@ build_connected_bye(const struct usipy_msg *invp, const struct usipy_msg *respp)
 
     assert(invp != NULL);
     assert(respp != NULL);
-    assert(usipy_sip_msg_parse_hdrs((struct usipy_msg *)invp,
-      USIPY_HFT_MASK(USIPY_HF_FROM) | USIPY_HFT_MASK(USIPY_HF_CALLID), 1) == 0);
-    assert(usipy_sip_msg_parse_hdrs((struct usipy_msg *)respp,
+    ASSERT_CALL_EQ(usipy_sip_msg_parse_hdrs((struct usipy_msg *)invp,
+      USIPY_HFT_MASK(USIPY_HF_FROM) | USIPY_HFT_MASK(USIPY_HF_CALLID), 1), 0);
+    ASSERT_CALL_EQ(usipy_sip_msg_parse_hdrs((struct usipy_msg *)respp,
       USIPY_HFT_MASK(USIPY_HF_TO) | USIPY_HFT_MASK(USIPY_HF_CONTACT) |
-      USIPY_HFT_MASK(USIPY_HF_CSEQ), 1) == 0);
+      USIPY_HFT_MASK(USIPY_HF_CSEQ), 1), 0);
     fromh = find_header(invp, USIPY_HF_FROM);
     callidh = find_header(invp, USIPY_HF_CALLID);
     top = find_header(respp, USIPY_HF_TO)->parsed.to;
@@ -341,7 +348,8 @@ test_ua_outgoing_connect_disconnect(void)
         .qop = &(struct usipy_str)USIPY_2STR("auth"),
       },
     };
-    assert(usipy_sip_ua_on_event(uap, &ev, &invite_index) == USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_ua_on_event(uap, &ev, &invite_index),
+      USIPY_SIP_TM_OK);
     assert(usipy_sip_ua_get_state(uap) == USIPY_SIP_UA_STATE_DIALING);
     txp = usipy_sip_tm_get_transaction(tm, invite_index);
     assert(txp != NULL);
@@ -350,8 +358,8 @@ test_ua_outgoing_connect_disconnect(void)
     assert(txp != NULL);
     reqp = dup_tx_request(txp);
     struct usipy_sip_hdr_match ctype_match = {.hdrslen = 1};
-    assert(usipy_sip_msg_parse_hdrs_get(reqp, USIPY_HFT_MASK(USIPY_HF_CONTENTTYPE), 0,
-      &ctype_match) == 0);
+    ASSERT_CALL_EQ(usipy_sip_msg_parse_hdrs_get(reqp,
+      USIPY_HFT_MASK(USIPY_HF_CONTENTTYPE), 0, &ctype_match), 0);
     assert(ctype_match.nhdrs == 1);
     assert(reqp->body.l == 5);
     assert(memcmp(reqp->body.s.ro, "v=0\r\n", 5) == 0);
@@ -360,14 +368,16 @@ test_ua_outgoing_connect_disconnect(void)
       "application/sdp", 15) == 0);
     respp = build_response(reqp, &usipy_sip_res_ok, "uas200", "sip:bob@198.51.100.10:5070");
     handle_incoming_msg(tm, txp, respp, 100);
-    assert(usipy_sip_ua_on_tx_response(uap, invite_index, respp) == USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_ua_on_tx_response(uap, invite_index, respp),
+      USIPY_SIP_TM_OK);
     assert(usipy_sip_ua_get_state(uap) == USIPY_SIP_UA_STATE_CONNECTED);
     assert(elog.count == 1);
     assert(elog.emits[0].type == USIPY_SIP_UA_EMIT_CONNECT);
     assert(elog.emits[0].message == respp);
 
     ev.type = USIPY_SIP_UA_EVENT_DISCONNECT;
-    assert(usipy_sip_ua_on_event(uap, &ev, &bye_index) == USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_ua_on_event(uap, &ev, &bye_index),
+      USIPY_SIP_TM_OK);
     assert(usipy_sip_ua_get_state(uap) == USIPY_SIP_UA_STATE_DISCONNECTED);
     txp = usipy_sip_tm_get_transaction(tm, bye_index);
     assert(txp != NULL);
@@ -430,7 +440,8 @@ test_ua_outgoing_reject(void)
         .callbacks = &(struct usipy_sip_tm_uac_callbacks){0},
       },
     };
-    assert(usipy_sip_ua_on_event(uap, &ev, &invite_index) == USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_ua_on_event(uap, &ev, &invite_index),
+      USIPY_SIP_TM_OK);
     txp = usipy_sip_tm_get_transaction(tm, invite_index);
     assert(txp != NULL);
     run_tm_once(tm, 0);
@@ -439,7 +450,8 @@ test_ua_outgoing_reject(void)
     reqp = dup_tx_request(txp);
     respp = build_response(reqp, &usipy_sip_res_busy_here, "uas486", NULL);
     handle_incoming_msg(tm, txp, respp, 100);
-    assert(usipy_sip_ua_on_tx_response(uap, invite_index, respp) == USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_ua_on_tx_response(uap, invite_index, respp),
+      USIPY_SIP_TM_OK);
     assert(usipy_sip_ua_get_state(uap) == USIPY_SIP_UA_STATE_DISCONNECTED);
     assert(elog.count == 1);
     assert(elog.emits[0].type == USIPY_SIP_UA_EMIT_DISCONNECT);
@@ -508,7 +520,8 @@ test_ua_outgoing_auth_retry(void)
         .qop = &(struct usipy_str)USIPY_2STR("auth"),
       },
     };
-    assert(usipy_sip_ua_on_event(uap, &ev, &invite_index) == USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_ua_on_event(uap, &ev, &invite_index),
+      USIPY_SIP_TM_OK);
     run_tm_once(tm, 0);
     txp = usipy_sip_tm_get_transaction(tm, invite_index);
     assert(txp != NULL);
@@ -517,7 +530,8 @@ test_ua_outgoing_auth_retry(void)
       "WWW-Authenticate",
       "Digest realm=\"example.test\", nonce=\"abcdef\", qop=\"auth\"");
     handle_incoming_msg(tm, txp, res401p, 100);
-    assert(usipy_sip_ua_on_tx_response(uap, invite_index, res401p) == USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_ua_on_tx_response(uap, invite_index, res401p),
+      USIPY_SIP_TM_OK);
     assert(usipy_sip_ua_get_state(uap) == USIPY_SIP_UA_STATE_DIALING);
     txp = usipy_sip_tm_get_transaction(tm, invite_index);
     assert(txp != NULL);
@@ -534,7 +548,8 @@ test_ua_outgoing_auth_retry(void)
     res200p = build_response(req2p, &usipy_sip_res_ok, "uas200",
       "sip:bob@198.51.100.10:5070");
     handle_incoming_msg(tm, txp, res200p, 200);
-    assert(usipy_sip_ua_on_tx_response(uap, invite_index, res200p) == USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_ua_on_tx_response(uap, invite_index, res200p),
+      USIPY_SIP_TM_OK);
     assert(usipy_sip_ua_get_state(uap) == USIPY_SIP_UA_STATE_CONNECTED);
     assert(elog.count == 1);
     assert(elog.emits[0].type == USIPY_SIP_UA_EMIT_CONNECT);
@@ -592,8 +607,10 @@ test_ua_incoming_connect_bye(void)
         .host = USIPY_2STR("192.0.2.55"),
       },
     };
-    assert(usipy_sip_tm_new_uas_tr(tm, &tpp, &invite_index) == USIPY_SIP_TM_OK);
-    assert(usipy_sip_ua_on_transaction(uap, invite_index, invp) == USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_tm_new_uas_tr(tm, &tpp, &invite_index),
+      USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_ua_on_transaction(uap, invite_index, invp),
+      USIPY_SIP_TM_OK);
     assert(usipy_sip_ua_get_state(uap) == USIPY_SIP_UA_STATE_TRYING);
     txp = usipy_sip_tm_get_transaction(tm, invite_index);
     assert(txp != NULL);
@@ -606,7 +623,8 @@ test_ua_incoming_connect_bye(void)
     ev.data.response = (struct usipy_sip_tm_uas_response_params){
       .status = &usipy_sip_res_ok,
     };
-    assert(usipy_sip_ua_on_event(uap, &ev, &invite_index) == USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_ua_on_event(uap, &ev, &invite_index),
+      USIPY_SIP_TM_OK);
     assert(usipy_sip_ua_get_state(uap) == USIPY_SIP_UA_STATE_CONNECTED);
     assert(elog.count == 2);
     assert(elog.emits[1].type == USIPY_SIP_UA_EMIT_CONNECT);
@@ -619,8 +637,10 @@ test_ua_incoming_connect_bye(void)
     byep = build_connected_bye(invp, respp);
     assert(usipy_sip_ua_matches_transaction(uap, byep) == 1);
     tpp.request = byep;
-    assert(usipy_sip_tm_new_uas_tr(tm, &tpp, &bye_index) == USIPY_SIP_TM_OK);
-    assert(usipy_sip_ua_on_transaction(uap, bye_index, byep) == USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_tm_new_uas_tr(tm, &tpp, &bye_index),
+      USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_ua_on_transaction(uap, bye_index, byep),
+      USIPY_SIP_TM_OK);
     assert(usipy_sip_ua_get_state(uap) == USIPY_SIP_UA_STATE_DISCONNECTED);
     assert(elog.count == 3);
     assert(elog.emits[2].type == USIPY_SIP_UA_EMIT_DISCONNECT);

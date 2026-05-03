@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "bits/endian.h"
+#include "usipy_endian.h"
 
 #include "public/usipy_str.h"
 #include "usipy_fast_parser.h"

@@ -25,9 +25,12 @@ main(int argc, const char **argv)
 
 #ifndef NO_THREADS
     pthread_t tmthread, swthread;
+    int rval;
 
-    assert(pthread_create(&tmthread, NULL, usipy_sip_udp_task, &stc) == 0);
-    assert(pthread_create(&swthread, NULL, usipy_stdout_watch, NULL) == 0);
+    rval = pthread_create(&tmthread, NULL, usipy_sip_udp_task, &stc);
+    assert(rval == 0);
+    rval = pthread_create(&swthread, NULL, usipy_stdout_watch, NULL);
+    assert(rval == 0);
     return (pthread_join(tmthread, NULL));
 #else
     usipy_sip_udp_task(&stc);

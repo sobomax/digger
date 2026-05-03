@@ -10,7 +10,7 @@
 #include "usipy_port/log.h"
 #include "usipy_port/byteorder.h"
 
-#include "bits/endian.h"
+#include "usipy_endian.h"
 
 #include "usipy_debug.h"
 #include "usipy_types.h"

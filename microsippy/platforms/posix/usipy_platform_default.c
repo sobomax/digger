@@ -50,8 +50,11 @@ static uint64_t
 usipy_platform_default_mono_ms(void)
 {
     struct timespec ts;
+    int rval;
 
-    assert(clock_gettime(CLOCK_MONOTONIC, &ts) == 0);
+    rval = clock_gettime(CLOCK_MONOTONIC, &ts);
+    assert(rval == 0);
+    (void)rval;
     return ((uint64_t)ts.tv_sec * 1000u) + ((uint64_t)ts.tv_nsec / 1000000u);
 }
 
