@@ -135,12 +135,13 @@ spinlock_test()
 {
   pthread_t thr;
   struct targ t;
-  int i;
+  int i, rval;
 
   memset(&t, '\0', sizeof(t));
   t.sp = spinlock_ctor();
   assert(t.sp != NULL);
-  assert(pthread_create(&thr, NULL, wrkthr, &t) == 0);
+  rval = pthread_create(&thr, NULL, wrkthr, &t);
+  assert(rval == 0);
   for (i = 0; i < ITERS; i++) {
     spinlock_lock(t.sp);
     t.wrkvar -= 1;
@@ -150,7 +151,8 @@ spinlock_test()
       fflush(NULL);
     }
   }
-  assert(pthread_join(thr, NULL) == 0);
+  rval = pthread_join(thr, NULL);
+  assert(rval == 0);
   assert(t.wrkvar == 0);
   printf("\nspinned %llu cycles\n", (unsigned long long)atomic_load(&t.sp->nspins));
   return (0);

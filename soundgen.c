@@ -412,10 +412,15 @@ sgen_test(void)
             }
         }
         if (j == 0) {
+            size_t nwritten;
+            int rval;
+
             of = fopen("sgen_test.out", "w");
             assert(of != NULL);
-            assert(fwrite(obuf, TEST_SRATE * TEST_DUR, 1, of) == 1);
-            assert(fclose(of) == 0);
+            nwritten = fwrite(obuf, TEST_SRATE * TEST_DUR, 1, of);
+            assert(nwritten == 1);
+            rval = fclose(of);
+            assert(rval == 0);
         }
         printf("nzero=%u npos=%u nneg=%u ntrans=%u\n", wstats.nzero, wstats.npos, wstats.nneg, wstats.ntrans);
         rfreq = wstats.ntrans / (double)(TEST_DUR << 1);

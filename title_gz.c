@@ -158,7 +158,9 @@ static const uint8_t title_gz[CTITLELEN] = {
 void gettitle(unsigned char *buf)
 {
 	uLongf uncomplen=UTITLELEN;
+	int rval;
 
-	assert(uncompress(buf, &uncomplen, title_gz, CTITLELEN) == Z_OK);
+	rval = uncompress(buf, &uncomplen, title_gz, CTITLELEN);
+	assert(rval == Z_OK);
+	(void)rval;
 }
-
