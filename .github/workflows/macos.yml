@@ -42,6 +42,16 @@ jobs:
         run: |
           rm -rf pkgroot dist
           cmake --install build-macos --prefix "${PWD}/pkgroot/usr/local"
+          mkdir -p pkgroot/usr/local/lib/digger
+          sdl_lib="$(sdl2-config --prefix)/lib/libSDL2-2.0.0.dylib"
+          cp "${sdl_lib}" pkgroot/usr/local/lib/digger/
+          linked_sdl="$(otool -L pkgroot/usr/local/bin/digger | awk '/libSDL2.*dylib/ {print $1; exit}')"
+          test -n "${linked_sdl}"
+          install_name_tool \
+            -change "${linked_sdl}" \
+            "@executable_path/../lib/digger/libSDL2-2.0.0.dylib" \
+            pkgroot/usr/local/bin/digger
+          otool -L pkgroot/usr/local/bin/digger
 
       - name: Build package
         run: |
@@ -55,7 +65,16 @@ jobs:
 
       - name: Test package
         run: |
+          brew uninstall --ignore-dependencies --force cmake sdl2 zlib
+          brew list --versions cmake sdl2 zlib || true
           sudo installer -pkg dist/digger-macos.pkg -target /
+          otool -L /usr/local/bin/digger
+          if otool -L /usr/local/bin/digger | awk '$1 ~ "^(/opt/homebrew|/usr/local)/(opt|Cellar)/" { print; bad = 1 } END { exit bad }'; then
+            :
+          else
+            echo "digger still links against Homebrew libraries" >&2
+            exit 1
+          fi
           TEST_TYPES=quick DIGGER_BIN=/usr/local/bin/digger sh -x ./scripts/do-test-run.sh
 
       - name: Upload package
