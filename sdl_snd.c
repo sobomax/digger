@@ -12,6 +12,7 @@
 #include "digger_log.h"
 #include "newsnd.h"
 #include "sdl_snd.h"
+#include "sound.h"
 
 static void fill_audio(void *udata, uint8_t *stream, int len);
 
@@ -82,6 +83,7 @@ bool setsounddevice(uint16_t samprate, uint16_t bufsize)
         }
         sud->lp_fltr = bqd_lp_init(sud->obtained.freq, 4000);
         sud->hp_fltr = bqd_hp_init(sud->obtained.freq, 1000);
+	soundqueueenable();
 	SDL_PauseAudioDevice(sud->dev, 0);
 
 	return(result);

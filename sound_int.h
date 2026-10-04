@@ -52,6 +52,7 @@ void sound_queue_drain(void (*apply)(const struct sound_cmd *cmdp));
 uint16_t sound_ack_alloc(void);
 void sound_ack_push(uint16_t ack_id);
 bool sound_ack_poll(uint16_t ack_id);
+void sound_ack_cancel(uint16_t ack_id);
 
 void sound_backend_apply(const struct sound_cmd *cmdp);
 bool sound_backend_local_sound_available(void);

@@ -49,6 +49,8 @@ void timer2(uint16_t t2v);
 extern _Atomic bool soundflag,musicflag;
 extern int16_t volume,timerrate,spkrmode,pulsewidth;
 bool soundackready(uint16_t ack_id);
+void soundackcancel(uint16_t ack_id);
+void soundqueueenable(void);
 
 extern void (*setupsound)(void);
 extern void (*killsound)(void);

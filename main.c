@@ -266,6 +266,26 @@ static uint16_t sound_rate,sound_length;
 #include "sdl_vid.h"
 #endif
 
+/* Open the sound device, unless sound was disabled on the command line. Done
+   here rather than in inir() so that /Q is already known. */
+static void initsounddev(void)
+{
+#if !defined(UNIX) && !defined(_SDL)
+  if (sound_device==1) {
+#else
+  if (!quiet) {
+#endif
+    volume=1;
+    setupsound=s1setupsound;
+    killsound=s1killsound;
+    soundoff=s1soundoff;
+    setspkrt2=s1setspkrt2;
+    timer0=s1timer0;
+    timer2=s1timer2;
+    soundinitglob(sound_length,sound_rate);
+  }
+}
+
 void maininit(void)
 {
   static int maininited = 0;
@@ -273,6 +293,7 @@ void maininit(void)
   if (maininited != 0) {
     return;
   }
+  initsounddev();
   calibrate();
   ddap->ginit();
   ddap->gpal(0);
@@ -1057,21 +1078,6 @@ static void inir(void)
   sound_rate=(int)GetINIInt(INI_SOUND_SETTINGS,"Rate",44100,ININAME);
   sound_length=(int)GetINIInt(INI_SOUND_SETTINGS,"BufferSize",DEFAULT_BUFFER,ININAME);
   soundpreinit();
-
-#if !defined(UNIX) && !defined(_SDL)
-  if (sound_device==1) {
-#else
-  if (!quiet) {
-#endif
-    volume=1;
-    setupsound=s1setupsound;
-    killsound=s1killsound;
-    soundoff=s1soundoff;
-    setspkrt2=s1setspkrt2;
-    timer0=s1timer0;
-    timer2=s1timer2;
-    soundinitglob(sound_length,sound_rate);
-  }
   dx_sound_volume=(int)GetINIInt(INI_SOUND_SETTINGS,"SoundVolume",0,ININAME);
   g_bWindowed=true;
   use_640x480_fullscreen=GetINIBool(INI_GRAPHICS_SETTINGS,"640x480",false,

@@ -72,6 +72,7 @@ void initdigger(void)
       digdat[dig].invin=false;
       digdat[dig].ivt=0;
       digdat[dig].deathstage=DGR_DEATH_DONE;
+      soundackcancel(digdat[dig].deathmusicdone);
       digdat[dig].deathmusicdone=0;
       digdat[dig].dob.alive=false;
       digdat[dig].bagtime=0;
@@ -96,6 +97,7 @@ void initdigger(void)
     digdat[dig].invin=false;
     digdat[dig].ivt=0;
     digdat[dig].deathstage=DGR_DEATH_BAG;
+    soundackcancel(digdat[dig].deathmusicdone);
     digdat[dig].deathmusicdone=0;
     y = digdat[dig].v * 18 + 18;
     digger_obj_init(&digdat[dig].dob, dig - dgstate.curplayer, dir, x, y);
@@ -199,10 +201,14 @@ static bool
 digger_deathmusic_pending(int n)
 {
 
-  if (playing)
-    return (false);
   if (digdat[n].deathmusicdone == 0)
     return (false);
+  if (playing) {
+    /* Playback doesn't wait for the dirge to finish */
+    soundackcancel(digdat[n].deathmusicdone);
+    digdat[n].deathmusicdone = 0;
+    return (false);
+  }
   if (soundackready(digdat[n].deathmusicdone)) {
     digdat[n].deathmusicdone = 0;
     return (false);

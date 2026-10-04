@@ -45,17 +45,32 @@ struct sound_cmd_queue {
   struct sound_cmd items[SOUND_CMD_QUEUE_LEN];
 };
 
+/*
+ * Acks are completed by the sound backend in whatever order its commands
+ * finish, while the game polls for them one at a time. A waiter may also give
+ * up on its ack (escape, DRF playback, peer gone), in which case it must
+ * cancel it so that the completion does not linger in the set forever.
+ */
 struct sound_ack_queue {
   struct spinlock *lock;
-  unsigned int head;
-  unsigned int tail;
   unsigned int len;
+  unsigned int ncanceled;
   uint16_t next_id;
   uint16_t items[SOUND_ACK_QUEUE_LEN];
+  uint16_t canceled[SOUND_ACK_QUEUE_LEN];
 };
 
 static struct sound_cmd_queue sound_cmdq = {0};
 static struct sound_ack_queue sound_ackq = {0};
+/* Set once a sound device that drains the command queue has been opened. */
+static bool sound_cmdq_enabled = false;
+
+void
+soundqueueenable(void)
+{
+
+  sound_cmdq_enabled = true;
+}
 
 bool
 sound_queue_init(void)
@@ -89,6 +104,21 @@ sound_ack_alloc(void)
   return (ack_id);
 }
 
+/* Remove ack_id from the array, return whether it was there. */
+static bool
+sound_ack_take(uint16_t *items, unsigned int *lenp, uint16_t ack_id)
+{
+  unsigned int i;
+
+  for (i = 0; i < *lenp; i++) {
+    if (items[i] != ack_id)
+      continue;
+    items[i] = items[--(*lenp)];
+    return (true);
+  }
+  return (false);
+}
+
 void
 sound_ack_push(uint16_t ack_id)
 {
@@ -98,10 +128,10 @@ sound_ack_push(uint16_t ack_id)
   qp = &sound_ackq;
   assert(qp->lock != NULL);
   spinlock_lock(qp->lock);
-  assert(qp->len < SOUND_ACK_QUEUE_LEN);
-  qp->items[qp->tail] = ack_id;
-  qp->tail = (qp->tail + 1) % SOUND_ACK_QUEUE_LEN;
-  qp->len++;
+  if (!sound_ack_take(qp->canceled, &qp->ncanceled, ack_id)) {
+    assert(qp->len < SOUND_ACK_QUEUE_LEN);
+    qp->items[qp->len++] = ack_id;
+  }
   spinlock_unlock(qp->lock);
 }
 
@@ -114,16 +144,27 @@ sound_ack_poll(uint16_t ack_id)
   assert(ack_id != 0);
   qp = &sound_ackq;
   assert(qp->lock != NULL);
-  found = false;
   spinlock_lock(qp->lock);
-  if (qp->len > 0) {
-    assert(qp->items[qp->head] == ack_id);
-    qp->head = (qp->head + 1) % SOUND_ACK_QUEUE_LEN;
-    qp->len--;
-    found = true;
-  }
+  found = sound_ack_take(qp->items, &qp->len, ack_id);
   spinlock_unlock(qp->lock);
   return (found);
+}
+
+void
+sound_ack_cancel(uint16_t ack_id)
+{
+  struct sound_ack_queue *qp;
+
+  if (ack_id == 0)
+    return;
+  qp = &sound_ackq;
+  assert(qp->lock != NULL);
+  spinlock_lock(qp->lock);
+  if (!sound_ack_take(qp->items, &qp->len, ack_id)) {
+    assert(qp->ncanceled < SOUND_ACK_QUEUE_LEN);
+    qp->canceled[qp->ncanceled++] = ack_id;
+  }
+  spinlock_unlock(qp->lock);
 }
 
 bool
@@ -136,11 +177,24 @@ soundackready(uint16_t ack_id)
 }
 
 void
+soundackcancel(uint16_t ack_id)
+{
+
+  sound_ack_cancel(ack_id);
+}
+
+void
 sound_queue_push_done(enum sound_cmd_type type, int argi, double argd,
   uint16_t done_ack_id)
 {
   struct sound_cmd_queue *qp;
 
+  if (!sound_cmdq_enabled) {
+    /* Nobody would ever drain it, complete the command right away. */
+    if (done_ack_id != 0)
+      sound_ack_push(done_ack_id);
+    return;
+  }
   qp = &sound_cmdq;
   assert(qp->lock != NULL);
   spinlock_lock(qp->lock);
@@ -230,19 +284,16 @@ soundwakeup(void)
   sound_queue_post(SOUND_CMD_WAKEUP, 0, 0.0);
 }
 
-static void
+static bool
 soundlevdone_wait_finish(uint16_t done_ack_id)
 {
-  while (!escape) {
-    if (!wave_device_available) {
-      sound_queue_push_done(SOUND_CMD_LEVDONE_OFF, 0, 0.0, done_ack_id);
-      break;
-    }
+  while (!escape && wave_device_available) {
     if (sound_ack_poll(done_ack_id))
-      break;
+      return (true);
     soundwait();
     checkkeyb();
   }
+  return (false);
 }
 
 static void
@@ -264,18 +315,17 @@ soundlevdone_netsim(bool local_sound)
   while (!escape) {
     if (local_freeze && sound_ack_poll(done_ack_id))
       local_freeze = false;
-    if (!freezeframe(local_freeze, &remote_freeze)) {
-      if (local_freeze)
-        sound_queue_push_done(SOUND_CMD_LEVDONE_OFF, 0, 0.0, done_ack_id);
-      return;
-    }
+    if (!freezeframe(local_freeze, &remote_freeze))
+      break;
     if (!local_freeze)
       sent_unfreeze = true;
     if (!local_freeze && !remote_freeze && sent_unfreeze)
       break;
   }
-  if (local_freeze)
+  if (local_freeze) {
     sound_queue_push_done(SOUND_CMD_LEVDONE_OFF, 0, 0.0, done_ack_id);
+    sound_ack_cancel(done_ack_id);
+  }
 }
 
 void
@@ -294,8 +344,10 @@ soundlevdone(void)
     return;
   done_ack_id = sound_ack_alloc();
   sound_queue_push_done(SOUND_CMD_LEVDONE_START, 0, 0.0, done_ack_id);
-  soundlevdone_wait_finish(done_ack_id);
-  sound_queue_push_done(SOUND_CMD_LEVDONE_OFF, 0, 0.0, done_ack_id);
+  if (!soundlevdone_wait_finish(done_ack_id)) {
+    sound_queue_push_done(SOUND_CMD_LEVDONE_OFF, 0, 0.0, done_ack_id);
+    sound_ack_cancel(done_ack_id);
+  }
 }
 
 void
@@ -606,6 +658,17 @@ soundackready(uint16_t ack_id)
 {
   (void)ack_id;
   return (true);
+}
+
+void
+soundackcancel(uint16_t ack_id)
+{
+  (void)ack_id;
+}
+
+void
+soundqueueenable(void)
+{
 }
 #endif
 
