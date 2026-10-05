@@ -235,7 +235,6 @@
 
   <div class="controls-bar">
     <button class="btn" id="btn-fullscreen">Alt-Enter FULLSCREEN</button>
-    <button class="btn" id="btn-settings">F11 SETTINGS</button>
   </div>
 
   <div class="instructions">
@@ -329,12 +328,6 @@
 
     document.getElementById('btn-fullscreen').addEventListener('click', function() {
       Module._digger_request_fullscreen();
-      canvasElement.focus();
-    });
-
-    document.getElementById('btn-settings').addEventListener('click', function() {
-      /* simulate F11 keypress */
-      canvasElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'F11', code: 'F11', keyCode: 122, bubbles: true}));
       canvasElement.focus();
     });
 
