@@ -777,7 +777,7 @@ usipy_sip_tm_uas_build_response_cb(void *arg, char *buf, size_t len)
     }
     APPEND_STR(&clen_hfp->name);
     APPEND_STR(&colon_sp);
-    rval = snprintf(clen_buf, sizeof(clen_buf), "%zu", bodyp->l);
+    rval = snprintf(clen_buf, sizeof(clen_buf), "%lu", (unsigned long)bodyp->l);
     if (rval < 0 || (size_t)rval >= sizeof(clen_buf)) {
         return (-1);
     }
@@ -797,7 +797,8 @@ usipy_sip_tm_uas_prepare_default_local_tag(struct usipy_sip_tm_txi *tp, size_t t
 {
     USIPY_DASSERT(tp != NULL);
 
-    return (usipy_msg_heap_sprintf(&tp->scratch, &tp->cache.to_tag, "t%zu-1", tx_index));
+    return (usipy_msg_heap_sprintf(&tp->scratch, &tp->cache.to_tag, "t%lu-1",
+      (unsigned long)tx_index));
 }
 
 static int
