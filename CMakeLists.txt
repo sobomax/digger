@@ -50,14 +50,35 @@ int main() {
   set(CMAKE_REQUIRED_FLAGS ${OLD_CMAKE_REQUIRED_FLAGS})
 endfunction(check_working_cxx_atomics)
 
+# The C code reads and assigns _Atomic bool variables directly, which on
+# some targets (e.g. ARMv5) compiles into generic __atomic_load/__atomic_store
+# calls from libatomic even when the int-sized C++ atomics above link fine.
+function(check_working_c_atomics varname)
+  CHECK_C_SOURCE_COMPILES("
+#include <stdatomic.h>
+#include <stdbool.h>
+_Atomic bool b, c;
+_Atomic int i;
+int main(void) {
+  b = c = true;
+  atomic_fetch_add(&i, 1);
+  return b ? atomic_load(&i) : 0;
+}
+" ${varname})
+endfunction(check_working_c_atomics)
+
 IF( NOT MSVC )
   check_working_cxx_atomics(HAVE_CXX_ATOMICS_WITHOUT_LIB)
+  check_working_c_atomics(HAVE_C_ATOMICS_WITHOUT_LIB)
+  IF (NOT HAVE_CXX_ATOMICS_WITHOUT_LIB OR NOT HAVE_C_ATOMICS_WITHOUT_LIB)
+    SET(NEED_LIBATOMIC TRUE)
+  ENDIF()
   find_package(Threads REQUIRED)
   CHECK_SYMBOL_EXISTS(clock_nanosleep "time.h" HAVE_CLOCK_NANOSLEEP)
   CHECK_SYMBOL_EXISTS(TIMER_ABSTIME "time.h" HAVE_TIMER_ABSTIME)
   CHECK_SYMBOL_EXISTS(pthread_condattr_setclock "pthread.h" HAVE_PTHREAD_CONDATTR_SETCLOCK)
 
-  IF (NOT HAVE_CXX_ATOMICS_WITHOUT_LIB)
+  IF (NEED_LIBATOMIC)
     check_library_exists(atomic __atomic_fetch_add_4 "" HAVE_LIBATOMIC)
 
     IF (NOT HAVE_LIBATOMIC)
@@ -310,9 +331,9 @@ IF (HAVE_SDL_X11_WINDOW)
 ENDIF()
 IF ( NOT MSVC )
   TARGET_LINK_LIBRARIES( digger PUBLIC Threads::Threads )
-  IF (NOT HAVE_CXX_ATOMICS_WITHOUT_LIB )
+  IF (NEED_LIBATOMIC)
     TARGET_LINK_LIBRARIES( digger PUBLIC -latomic )
-  ENDIF ( NOT HAVE_CXX_ATOMICS_WITHOUT_LIB )
+  ENDIF (NEED_LIBATOMIC)
 ENDIF( NOT MSVC )
 TARGET_LINK_LIBRARIES( digger PUBLIC ${ZLIB_LIBRARY} )
 TARGET_LINK_LIBRARIES( digger PUBLIC -lm)
