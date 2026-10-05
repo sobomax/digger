@@ -121,9 +121,11 @@ void redefkeyb(struct digger_draw_api *ddap, bool allf)
   y-=CHR_H;
   for (i=10;i<NKEYS;i++) {
     f=false;
+    /* Also against the player keys' primary codes, or e.g. a player 2
+       key could silently double as Redefine */
     for (j=0;j<10;j++)
       for (k=0;k<5;k++)
-        for (l=2;l<5;l++)
+        for (l=0;l<5;l++)
           if (keycodes[i][k]==keycodes[j][l] && keycodes[i][k]!=-2)
             f=true;
     for (j=10;j<i;j++)
