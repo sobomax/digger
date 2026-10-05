@@ -15,6 +15,7 @@ on:
 jobs:
   build_pkg:
     runs-on: macos-latest
+    timeout-minutes: 30
     outputs:
       package_artifacts: ${{ steps.package_artifacts.outputs.names }}
 
@@ -75,7 +76,20 @@ jobs:
             echo "digger still links against Homebrew libraries" >&2
             exit 1
           fi
+          # Watchdog: dump the stacks of any digger still running after 5
+          # minutes and kill it, so that a hang shows up in the log.
+          (
+            sleep 300
+            for p in $(pgrep -x digger); do
+              echo "=== digger ${p} still running, stacks follow"
+              sudo lldb --batch -p "${p}" -o "thread backtrace all" -o detach ||
+                sample "${p}" 1
+              kill -9 "${p}"
+            done
+          ) &
+          WATCHDOG=$!
           TEST_TYPES=quick DIGGER_BIN=/usr/local/bin/digger sh -x ./scripts/do-test-run.sh
+          kill "${WATCHDOG}" 2>/dev/null || true
 
       - name: Upload package
         uses: actions/upload-artifact@v7
