@@ -6,6 +6,9 @@
 #include <stdlib.h>
 #include <strings.h>
 #include "def.h"
+#if defined(__EMSCRIPTEN__)
+#include "ems_store.h"
+#endif
 
 #define NEWL "\r\n"
 
@@ -26,7 +29,19 @@ static char *sgets(char *buffer,char *s)
 
 /* These are re-implementations of the Windows version of INI filing. */
 
+static void writeinistring(const char *section,const char *key,
+  const char *value,const char *filename);
+
 void WriteINIString(const char *section,const char *key,const char *value,const char *filename)
+{
+  writeinistring(section,key,value,filename);
+#if defined(__EMSCRIPTEN__)
+  ems_store_save(filename);
+#endif
+}
+
+static void writeinistring(const char *section,const char *key,
+  const char *value,const char *filename)
 {
   FILE *fp;
   char *buffer,*p,*p0,s1[80],s2[80],s3[80];

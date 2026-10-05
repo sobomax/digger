@@ -222,6 +222,7 @@ IF ( EMSCRIPTEN )
        ${DIGGER_SOURCE}
        ems_vid.c
        ems_kbd.c
+       ems_store.c
   )
 ENDIF ( EMSCRIPTEN )
 

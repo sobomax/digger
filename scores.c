@@ -18,6 +18,9 @@
 #include "record.h"
 #include "game.h"
 #include "netsim.h"
+#if defined(__EMSCRIPTEN__)
+#include "ems_store.h"
+#endif
 
 static struct scdat
 {
@@ -81,6 +84,14 @@ readscores(void)
 
   scorebuf[0]=0;
   if (!dgstate.levfflag) {
+#if defined(__EMSCRIPTEN__)
+    static bool restored = false;
+
+    if (!restored) {
+      ems_store_restore(SFNAME);
+      restored = true;
+    }
+#endif
     in = fopen(SFNAME, "rb");
     if (in == NULL)
         return;
@@ -106,6 +117,9 @@ writescores(void)
     if ((out=fopen(SFNAME,"wb"))!=NULL) {
       fwrite(scorebuf,512,1,out);
       fclose(out);
+#if defined(__EMSCRIPTEN__)
+      ems_store_save(SFNAME);
+#endif
     }
   }
   else

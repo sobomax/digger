@@ -166,6 +166,7 @@ OBJS    += netsim_stubs.o
 NETSIM_OBJ = netsim_stubs.o
 OBJS    += ems_vid.o
 OBJS    += ems_kbd.o
+OBJS    += ems_store.o
 OBJS    += fbsd_sup.o
 WASM_BUILD_INFO = digger-build-info.js
 WASM_DIST_DIR = web-dist

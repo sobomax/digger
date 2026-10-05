@@ -34,6 +34,7 @@ static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.
 #include "title_anim.h"
 #if defined(__EMSCRIPTEN__)
 #include "ems_kbd.h"
+#include "ems_store.h"
 #endif
 
 static struct game
@@ -315,6 +316,9 @@ int main(int argc,char *argv[])
 {
   int rval;
 
+#if defined(__EMSCRIPTEN__)
+  ems_store_restore(ININAME); /* Settings saved by a previous visit */
+#endif
   inir();
   parsecmd(argc,argv);
   maininit();
