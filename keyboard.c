@@ -15,11 +15,14 @@
 #include "keyboard.h"
 #include "main.h"
 #include "game.h"
+#if defined(__EMSCRIPTEN__)
+#include "ems_kbd.h"
+#endif
 
 const char *keynames[NKEYS]={"Right","Up","Left","Down","Fire",
                     "Right","Up","Left","Down","Fire",
                     "Cheat","Accel","Brake","Music","Sound","Exit","Pause",
-                    "Mode Change","Save DRF"};
+                    "Mode Change","Save DRF","Redefine"};
 
 #define FINDKEY_EX(i) {if (prockey(i) == -1) return;}
 
@@ -41,6 +44,7 @@ void redefkeyb(struct digger_draw_api *ddap, bool allf)
   char kbuf[80],vbuf[80];
 
   maininit();
+  ddap->gclear();
 
   outtext(ddap, "PRESS NEW KEY FOR",0,y,3);
   y+=CHR_H;
@@ -151,4 +155,7 @@ void redefkeyb(struct digger_draw_api *ddap, bool allf)
               keycodes[i][2],keycodes[i][3],keycodes[i][4]);
       WriteINIString(INI_KEY_SETTINGS,kbuf,vbuf,ININAME);
     }
+#if defined(__EMSCRIPTEN__)
+  ems_keymap_changed();
+#endif
 }

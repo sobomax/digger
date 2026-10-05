@@ -29,7 +29,7 @@ extern int16_t akeypressed;
 #define INPUT_CTRL_LEFT  0x08
 #define INPUT_CTRL_FIRE  0x10
 
-#define NKEYS 19
+#define NKEYS 20
 
 enum player_key_index {
   PKEY_RIGHT = 0,
@@ -53,12 +53,13 @@ enum player_key_index {
 #define DKEY_PUS 16 /* Pause */
 #define DKEY_MCH 17 /* Mode change */
 #define DKEY_SDR 18 /* Save DRF */
+#define DKEY_RDK 19 /* Redefine keys */
 
 bool kbd_async_key_state(int key);
 
 extern int keycodes[NKEYS][5];
 extern bool krdf[NKEYS];
-extern bool pausef,mode_change;
+extern bool pausef,mode_change,keyredef;
 
 #define rightpressed  (kbd_async_key_state(keycodes[PKEY_RIGHT][0]))
 #define uppressed     (kbd_async_key_state(keycodes[PKEY_UP][0]))

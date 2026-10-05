@@ -69,7 +69,8 @@ int keycodes[NKEYS][5]={{RIGHTKEY,-2,-2,-2,-2},         /* 1 Right */
                      {F10KEY,-2,-2,-2,-2},              /* Exit */
                      {' ',-2,-2,-2,-2},                 /* Pause */
                      {'n',-2,-2,-2,-2},                 /* Change mode */
-                     {F8KEY,-2,-2,-2,-2}};              /* Save DRF */
+                     {F8KEY,-2,-2,-2,-2},               /* Save DRF */
+                     {'k',-2,-2,-2,-2}};                /* Redefine keys */
 
 #define KBLEN		30
 int16_t kbuffer[KBLEN];

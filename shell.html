@@ -104,16 +104,43 @@
 
     .keys {
       display: flex;
-      gap: 24px;
+      gap: 40px;
       justify-content: center;
+      align-items: flex-start;
       flex-wrap: wrap;
       font-family: monospace;
       font-size: 12px;
-      line-height: 1.8;
     }
 
-    .keys .col {
+    .keytable {
+      border-collapse: separate;
+      border-spacing: 6px 5px;
+    }
+
+    .keytable th {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      font-weight: normal;
+      color: #33ff33;
       text-align: left;
+      padding-bottom: 2px;
+    }
+
+    .keytable td.label {
+      text-align: right;
+      padding-right: 4px;
+    }
+
+    .keytable td.label.after {
+      text-align: left;
+      padding-right: 14px;
+    }
+
+    .keys-note {
+      margin-top: 12px;
+      color: #777;
+      font-family: monospace;
+      font-size: 11px;
     }
 
     .key {
@@ -213,20 +240,11 @@
 
   <div class="instructions">
     <h2>CONTROLS</h2>
-    <div class="keys">
-      <div class="col">
-        <span class="key">&uarr;</span> <span class="key">&darr;</span> <span class="key">&larr;</span> <span class="key">&rarr;</span> <span class="label">Move</span><br>
-        <span class="key">F1</span> <span class="label">Fire</span>
-      </div>
-      <div class="col">
-        <span class="key">F7</span> <span class="label">Music On/Off</span><br>
-        <span class="key">F9</span> <span class="label">Sound On/Off</span><br>
-        <span class="key">Space</span> <span class="label">Pause</span>
-      </div>
-      <div class="col">
-        <span class="key">N</span> <span class="label">Game Mode</span><br>
-        <span class="key">F10</span> <span class="label">Exit Game</span>
-      </div>
+    <!-- Filled in by renderKeymap(): defaults first, then the game's own -->
+    <div class="keys" id="keys"></div>
+    <div class="keys-note">
+      Player 2 keys apply to the two-player modes.
+      Press <span class="key" id="key-redefine-note">K</span> on the title screen to redefine keys.
     </div>
   </div>
 
@@ -295,6 +313,105 @@
       canvasElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'F11', code: 'F11', keyCode: 122, bubbles: true}));
       canvasElement.focus();
     });
+
+    /*
+     * Keep the CONTROLS panel in sync with the game's key bindings: the game
+     * calls window.diggerKeymapChanged() at startup and after the keys have
+     * been redefined, and digger_get_keymap() returns them as JSON.
+     */
+    var keyGlyphs = {Up: '↑', Down: '↓', Left: '←', Right: '→'};
+
+    /* Short labels for SDL's longer key names so the tables stay compact */
+    var keyShort = {
+      'Numlock': 'NumLk', 'CapsLock': 'Caps', 'ScrollLock': 'ScrLk',
+      'PageUp': 'PgUp', 'PageDown': 'PgDn', 'Insert': 'Ins', 'Delete': 'Del',
+      'Backspace': 'BkSp', 'Return': 'Enter', 'Escape': 'Esc',
+      'PrintScreen': 'PrtSc', 'Application': 'Menu'
+    };
+
+    var keyLabel = function(name) {
+      if (keyGlyphs[name])
+        return keyGlyphs[name];
+      if (keyShort[name])
+        return keyShort[name];
+      return name.replace(/^Keypad /, 'KP ').replace(/^Left /, 'L ')
+        .replace(/^Right /, 'R ');
+    };
+
+    var defaultKeymap = {
+      p1: {up: 'Up', down: 'Down', left: 'Left', right: 'Right', fire: 'F1'},
+      p2: {up: 'W', down: 'Z', left: 'A', right: 'S', fire: 'Tab'},
+      music: 'F7', sound: 'F9', pause: 'Space', mode: 'N', redefine: 'K',
+      exit: 'F10'
+    };
+
+    var renderKeymap = function(km) {
+      var keysElement = document.getElementById('keys');
+      var el = function(tag, cls, text) {
+        var e = document.createElement(tag);
+        if (cls)
+          e.className = cls;
+        if (text !== undefined)
+          e.textContent = text;
+        return e;
+      };
+      var keyCell = function(name) {
+        var td = el('td');
+        td.appendChild(el('span', 'key', keyLabel(name)));
+        return td;
+      };
+      var players = el('table', 'keytable');
+      var game = el('table', 'keytable');
+      var tr, th;
+
+      /* Player keys: one row per action, a column per player */
+      tr = el('tr');
+      tr.appendChild(el('th'));
+      tr.appendChild(el('th', null, 'PLAYER 1'));
+      tr.appendChild(el('th', null, 'PLAYER 2'));
+      players.appendChild(tr);
+      [['up', 'Up'], ['down', 'Down'], ['left', 'Left'], ['right', 'Right'],
+       ['fire', 'Fire']].forEach(function(act) {
+        tr = el('tr');
+        tr.appendChild(el('td', 'label', act[1]));
+        tr.appendChild(keyCell(km.p1[act[0]]));
+        tr.appendChild(keyCell(km.p2[act[0]]));
+        players.appendChild(tr);
+      });
+
+      /* Game keys: two key/label pairs per row */
+      tr = el('tr');
+      th = el('th', null, 'GAME');
+      th.colSpan = 4;
+      tr.appendChild(th);
+      game.appendChild(tr);
+      [[[km.music, 'Music On/Off'], [km.mode, 'Game Mode']],
+       [[km.sound, 'Sound On/Off'], [km.redefine, 'Redefine Keys']],
+       [[km.pause, 'Pause'], [km.exit, 'Exit Game']]].forEach(function(row) {
+        tr = el('tr');
+        row.forEach(function(pair) {
+          tr.appendChild(keyCell(pair[0]));
+          tr.appendChild(el('td', 'label after', pair[1]));
+        });
+        game.appendChild(tr);
+      });
+
+      keysElement.textContent = '';
+      keysElement.appendChild(players);
+      keysElement.appendChild(game);
+      document.getElementById('key-redefine-note').textContent =
+        keyLabel(km.redefine);
+    };
+
+    renderKeymap(defaultKeymap);
+
+    window.diggerKeymapChanged = function() {
+      try {
+        renderKeymap(JSON.parse(Module.UTF8ToString(Module._digger_get_keymap())));
+      } catch (e) {
+        console.error('keymap update failed:', e);
+      }
+    };
 
     var setStatus = function(text) {
       if (!setStatus.last) setStatus.last = { time: Date.now(), text: '' };

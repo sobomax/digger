@@ -200,6 +200,7 @@ IF ( EMSCRIPTEN )
   SET( DIGGER_SOURCE
        ${DIGGER_SOURCE}
        ems_vid.c
+       ems_kbd.c
   )
 ENDIF ( EMSCRIPTEN )
 

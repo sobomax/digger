@@ -32,6 +32,9 @@ static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.
 #include "netsim_debug.h"
 #include "netsim_friends.h"
 #include "title_anim.h"
+#if defined(__EMSCRIPTEN__)
+#include "ems_kbd.h"
+#endif
 
 static struct game
 {
@@ -302,6 +305,9 @@ void maininit(void)
   detectjoy();
   initsound();
   recstart();
+#if defined(__EMSCRIPTEN__)
+  ems_keymap_changed(); /* Key bindings are final by now (INI, /K) */
+#endif
   maininited = 1;
 }
 
@@ -346,6 +352,7 @@ int mainprog(void)
     showtable(ddap);
     started=false;
     started_by_remote=false;
+    keyredef=false;
     input_set_updown_start(!dgstate.netsim);
     title_up_pressed = false;
     title_down_pressed = false;
@@ -385,6 +392,8 @@ int mainprog(void)
         started=true;
         started_by_remote=true;
       }
+      if (keyredef)
+        break;
       if (mode_change) {
         switchnplayers();
         shownplayers();
@@ -401,6 +410,16 @@ int mainprog(void)
         frame=0;
     }
     title_anim_cleanup(&title_anim);
+    if (keyredef) {
+      keyredef=false;
+      flushkeybuf();
+      redefkeyb(ddap, false);
+      flushkeybuf();
+#if defined(__EMSCRIPTEN__)
+      ems_keymap_changed(); /* Also when redefinition was cut short */
+#endif
+      continue;
+    }
     if (savedrf) {
       if (gotgame) {
         recsavedrf();
@@ -914,7 +933,7 @@ static void parsecmd(int argc,char *argv[])
                "/P = Playback and restart program       "
                "/E = Playback and exit program\n"
                "/O = Loop to beginning of command line\n"
-               "/K = Redefine keyboard\n"
+               "/K = Redefine keyboard (also K on the title screen)\n"
                "/G = Gauntlet mode\n"
                "/2 = Two player simultaneous mode\n"
                "/N = Enable two-player SIP/RTP NetSim mode (~ preferred, - fallback)\n"

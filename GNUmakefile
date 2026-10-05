@@ -165,13 +165,14 @@ OBJS    := $(filter-out netsim.o netsim_rx.o,$(OBJS))
 OBJS    += netsim_stubs.o
 NETSIM_OBJ = netsim_stubs.o
 OBJS    += ems_vid.o
+OBJS    += ems_kbd.o
 OBJS    += fbsd_sup.o
 WASM_BUILD_INFO = digger-build-info.js
 WASM_DIST_DIR = web-dist
 WASM_DIST_ARTIFACTS = digger.html digger.js digger.wasm $(WASM_BUILD_INFO)
 DIGGER_EXTRA_DEPS += $(WASM_BUILD_INFO)
 RCFLAGS += -DLINUX
-LIBS    += -s ASYNCIFY \
+LIBS    += -s ASYNCIFY -s EXPORTED_RUNTIME_METHODS=UTF8ToString \
 	--emrun -lm --shell-file shell.html
 ESUFFIX = .html
 SSUFFIX = .wasm

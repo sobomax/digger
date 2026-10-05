@@ -17,6 +17,7 @@
 
 /* global variables first */
 bool escape=false,firepflag=false,fire2pflag=false,pausef=false,mode_change=false;
+bool keyredef=false;
 bool krdf[NKEYS]={false,false,false,false,false,false,false,false,false,false,
                false,false,false,false,false,false,false,false};
 static bool firepactive=false,fire2pactive=false;
@@ -141,8 +142,12 @@ void checkkeyb(void)
       case DKEY_SDR: /* Save DRF */
         savedrf=true;
         break;
+      case DKEY_RDK: /* Redefine keys (title screen only) */
+        keyredef=true;
+        break;
     }
-    if (!mode_change && (updown_start_enabled || !key_is_title_updown(akeypressed)))
+    if (!mode_change && !keyredef &&
+        (updown_start_enabled || !key_is_title_updown(akeypressed)))
       start=true;                                /* Change number of players */
   }
 }

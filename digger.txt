@@ -106,11 +106,12 @@ receives the other digger's controls over UDP.
 
 On the title screen press:
 * N to toggle through the available game modes.
+* K to redefine the keys (for both players in the two player modes).
 * F8 to save the last game if you didn't put a name on the command line.
 * F10 to exit the program.
 
-The game keys (not the title screen keys) can be redefined by specifying the /K
-option on the command line. For more information about this, see "Command line
+The game keys (not the title screen keys) can be redefined with K on the title
+screen or by specifying the /K option on the command line. For more information about this, see "Command line
 options", below.
 
 Joysticks are not yet supported in this version of Digger, but joystick support
