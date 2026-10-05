@@ -46,6 +46,14 @@ jobs:
           mkdir -p pkgroot/usr/local/lib/digger
           sdl_lib="$(sdl2-config --prefix)/lib/libSDL2-2.0.0.dylib"
           cp "${sdl_lib}" pkgroot/usr/local/lib/digger/
+          # Homebrew's sdl2 is sdl2-compat, which loads SDL3 at run time,
+          # looking next to itself first. Without it SDL2 pops up an error
+          # dialog from its initializer, i.e. hangs when run headless.
+          sdl3_lib="$(brew --prefix)/opt/sdl3/lib/libSDL3.dylib"
+          if [ -e "${sdl3_lib}" ]; then
+            cp "${sdl3_lib}" pkgroot/usr/local/lib/digger/libSDL3.dylib
+          fi
+          otool -L pkgroot/usr/local/lib/digger/*.dylib
           linked_sdl="$(otool -L pkgroot/usr/local/bin/digger | awk '/libSDL2.*dylib/ {print $1; exit}')"
           test -n "${linked_sdl}"
           install_name_tool \
@@ -66,11 +74,16 @@ jobs:
 
       - name: Test package
         run: |
-          brew uninstall --ignore-dependencies --force cmake sdl2 zlib
-          brew list --versions cmake sdl2 zlib || true
+          brew uninstall --ignore-dependencies --force cmake sdl2 sdl2-compat sdl3 zlib
+          brew list --versions cmake sdl2 sdl2-compat sdl3 zlib || true
           sudo installer -pkg dist/digger-macos.pkg -target /
-          otool -L /usr/local/bin/digger
-          if otool -L /usr/local/bin/digger | awk '$1 ~ "^(/opt/homebrew|/usr/local)/(opt|Cellar)/" { print; bad = 1 } END { exit bad }'; then
+          otool -L /usr/local/bin/digger /usr/local/lib/digger/*.dylib
+          # Dependencies only: skip the "file:" line, and for a dylib also
+          # its own install name that otool -L lists first.
+          deps() { otool -L "$1" | tail -n +"$2"; }
+          if { deps /usr/local/bin/digger 2
+               for f in /usr/local/lib/digger/*.dylib; do deps "${f}" 3; done
+             } | awk '$1 ~ "^(/opt/homebrew|/usr/local)/(opt|Cellar)/" { print; bad = 1 } END { exit bad }'; then
             :
           else
             echo "digger still links against Homebrew libraries" >&2
