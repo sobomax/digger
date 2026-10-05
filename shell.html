@@ -303,6 +303,30 @@
       }
     });
 
+    /*
+     * Nearest-neighbour ("pixelated") scaling only looks right when every
+     * game pixel maps onto a whole number of device pixels. With e.g. 125%
+     * or 150% display scaling it duplicates some rows/columns but not
+     * others, which makes the edges jagged, so smooth the canvas then.
+     */
+    var updateCanvasSmoothing = function() {
+      var dpr = window.devicePixelRatio || 1;
+      var sx = canvasElement.clientWidth * dpr / canvasElement.width;
+      var sy = canvasElement.clientHeight * dpr / canvasElement.height;
+      var whole = function(v) {
+        return v >= 1 && Math.abs(v - Math.round(v)) < 0.01;
+      };
+
+      canvasElement.style.imageRendering =
+        (whole(sx) && whole(sy)) ? 'pixelated' : 'auto';
+    };
+
+    if (typeof ResizeObserver === 'function') {
+      new ResizeObserver(updateCanvasSmoothing).observe(canvasElement);
+    }
+    window.addEventListener('resize', updateCanvasSmoothing);
+    updateCanvasSmoothing();
+
     document.getElementById('btn-fullscreen').addEventListener('click', function() {
       Module._digger_request_fullscreen();
       canvasElement.focus();
@@ -428,6 +452,7 @@
       } else {
         if (!text) {
           loadingOverlay.classList.add('hidden');
+          updateCanvasSmoothing(); /* the canvas has its real size by now */
           canvasElement.focus();
         } else {
           statusElement.textContent = text;
