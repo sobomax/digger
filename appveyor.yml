@@ -26,7 +26,11 @@ build_script:
 
     echo === Install MSYS2 toolchain ========================================
 
-    %MSYS2_ROOT%\usr\bin\bash -lc "pacman --noconfirm -Sy --needed make zip mingw-w64-x86_64-gcc mingw-w64-x86_64-binutils"
+    %MSYS2_ROOT%\usr\bin\bash -lc "pacman --noconfirm -Syuu"
+
+    %MSYS2_ROOT%\usr\bin\bash -lc "pacman --noconfirm -Syuu"
+
+    %MSYS2_ROOT%\usr\bin\bash -lc "pacman --noconfirm -S --needed make zip mingw-w64-x86_64-gcc mingw-w64-x86_64-binutils"
 
     echo === Build Digger ===================================================
 
