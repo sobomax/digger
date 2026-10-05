@@ -13,7 +13,7 @@ on:
     - cron: "0 0 * * *"
 
 env:
-  EM_VERSION: 5.0.3
+  EM_VERSION: 6.0.11
   EM_SYSTEM_CACHE_FOLDER: emscripten-cache
   WEB_DIST_DIR: web-dist
 
@@ -31,21 +31,21 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: 'recursive'
 
       - name: before_install
         run: sudo -H DEBIAN_FRONTEND=noninteractive apt-get update
 
-      - uses: mymindstorm/setup-emsdk@v14
+      - uses: mymindstorm/setup-emsdk@v16
         id: install-emscripten
         with:
           version: ${{env.EM_VERSION}}
           actions-cache-folder: 'emsdk-cache'
 
       - name: Setup Emscripten system cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: ${{ env.EM_SYSTEM_CACHE_FOLDER }}
           key: ${{ runner.os }}-${{ env.EM_VERSION }}-system-cache

@@ -3,7 +3,7 @@
 set -e
 
 SDL_VER=${SDL_VER:-2.32.10}
-ZLIB_VER=${ZLIB_VER:-1.3.1}
+ZLIB_VER=${ZLIB_VER:-1.3.2}
 MGW64_PREF=${MGW64_PREF:-x86_64-w64-mingw32}
 
 mkdir -p deps

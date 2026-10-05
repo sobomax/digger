@@ -31,7 +31,7 @@ jobs:
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
       # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           submodules: 'recursive'
 
@@ -43,7 +43,7 @@ jobs:
 
       # Cache the apt-get packages
       - name: Cache apt-get packages
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: /var/cache/apt/archives
           key: ${{ matrix.os }}-apt-get-${{ hashFiles('**/apt-get-requirement.txt') }}
@@ -87,14 +87,14 @@ jobs:
       packages: write
     strategy:
       matrix:
-        base_image: ['debian:sid-slim', 'debian:12-slim', 'ubuntu:latest']
+        base_image: ['debian:sid-slim', 'debian:13-slim', 'debian:12-slim', 'ubuntu:latest']
     env:
       BASE_IMAGE: ${{ matrix.base_image }}
       DOCKER_RW: ${{ (github.repository == format('{0}/digger', github.repository_owner) && github.event_name != 'pull_request') && 'true' || 'false' }}
       GHCR_REPO: ghcr.io/${{ github.repository_owner }}/digger
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         submodules: 'recursive'
 
@@ -140,7 +140,7 @@ jobs:
         echo "CACHE_SPEC=${CACHE_SPEC}" >> $GITHUB_ENV
 
     - name: Build Docker image
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@v7
       with:
         context: .
         file: ./docker/Dockerfile.build
