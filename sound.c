@@ -272,9 +272,23 @@ music_request_to_tune(int16_t music)
   return (music);
 }
 
+/* Last music request and the tune it was mapped to, see musicrefresh() */
+static int16_t cur_music_request=-1,cur_music_tune=-1;
+static double cur_music_dfac=1.0;
+
+static void
+music_set_current(int16_t music_request, int16_t tune, double dfac)
+{
+
+  cur_music_request=music_request;
+  cur_music_tune=tune;
+  cur_music_dfac=dfac;
+}
+
 void
 soundstop(void)
 {
+  music_set_current(-1, -1, 1.0);
   sound_queue_post(SOUND_CMD_STOP, 0, 0.0);
 }
 
@@ -457,6 +471,7 @@ musicwithack(int16_t music_request, double dfac)
     return (0);
   }
   tune = music_request_to_tune(music_request);
+  music_set_current(music_request, tune, dfac);
   done_ack_id = sound_ack_alloc();
   sound_queue_push_done(SOUND_CMD_MUSIC, tune, dfac, done_ack_id);
   return (done_ack_id);
@@ -468,12 +483,25 @@ music(int16_t music_request, double dfac)
   int16_t tune;
 
   tune = music_request_to_tune(music_request);
+  music_set_current(music_request, tune, dfac);
   sound_queue_push_done(SOUND_CMD_MUSIC, tune, dfac, 0);
+}
+
+/* The main tune depends on the number of lives left, switch it if that has
+   changed while it is playing (e.g. an extra life after the last one). */
+void
+musicrefresh(void)
+{
+
+  if (cur_music_request == MUSIC_MAIN &&
+      music_request_to_tune(MUSIC_MAIN) != cur_music_tune)
+    music(MUSIC_MAIN, cur_music_dfac);
 }
 
 void
 musicoff(void)
 {
+  music_set_current(-1, -1, 1.0);
   sound_queue_post(SOUND_CMD_MUSIC_OFF, 0, 0.0);
 }
 
@@ -536,6 +564,11 @@ music(int16_t tune, double dfac)
 
 void
 musicoff(void)
+{
+}
+
+void
+musicrefresh(void)
 {
 }
 

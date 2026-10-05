@@ -15,6 +15,7 @@ enum music_request {
 uint16_t musicwithack(int16_t music, double dfac);
 void music(int16_t music, double dfac);
 void musicoff(void);
+void musicrefresh(void);
 void soundlevdone(void);
 void sound1up(void);
 void soundwakeup(void);

@@ -1055,6 +1055,7 @@ void addlife(int pl)
 {
   digdat[pl].lives++;
   sound1up();
+  musicrefresh();
 }
 
 void initlives(void)
