@@ -1063,7 +1063,7 @@ void initlives(void)
   int i;
 
   memset(digdat, '\0', sizeof(digdat));
-  for (i=0;i<dgstate.diggers+dgstate.nplayers-1;i++)
+  for (i=0;i<dgstate.diggers+dgstate.nplayers-1 && i<DIGGERS;i++)
     digdat[i].lives=3;
 }
 

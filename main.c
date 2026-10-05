@@ -505,7 +505,7 @@ static const struct game_mode {
 } possible_modes[] = {
   {false, false, 1, 1, false, {{"ONE", 220}, {" PLAYER ", 192}}},
   {false, false, 2, 1, false, {{"TWO", 220}, {" PLAYERS", 184}}},
-  {false, false, 2, 2, false, {{"TWO PLAYER", 180}, {"SIMULTANEOUS", 170}}},
+  {false, false, 1, 2, false, {{"TWO PLAYER", 180}, {"SIMULTANEOUS", 170}}},
   {false, true,  1, 2, false, {{"TWO-PLAYER", 180}, {"NETSIM", 206}}},
   {true,  false, 1, 1, false, {{"GAUNTLET", 192}, {"MODE", 216}}},
   {true,  false, 1, 2, true,  {{"TWO PLAYER", 180}, {"GAUNTLET", 192}}}
