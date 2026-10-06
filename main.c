@@ -400,6 +400,7 @@ int mainprog(void)
         break;
       if (mode_change) {
         switchnplayers();
+        loadscores(); /* Each kind of game has its own high scores */
         shownplayers();
         title_netsim_status = netsim_title_status_get();
         sync_netsim_waiter();
