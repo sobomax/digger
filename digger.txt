@@ -516,9 +516,11 @@ To playback a file at a different speed, put the speed on the command line
 first. Command line arguments are processed in order. You can even play back
 multiple files at different speeds with the same command, such as "DIGGER 20
 /P:DATA1.DRF 10 /E:DATA2.DRF" (plays DATA1.DRF at speed 20, then DATA2.DRF at
-speed 10, then exits). You can take control of a game that is playing by
-pressing Ctrl-T. However, you will not then be able to record that game (that
-would be cheating).
+speed 10, then exits). Arguments after the last /P or /E apply to that
+playback too (unless there's an /O), e.g. "DIGGER /E:DATA1.DRF /Q /S:0" plays
+it back quietly and as fast as possible. You can take control of a game that
+is playing by pressing Ctrl-T. However, you will not then be able to record
+that game (that would be cheating).
 
 
 Unix-specific information
