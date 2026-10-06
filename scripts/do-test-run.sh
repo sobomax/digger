@@ -6,19 +6,41 @@ DIFF="diff -u"
 TEST_TYPES=${TEST_TYPES:-"quick short long xlong"}
 DIGGER_BIN=${DIGGER_BIN:-}
 
+# Run as many tests at once as there are CPUs
+MAXJOBS=${TEST_JOBS:-`getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4`}
+JOBDIR=`mktemp -d`
+NSTARTED=0
+
+# run_test name type options resultfile: the output goes to type-resultfile,
+# so that the same recording can run in several test types at once
 run_test() {
-  SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy DIGGER_CI_RUN=1 "${DIGGER_BIN}" ${3} > "${4}" 2>/dev/null
-  echo -n "${1} (${2}): "
-  ${DIFF} "tests/results/${4}" "${4}"
-  echo "PASS"
+  SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy DIGGER_CI_RUN=1 \
+    "${DIGGER_BIN}" ${3} > "${2}-${4}" 2>/dev/null && rc=0 || rc=$?
+  if [ "${rc}" -ne 0 ]
+  then
+    echo "${1} (${2}): FAIL (exit status ${rc})"
+    return 1
+  fi
+  ${DIFF} "tests/results/${4}" "${2}-${4}" || return 1
+  echo "${1} (${2}): PASS"
 }
 
-wait_pids() {
-  for pid in ${PIDS}
+# Start a test in the background, it leaves a .done file behind when done
+start_test() {
+  NSTARTED=$((NSTARTED + 1))
+  (
+    if run_test "$@"; then st=ok; else st=fail; fi
+    echo "${st}" > "${JOBDIR}/${NSTARTED}.tmp"
+    mv "${JOBDIR}/${NSTARTED}.tmp" "${JOBDIR}/${NSTARTED}.done"
+  ) &
+}
+
+# Wait for fewer than $1 tests to be running
+wait_jobs() {
+  while [ $((NSTARTED - `ls "${JOBDIR}" | grep -c '\.done$'`)) -ge "$1" ]
   do
-    wait "${pid}"
+    sleep 0.1
   done
-  PIDS=""
 }
 
 if [ -z "${DIGGER_BIN}" ]
@@ -42,7 +64,9 @@ do
     DIG_OPT_HSPD="/S:20"
     TFNAME="`basename ${x}`"
     TRFNAME="${TFNAME}.out"
-    TSIZE=`du -k ${x} | awk '{print $1}'`
+    TSIZEF="${x}"
+    # Size in KB (the file's length, du(1) varies with the file system)
+    TSIZE=$(( (`wc -c < ${TSIZEF}` + 1023) / 1024 ))
     if [ "${TTYPE}" = "long" -o "${TTYPE}" = "xlong" ]
     then
       if [ ${TSIZE} -gt 15 ]
@@ -72,12 +96,19 @@ do
       fi
       DIG_OPTS="/Q ${DIG_OPT_FSPD} ${DIG_OPTS}"
     fi
-    run_test "${TFNAME}" "${TTYPE}" "${DIG_OPTS}" "${TRFNAME}" &
-    PIDS="${!} ${PIDS}"
-    test `echo ${PIDS} | wc -w` -gt 5 && wait_pids
+    wait_jobs "${MAXJOBS}"
+    start_test "${TFNAME}" "${TTYPE}" "${DIG_OPTS}" "${TRFNAME}"
   done
 done
-wait_pids
+wait_jobs 1
+wait
+NFAILED=`cat "${JOBDIR}"/*.done 2>/dev/null | grep -c fail || true`
+rm -rf "${JOBDIR}"
+if [ "${NFAILED}" -ne 0 ]
+then
+  echo "${NFAILED} test(s) FAILED" >&2
+  exit 1
+fi
 
 if [ ! -z "${CI_COVERAGE}" ]
 then
