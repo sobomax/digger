@@ -232,8 +232,11 @@ void endofgame(struct digger_draw_api *ddap)
     return;
   if (dgstate.netsim)
     local_player = netsim_local_player();
-  if (dgstate.netsim && netsim_session_active() && !netsim_peer_exited())
+  if (dgstate.netsim && netsim_session_active() && !netsim_peer_exited()) {
+    /* Let the peer get our last frames before leaving */
+    netsim_drain_frames();
     netsim_stop_session(true);
+  }
   if (dgstate.gauntlet) {
     cleartopline();
     outtext(ddap, "TIME UP",120,0,3);

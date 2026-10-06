@@ -23,6 +23,8 @@ bool pauseframe(bool local_pause, bool *remote_pause);
 bool freezeframe(bool local_freeze, bool *remote_freeze);
 void redrawdelay(void);
 bool netsim_remote_pause_active(void);
+void netsim_drain_frames(void);
+bool netsim_quit_synced(void);
 int diggerx(int n);
 int diggery(int n);
 void digresettime(int n);

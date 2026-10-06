@@ -463,6 +463,10 @@ int mainprog(void)
     recinit();
     soundwakeup();
     game();
+    /* The game is over, or both peers quit it on the same frame: both have
+       to get to its end */
+    if (netsim_quit_synced() || !escape)
+      netsim_drain_frames();
     if (dgstate.netsim)
       netsim_stop_session(escape && !netsim_peer_exited());
     input_reset_network();

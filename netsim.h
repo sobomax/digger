@@ -9,6 +9,7 @@
 #include <stdint.h>
 
 #define NETSIM_CTRL_PAUSE  0x20U
+#define NETSIM_CTRL_QUIT   0x40U
 #define NETSIM_CTRL_FREEZE 0x80U
 
 enum netsim_title_status {
