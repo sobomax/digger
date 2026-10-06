@@ -58,6 +58,7 @@ static void checklevdone(void);
 static int16_t levno(void);
 static void calibrate(void);
 static void parsecmd(int argc,char *argv[]);
+static void playbacklast(int argc,char *argv[]);
 static void initlevel(void);
 static void inir(void);
 static int getalllives(void);
@@ -326,6 +327,7 @@ int main(int argc,char *argv[])
   ems_store_restore(ININAME); /* Settings saved by a previous visit */
 #endif
   inir();
+  playbacklast(argc,argv);
   parsecmd(argc,argv);
   maininit();
   rval = mainprog();
@@ -856,6 +858,38 @@ getarg(char argch, const char *allargs, bool *hasopt)
 #define X11_OPTS ""
 #endif
 #define SDL_OPTS  "F"
+
+static bool
+isoption(const char *word, char opt)
+{
+
+  return ((word[0]=='/' || word[0]=='-') && toupper((unsigned char)word[1])==opt);
+}
+
+/*
+ * Arguments are processed in order, so anything after the last /P or /E
+ * would be of no use (/E exits): let it apply to that playback instead,
+ * e.g. "DIGGER /E:GAME.DRF /Q", unless /O makes the line start over.
+ */
+static void
+playbacklast(int argc,char *argv[])
+{
+  int arg,last=-1;
+  char *pb;
+
+  for (arg=1;arg<argc;arg++) {
+    if (isoption(argv[arg],'P') || isoption(argv[arg],'E'))
+      last=arg;
+    if (isoption(argv[arg],'O') && last!=-1)
+      return;
+  }
+  if (last==-1)
+    return;
+  pb=argv[last];
+  for (arg=last;arg<argc-1;arg++)
+    argv[arg]=argv[arg+1];
+  argv[argc-1]=pb;
+}
 
 static void parsecmd(int argc,char *argv[])
 {
