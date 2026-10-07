@@ -58,7 +58,16 @@ static void numtostring(char *p,int32_t n);
 
 #elif defined UNIX && !defined _VGL && !defined(__EMSCRIPTEN__)
 
-#define SFNAME strncat(strncpy((char*)alloca(PATH_MAX),getenv("HOME"),PATH_MAX),"/.digger.sco",PATH_MAX)
+static char *
+digger_scorename(void)
+{
+  static char path[PATH_MAX];
+  const char *home = getenv("HOME");
+
+  snprintf(path, sizeof(path), "%s/.digger.sco", home != NULL ? home : ".");
+  return path;
+}
+#define SFNAME digger_scorename()
 
 #else
 
