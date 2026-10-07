@@ -1,0 +1,3 @@
+# Recordings and their expected results are read and compared as they are:
+# no line ending conversion when checked out (e.g. on Windows)
+* -text

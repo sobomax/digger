@@ -48,7 +48,7 @@ run_peer() {
 # check_peer name expected: exit status 0 and the expected score and level
 check_peer() {
   rc=`cat "${TMPD}/${1}.rc"`
-  got=`grep '^score=' "${TMPD}/${1}.out" | sed 's| frames=.*||'`
+  got=`tr -d '\r' < "${TMPD}/${1}.out" | grep '^score=' | sed 's| frames=.*||'`
   if [ "${rc}" -ne 0 -o "${got}" != "${2}" ]
   then
     echo "    ${1}: FAIL (exit status ${rc}, got \"${got}\", expected" \
