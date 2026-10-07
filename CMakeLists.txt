@@ -257,6 +257,24 @@ ENDIF ( EMSCRIPTEN )
 
 ADD_EXECUTABLE( digger ${DIGGER_SOURCE})
 
+# Nothing in it is for anybody else to link to (-fvisibility=hidden)
+SET_TARGET_PROPERTIES( digger PROPERTIES C_VISIBILITY_PRESET hidden )
+
+# Link-time optimisation, where the toolchain can do it, but for the Debug
+# builds
+OPTION( DIGGER_LTO "Link-time optimisation" ON )
+IF ( DIGGER_LTO )
+  INCLUDE( CheckIPOSupported )
+  CHECK_IPO_SUPPORTED( RESULT HAVE_IPO OUTPUT IPO_OUTPUT LANGUAGES C )
+  IF ( HAVE_IPO )
+    SET_TARGET_PROPERTIES( digger PROPERTIES
+      INTERPROCEDURAL_OPTIMIZATION TRUE
+      INTERPROCEDURAL_OPTIMIZATION_DEBUG FALSE )
+  ELSE ()
+    MESSAGE( STATUS "No link-time optimisation: ${IPO_OUTPUT}" )
+  ENDIF ()
+ENDIF ()
+
 IF (UNIX AND NOT EMSCRIPTEN)
   SET(DIGGER_SIP_PLATFORM_SOURCE
     microsippy/platforms/posix/usipy_platform_default.c
