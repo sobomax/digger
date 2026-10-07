@@ -14,6 +14,8 @@ RUN --mount=type=bind,source=apt-get-requirement.txt,target=apt-get-requirement.
 
 ARG CC=clang
 ARG TEST_TYPES=quick
+# For the NetSim tests of the platforms built at once to keep apart
+ARG TARGETPLATFORM
 RUN --mount=type=bind,target=.,rw sh -x ./scripts/do-test-cmmn.sh && \
   sh -x ./scripts/do-test-cmake.sh && \
   sh -x ./scripts/do-test-run.sh

@@ -118,6 +118,12 @@ then
   exit 1
 fi
 
+# The two Digger recordings, replayed over NetSim on localhost
+if [ -z "${NO_NETSIM_TESTS}" ]
+then
+  DIGGER_BIN="${DIGGER_BIN}" sh ./scripts/do-test-netsim.sh
+fi
+
 if [ ! -z "${CI_COVERAGE}" ]
 then
   mkdir digger_lcov
