@@ -32,6 +32,9 @@ void (*soundkillglob)(void)=s0soundkillglob;
 #if defined _SDL_SOUND
 #include "sdl_snd.h"
 #include "sound_int.h"
+#if defined(DIGGER_DEBUG)
+#include "digger_log.h"
+#endif
 
 #define SOUND_CMD_QUEUE_LEN 4096
 #define SOUND_CMD_DRAIN_MAX 64
@@ -198,7 +201,20 @@ sound_queue_push_done(enum sound_cmd_type type, int argi, double argd,
   qp = &sound_cmdq;
   assert(qp->lock != NULL);
   spinlock_lock(qp->lock);
-  assert(qp->len < SOUND_CMD_QUEUE_LEN);
+  /*
+   * Full, the game going much faster than the sound plays (as tests run it
+   * at /S:0): with that much to play already, do without the command.
+   */
+  if (qp->len == SOUND_CMD_QUEUE_LEN) {
+    spinlock_unlock(qp->lock);
+#if defined(DIGGER_DEBUG)
+    digger_log_printf("sound: command queue full, dropped command %d\n",
+      (int)type);
+#endif
+    if (done_ack_id != 0)
+      sound_ack_push(done_ack_id);
+    return;
+  }
   qp->items[qp->tail].type = type;
   qp->items[qp->tail].argi = argi;
   qp->items[qp->tail].argd = argd;
