@@ -668,7 +668,7 @@ updatedigger(struct digger_draw_api *ddap, int n)
     }
   }
   if (clfirst[2]!=-1 && bonusmode && digdat[n].dob.alive)
-    for (nmon=killmonsters(clfirst,clcoll);nmon!=0;nmon--) {
+    for (nmon=killmonsters(clfirst,clcoll,false);nmon!=0;nmon--) {
       soundeatm();
       sceatm(ddap, n);
     }
@@ -689,6 +689,35 @@ void sceatm(struct digger_draw_api *ddap, int n)
 }
 
 static int16_t deatharc[7]={3,5,6,6,5,3,0};
+
+/* Bring a dead digger back at its starting point, briefly invincible */
+static void
+digrespawn(int n)
+{
+  digdat[n].v=9;
+  digdat[n].mdir=4;
+  digdat[n].h=(dgstate.diggers==1) ? 7 : (8-n*2);
+  digdat[n].dob.x=digdat[n].h*20+12;
+  digdat[n].dob.dir=(n==0) ? DIR_RIGHT : DIR_LEFT;
+  digdat[n].rx=0;
+  digdat[n].ry=0;
+  digdat[n].bagtime=0;
+  digdat[n].dob.alive=true;
+  digdat[n].dead=false;
+  digdat[n].invin=true;
+  digdat[n].ivt=50;
+  digdat[n].deathstage=DGR_DEATH_BAG;
+  digdat[n].dob.y=digdat[n].v*18+18;
+  erasespr(n+FIRSTDIGGER-dgstate.curplayer);
+  CALL_METHOD(&digdat[n].dob, put);
+  digdat[n].notfiring=true;
+  digdat[n].emocttime=0;
+  digdat[n].firepressed=false;
+  digdat[n].bob.expsn=0;
+  digdat[n].rechargetime=0;
+  digdat[n].emn=0;
+  digdat[n].msc=1;
+}
 
 static void
 diggerdie(struct digger_draw_api *ddap, int n)
@@ -734,8 +763,10 @@ diggerdie(struct digger_draw_api *ddap, int n)
       for (i=0;i<SPRITES;i++)
         clcoll[i]=coll[i];
       incpenalty();
+      /* Monsters touching the dead digger vanish, except the one controlled
+         by the monster player: it has just won, not lost a life. */
       if (digdat[n].deathani==0 && clfirst[2]!=-1)
-        killmonsters(clfirst,clcoll);
+        killmonsters(clfirst,clcoll,true);
       if (digdat[n].deathani<4) {
         digdat[n].deathani++;
         digdat[n].deathtime=2;
@@ -773,8 +804,9 @@ diggerdie(struct digger_draw_api *ddap, int n)
       /* The round ends with the death, and everything gets drawn anew:
          once there's no dirge to be heard and the short (music off) grave
          time is over, the rest of the death takes the same game ticks, but
-         no time. */
-      deathffwd=dgstate.diggers==1 && digdat[n].deathtime<=50 &&
+         no time. Not if the monster player can keep the round going. */
+      deathffwd=dgstate.diggers==1 && !dgstate.monplayer &&
+        !dgstate.haunted && digdat[n].deathtime<=50 &&
         !digger_deathmusic_pending(n);
       if (digdat[n].deathtime!=0)
         digdat[n].deathtime--;
@@ -793,7 +825,26 @@ diggerdie(struct digger_draw_api *ddap, int n)
             alldead=false;
             break;
           }
-        if (alldead)
+        /* Two player vs monster and haunted: as long as the monster
+           player's monster is alive the round goes on, Digger just comes
+           back. */
+        if (alldead && monplayerholdsround() && digdat[n].lives>1) {
+          alldead=false;
+          digdat[n].lives--;
+          drawlives(ddap);
+          /* ...but the level's monsters start over, and so does the bonus,
+             unless it's out: the monster player can still get it */
+          if (!bonusvisible)
+            erasebonus(ddap);
+          monrestartround(bonusvisible);
+          digrespawn(n);
+          clearfire(n);
+          if (bonusmode)
+            music(MUSIC_BONUS, 1.0);
+          else
+            music(MUSIC_MAIN, 1.0);
+        }
+        else if (alldead)
           setdead(true);
         else
           if (isalive() && digdat[n].lives>0) {
@@ -801,29 +852,7 @@ diggerdie(struct digger_draw_api *ddap, int n)
               digdat[n].lives--;
             drawlives(ddap);
             if (digdat[n].lives>0) {
-              digdat[n].v=9;
-              digdat[n].mdir=4;
-              digdat[n].h=(dgstate.diggers==1) ? 7 : (8-n*2);
-              digdat[n].dob.x=digdat[n].h*20+12;
-              digdat[n].dob.dir=(n==0) ? DIR_RIGHT : DIR_LEFT;
-              digdat[n].rx=0;
-              digdat[n].ry=0;
-              digdat[n].bagtime=0;
-              digdat[n].dob.alive=true;
-              digdat[n].dead=false;
-              digdat[n].invin=true;
-              digdat[n].ivt=50;
-              digdat[n].deathstage=DGR_DEATH_BAG;
-              digdat[n].dob.y=digdat[n].v*18+18;
-              erasespr(n+FIRSTDIGGER-dgstate.curplayer);
-              CALL_METHOD(&digdat[n].dob, put);
-              digdat[n].notfiring=true;
-              digdat[n].emocttime=0;
-              digdat[n].firepressed=false;
-              digdat[n].bob.expsn=0;
-              digdat[n].rechargetime=0;
-              digdat[n].emn=0;
-              digdat[n].msc=1;
+              digrespawn(n);
             }
             clearfire(n);
             if (bonusmode)

@@ -18,6 +18,7 @@ void input_set_updown_start(bool enabled);
 void input_reset_network(void);
 void input_enable_network_mode(void);
 void input_set_network_controls(int slot, uint8_t bits);
+void input_swap_local_slots(bool swap);
 
 extern bool firepflag,fire2pflag,escape;
 extern int8_t keypressed;

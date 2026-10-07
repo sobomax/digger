@@ -235,6 +235,17 @@ input_enable_network_mode(void)
     slot_sources[i] = INPUT_SOURCE_NETWORK;
 }
 
+/* Read slot 0 from the secondary keys and slot 1 from the primary ones, so
+   that in the alternate monster mode each player keeps their keys whichever
+   role they currently have. */
+void
+input_swap_local_slots(bool swap)
+{
+
+  slot_sources[0] = swap ? INPUT_SOURCE_SECONDARY : INPUT_SOURCE_PRIMARY;
+  slot_sources[1] = swap ? INPUT_SOURCE_PRIMARY : INPUT_SOURCE_SECONDARY;
+}
+
 void
 input_set_network_controls(int slot, uint8_t bits)
 {

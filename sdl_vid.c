@@ -107,7 +107,7 @@ static struct sdl_display_state display = {0};
 
 struct ch2bmap_plane {
 	uint8_t const * const *sprites;
-	SDL_Surface *caches[256];
+	SDL_Surface *caches[512];
 };
 
 static struct ch2bmap_plane sprites = {.sprites = vgatable};
@@ -128,7 +128,7 @@ static bool switchmode_apply(uint32_t desired_addflag, uint32_t fallback_addflag
 static bool setmode(void);
 
 static SDL_Surface *
-ch2bmap(struct ch2bmap_plane *planep, uint8_t sprite, int16_t w, int16_t h)
+ch2bmap(struct ch2bmap_plane *planep, uint16_t sprite, int16_t w, int16_t h)
 {
 	int16_t realw, realh;
 	SDL_Surface *tmp;
@@ -499,7 +499,8 @@ void vgainit(void)
 {
 	SDL_Surface *wm_icon;
 	uint32_t window_flags = 0;
-	
+
+	vgamakepossessed();
 	if ( SDL_Init(SDL_INIT_VIDEO) < 0 ) {
 		fprintf(stderr, "Couldn't initialize SDL: %s\n",
                     SDL_GetError());

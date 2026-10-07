@@ -119,6 +119,7 @@ void
 vgainit(void)
 {
     {int b=0; while (b);}
+    vgamakepossessed();
     if (geteuid() != 0) {
 	fprintf(stderr, "The current graphics console architecture only permits " \
 		"super-user to access it, therefore you either have to obtain such permissions" \

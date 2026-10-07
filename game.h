@@ -10,7 +10,7 @@ struct gamestate {
   int netsim_remote_lead_ms;
   int8_t leveldat[8][MHEIGHT][MWIDTH + 1];
   int gtime;
-  bool gauntlet, netsim, timeout, unlimlives;
+  bool gauntlet, netsim, timeout, unlimlives, monplayer, haunted;
   uint32_t ftime, cgtime;
   /* Game ticks so far: the game's own clock, as it goes on the same on a
      playback and on both NetSim peers, unlike the frames (see syncframe()) */

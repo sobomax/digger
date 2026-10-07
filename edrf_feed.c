@@ -47,7 +47,7 @@ edrf_netfeed_open(const char *name)
     goto out;
   dgstate.diggers = 2;
   dgstate.nplayers = 1;
-  dgstate.gauntlet = false;
+  dgstate.gauntlet = dgstate.monplayer = dgstate.haunted = false;
   dgstate.startlev = line[2] == 'I' ? atoi(line + 3) : 1;
   if (!GETLINE())
     goto out;

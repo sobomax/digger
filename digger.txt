@@ -78,6 +78,8 @@ and plays just like the original. It also has many new features, including:
 * Gauntlet mode
 * Two player simultaneous mode
 * Two player UDP NetSim mode
+* Two player vs monster modes, where one player controls a monster
+* Two player haunted mode
 
 
 Controls
@@ -413,7 +415,10 @@ The command line options are:
             for playing recorded games as screensavers.
   /K      = Redefine keyboard. To redefine all the redefinable keys, use /KA.
   /G:time = Gauntlet mode.
-  /2      = Put two diggers on screen at once.
+  /2      = Put two diggers on screen at once. /2H does the same in haunted
+            mode.
+  /VM     = Two player vs monster mode: player 2 controls a monster. /VMA
+            does the same with the players swapping roles.
   /N:user-peer[@[localip][:port]] or /N:user[:password]@host[:port]-peer
           = Enable the two player NetSim title-screen mode: play over the
             network as SIP user "user" with SIP user "peer" ("~" can be used
@@ -425,7 +430,6 @@ The command line options are:
             that asks for a password gets it from after "user", e.g.
             "/N:alice:secret@sip.example.com-bob".
   /?      = Display this list.
-  /V      = Synchronize timing to screen refresh.
   /U      = Allow unlimited lives.
   /I:level= Start on the specified level instead of level 1. You can't go on
             the hall of fame if you use this option.
@@ -479,6 +483,47 @@ over UDP. Once enabled, select "Two-Player NetSim" on the title screen and
 start the game on both machines. The local player always uses the player 1 key
 bindings on that machine, regardless of whether the network handshake assigns
 that peer to player 1 or player 2 in the simulation.
+
+/VM starts two player vs monster mode. Player 1 is Digger, as usual; player 2
+plays for the monsters, using the player 2 keys (fire does nothing). The first
+monster to come out is taken over by player 2 and drawn in magenta; when it
+dies, player 2 takes over the next one to come out. A Nobbin controlled by a
+player still only gets through tunnels and turns into a Hobbin the same way
+the others do (crossing other monsters, being stuck on a bag). The monster
+player has 3 lives of their own, shown on the right of the top line: one is
+lost whenever their monster is shot, squashed or eaten, and extra ones come
+at the same scores as Digger's. The monster player scores 250 points for
+killing Digger, and like Digger 25 per emerald (eaten as a Hobbin), 250 per
+octave, 500 per gold and 1000 for the bonus. If their monster gets to the
+bonus first, Digger doesn't get bonus mode: the monster turns into a Hobbin
+for as long as Digger's bonus mode would have lasted instead, and monsters
+killed in the meantime come out again afterwards. When Digger dies while the
+monster player's monster is alive the round goes on: Digger comes back at
+the start, and the level's monsters (and the bonus) start over, except for
+those still around. The game is over when Digger is out of lives: the monster
+player wins, unless they had run out of their own lives before.
+
+/VMA is the alternating variant of /VM: the players swap roles every time
+Digger dies, each keeping their own level and score, and each using their
+own keys whatever their role. A player has just one set of lives for both
+roles, so losing the monster costs a life too. Once one player is out of
+lives the other plays on for the score, and whoever runs out last wins.
+
+/2H starts two player haunted mode. It plays like /2 until one of the players
+runs out of lives: that player then haunts the other as a monster (taken over
+the same way as in /VM), with 7 lives for it. Every haunted monster that dies
+earns the remaining Digger 8250 points, paid when the next one comes out (and
+lost if Digger runs out of lives first). The round goes on when Digger dies
+while the haunted monster is alive, as in /VM. If Digger gets the 7th haunted
+monster, Digger wins outright; if the haunting player gets Digger first, the
+bigger score wins.
+
+The two player modes can also be picked on the title screen with N, or made
+the default with "Players=2V" (vs monster), "Players=2A" (alternating) or
+"Players=2H" (haunted) in the [Game] section of DIGGER.INI. Recorded games
+in these modes play back in the same mode. Each of them has its own high
+score table (both players' scores can get in), kept after the original ones
+in the score file.
 
 Recordings named "*.edrf" (/R:game.edrf) are made in the extended eDRF
 format: instead of the directions Digger moved in, it has the controls every

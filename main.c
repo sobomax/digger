@@ -104,6 +104,49 @@ game_dbg_info_emit(void)
       (unsigned int)dgstate.ticks);
 }
 
+/* Alternate monster mode: once a player is out of lives the other one plays
+   on against the computer for the score, whoever runs out last wins. */
+static int16_t vsfirstout=-1;
+static bool vsdraw=false;
+
+static bool vsmode(void)
+{
+  return (dgstate.monplayer && dgstate.nplayers==2);
+}
+
+/* Note who ran out of lives first; both at once is a draw */
+static void vstrack(void)
+{
+  if (!vsmode() || vsfirstout!=-1)
+    return;
+  if (getlives(0)==0 && getlives(1)==0) {
+    vsfirstout=0;
+    vsdraw=true;
+  }
+  else if (getlives(0)==0)
+    vsfirstout=0;
+  else if (getlives(1)==0)
+    vsfirstout=1;
+}
+
+/* Announce the winner (0 or 1) of a vs monster game, or a draw (-1) */
+static void vsshowwinner(int winner)
+{
+  const char *msg;
+  int16_t i;
+
+  if (winner==0)
+    msg="PLAYER 1 WINS";
+  else if (winner==1)
+    msg="PLAYER 2 WINS";
+  else
+    msg="     DRAW    ";
+  cleartopline();
+  outtext(ddap, msg,82,0,3);
+  for (i=0;i<50 && !escape;i++)
+    newframe();
+}
+
 /*
  * Random seed of a round: the same for both peers of a NetSim game, as
  * their session nonce is, anything goes otherwise. Recordings have them.
@@ -140,12 +183,15 @@ void game(void)
 
   resetframe();
   dgstate.ticks=0;
-  twoplayers=dgstate.nplayers==2 || dgstate.diggers==2;
+  twoplayers=dgstate.nplayers==2 || dgstate.diggers==2 || dgstate.monplayer;
+  vsfirstout=-1;
+  vsdraw=false;
   if (dgstate.gauntlet) {
     dgstate.cgtime=dgstate.gtime*1193181l;
     dgstate.timeout=false;
   }
   initlives();
+  initmonlives();
   gamedat[0].level=dgstate.startlev;
   if (dgstate.nplayers==2)
     gamedat[1].level=dgstate.startlev;
@@ -160,8 +206,8 @@ void game(void)
   if (dgstate.nplayers==2)
     flashplayer=true;
   dgstate.curplayer=0;
-  while (getalllives()!=0 && !escape && !dgstate.timeout) {
-    while (!alldead && !escape && !dgstate.timeout) {
+  while (getalllives()!=0 && !escape && !dgstate.timeout && !monhauntover()) {
+    while (!alldead && !escape && !dgstate.timeout && !monhauntover()) {
       initmbspr();
 
       if (playing)
@@ -211,8 +257,12 @@ void game(void)
       music(MUSIC_MAIN, 1.0);
 
       flushkeybuf();
+      /* Alternating modes: whoever's turn it is plays with their own keys */
+      if ((dgstate.monplayer || dgstate.nplayers==2) && !dgstate.netsim)
+        input_swap_local_slots(dgstate.curplayer==1);
       input_reset_directions();
-      while (!alldead && !gamedat[dgstate.curplayer].levdone && !escape && !dgstate.timeout) {
+      while (!alldead && !gamedat[dgstate.curplayer].levdone && !escape &&
+             !dgstate.timeout && !monhauntover()) {
         penalty=0;
         newframe();
         if (escape || dgstate.timeout)
@@ -228,6 +278,7 @@ void game(void)
         dobags(ddap);
         netsim_trace_state("post_bags",
           gamedat[dgstate.curplayer].levdone, alldead, penalty);
+        vstrack();
         if (penalty>8)
           incmont(penalty-8);
         checklevdone();
@@ -308,13 +359,40 @@ void game(void)
               declife(i);
           drawlives(ddap);
         }
-      if ((alldead && getalllives()==0 && !dgstate.gauntlet && !escape) || dgstate.timeout)
+      vstrack();
+      /* In the alternate monster mode high scores wait for the result */
+      if (((alldead && getalllives()==0 && !dgstate.gauntlet && !escape) ||
+           dgstate.timeout) && !vsmode()) {
+        /* Two player vs monster: Digger is out of lives, so the monster
+           player wins, unless they had run out of their own lives before */
+        if (dgstate.monplayer && !dgstate.timeout)
+          vsshowwinner(getmonlives()>0 ? 1 : 0);
+        /* Haunted: both are out of lives now, the bigger score wins. A
+           reward still waiting for the haunter's next monster is lost:
+           there is no Digger left to collect it. */
+        if (dgstate.haunted && !dgstate.timeout)
+          vsshowwinner(gettscore(0)>gettscore(1) ? 0 :
+            (gettscore(1)>gettscore(0) ? 1 : -1));
         endofgame(ddap);
+      }
     }
     alldead=false;
     if (dgstate.nplayers==2 && getlives(1-dgstate.curplayer)!=0) {
       dgstate.curplayer=1-dgstate.curplayer;
       flashplayer=levnotdrawn=true;
+    }
+  }
+  /* Haunted: the haunting player has lost their last monster, the other
+     one wins whatever the scores */
+  if (monhauntover() && !escape) {
+    vsshowwinner(getlives(0)!=0 ? 0 : 1);
+    endofgame(ddap);
+  }
+  if (vsmode() && !escape) {
+    vsshowwinner((vsdraw || vsfirstout==-1) ? -1 : 1-vsfirstout);
+    for (i=0;i<2;i++) {
+      dgstate.curplayer=i;
+      endofgame(ddap);
     }
   }
   edrf_gameend();
@@ -631,15 +709,20 @@ static const struct game_mode {
   bool netsim;
   int nplayers;
   int diggers;
+  bool monplayer;
+  bool haunted;
   bool last;
   const struct label title[2];
 } possible_modes[] = {
-  {false, false, 1, 1, false, {{"ONE", 220}, {" PLAYER ", 192}}},
-  {false, false, 2, 1, false, {{"TWO", 220}, {" PLAYERS", 184}}},
-  {false, false, 1, 2, false, {{"TWO PLAYER", 180}, {"SIMULTANEOUS", 170}}},
-  {false, true,  1, 2, false, {{"TWO-PLAYER", 180}, {"NETSIM", 206}}},
-  {true,  false, 1, 1, false, {{"GAUNTLET", 192}, {"MODE", 216}}},
-  {true,  false, 1, 2, true,  {{"TWO PLAYER", 180}, {"GAUNTLET", 192}}}
+  {false, false, 1, 1, false, false, false, {{"ONE", 220}, {" PLAYER ", 192}}},
+  {false, false, 2, 1, false, false, false, {{"TWO", 220}, {" PLAYERS", 184}}},
+  {false, false, 1, 2, false, false, false, {{"TWO PLAYER", 180}, {"SIMULTANEOUS", 170}}},
+  {false, false, 1, 2, false, true,  false, {{"TWO PLAYER", 180}, {"HAUNTED", 198}}},
+  {false, false, 1, 1, true,  false, false, {{"TWO PLAYER", 180}, {"VS MONSTER", 180}}},
+  {false, false, 2, 1, true,  false, false, {{"VS MONSTER", 180}, {"ALTERNATE", 186}}},
+  {false, true,  1, 2, false, false, false, {{"TWO-PLAYER", 180}, {"NETSIM", 206}}},
+  {true,  false, 1, 1, false, false, false, {{"GAUNTLET", 192}, {"MODE", 216}}},
+  {true,  false, 1, 2, false, false, true,  {{"TWO PLAYER", 180}, {"GAUNTLET", 192}}}
 };
 
 static bool
@@ -665,6 +748,10 @@ static int getnmode(void)
     if (possible_modes[i].nplayers != dgstate.nplayers)
       continue;
     if (possible_modes[i].diggers != dgstate.diggers)
+      continue;
+    if (possible_modes[i].monplayer != dgstate.monplayer)
+      continue;
+    if (possible_modes[i].haunted != dgstate.haunted)
       continue;
     break;
   }
@@ -720,6 +807,8 @@ static void switchnplayers(void)
   dgstate.netsim = possible_modes[j].netsim;
   dgstate.nplayers = possible_modes[j].nplayers;
   dgstate.diggers = possible_modes[j].diggers;
+  dgstate.monplayer = possible_modes[j].monplayer;
+  dgstate.haunted = possible_modes[j].haunted;
 }
 
 static void
@@ -1080,6 +1169,8 @@ static void parsecmd(int argc,char *argv[])
         dgstate.netsim=true;
         dgstate.nplayers=1;
         dgstate.diggers=2;
+        dgstate.monplayer=false;
+        dgstate.haunted=false;
       }
       if (argch == 'U')
         dgstate.unlimlives=true;
@@ -1098,7 +1189,7 @@ static void parsecmd(int argc,char *argv[])
                "  DIGGER [[/S:]speed] [[/L:]level file] [/C] [/Q] [/M] "
                                                          "[/P:playback file]\n"
                "         [/E:playback file] [/R:record file] [/O] [/K[A]] "
-                                                           "[/G[:time]] [/2]\n"
+                                                           "[/G[:time]] [/2[H]] [/VM[A]]\n"
                "         [/U] [/I:level] [/T:tick] "
                "[/N:sipuser~peeruser|sipuser[[:password]@siphost[:port]]~peeruser] "
 
@@ -1122,6 +1213,9 @@ static void parsecmd(int argc,char *argv[])
                "/K = Redefine keyboard (also K on the title screen)\n"
                "/G = Gauntlet mode\n"
                "/2 = Two player simultaneous mode\n"
+               "/2H = Same, out of lives players haunt the other as monsters\n"
+               "/VM = Two player mode, second player controls a monster\n"
+               "/VMA = Same, players swap roles each time the digger dies\n"
                "/N = Enable two-player SIP/RTP NetSim mode (~ preferred, - fallback)\n"
 #if defined(UNIX) && defined(_SDL)
                "/X = Embed in window\n"
@@ -1140,6 +1234,19 @@ static void parsecmd(int argc,char *argv[])
       if (argch == '2') {
         dgstate.diggers=2;
         dgstate.netsim=false;
+        dgstate.monplayer=false;
+        /* /2H: haunted, out of lives players come back as monsters */
+        dgstate.haunted=(word[2]=='H' || word[2]=='h');
+      }
+      /* /VM ("vs monster"; a plain /V is the original's, unsupported) */
+      if (argch == 'V' && (word[2]=='M' || word[2]=='m')) {
+        /* /VMA: players alternate between digger and monster */
+        dgstate.nplayers=(word[3]=='A' || word[3]=='a') ? 2 : 1;
+        dgstate.diggers=1;
+        dgstate.gauntlet=false;
+        dgstate.netsim=false;
+        dgstate.monplayer=true;
+        dgstate.haunted=false;
       }
       if (argch == 'B' || argch == 'C') {
         ddap->ginit=cgainit;
@@ -1173,6 +1280,8 @@ static void parsecmd(int argc,char *argv[])
           dgstate.gtime=120;
         dgstate.gauntlet=true;
         dgstate.netsim=false;
+        dgstate.monplayer=false;
+        dgstate.haunted=false;
       }
     }
     else {
@@ -1266,10 +1375,19 @@ static void inir(void)
   dgstate.gauntlet=GetINIBool(INI_GAME_SETTINGS,"GauntletMode",false,ININAME);
   GetINIString(INI_GAME_SETTINGS,"Players","1",vbuf,80,ININAME);
   strupr(vbuf);
-  if (vbuf[0]=='2' && vbuf[1]=='S') {
+  dgstate.monplayer=false;
+  dgstate.haunted=false;
+  if (vbuf[0]=='2' && (vbuf[1]=='S' || vbuf[1]=='H')) {
     dgstate.diggers=2;
     dgstate.nplayers=1;
     dgstate.netsim=false;
+    dgstate.haunted=(vbuf[1]=='H');
+  }
+  else if (vbuf[0]=='2' && (vbuf[1]=='V' || vbuf[1]=='A')) {
+    dgstate.diggers=1;
+    dgstate.nplayers=(vbuf[1]=='A') ? 2 : 1;
+    dgstate.netsim=false;
+    dgstate.monplayer=true;
   }
   else {
     dgstate.diggers=1;
