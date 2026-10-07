@@ -237,12 +237,12 @@ do-test:
 	sh -x ./scripts/do-test-cmmn.sh
 	SDL_VER=${SDL_VER} ZLIB_VER=${ZLIB_VER} MGW_PREF="${MGW_PREF}" \
 	  MGW64_PREF="${MGW64_PREF}" sh -x ./scripts/do-test.sh
-	env ${TT_VAR} sh -x ./scripts/do-test-run.sh
+	env ${TT_VAR} sh ./scripts/do-test-run.sh
 
 do-test-cmake:
 	sh -x ./scripts/do-test-cmmn.sh
 	sh -x ./scripts/do-test-cmake.sh
-	env ${TT_VAR} sh -x ./scripts/do-test-run.sh
+	env ${TT_VAR} sh ./scripts/do-test-run.sh
 
 coverage-report:
 	for s in $(OBJS); \
