@@ -72,6 +72,13 @@ netsim_local_player(void)
   return (0);
 }
 
+uint64_t
+netsim_session_nonce(void)
+{
+
+  return (0);
+}
+
 bool
 netsim_session_active(void)
 {

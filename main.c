@@ -8,6 +8,7 @@ static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <time.h>
 
 #include "def.h"
 #include "digger_types.h"
@@ -89,10 +90,39 @@ game_dbg_info_emit(void)
    (unsigned int)getframe());
 }
 
+/*
+ * Random seed of a round: the same for both peers of a NetSim game, as
+ * their session nonce is, anything goes otherwise. Recordings have them.
+ */
+static uint64_t
+seedbase(void)
+{
+  static uint32_t ngames;
+
+  if (dgstate.netsim && netsim_session_active())
+    return (netsim_session_nonce());
+  return ((uint64_t)time(NULL) ^ ((uint64_t)clock() << 32) ^
+    ((uint64_t)++ngames << 48));
+}
+
+static int32_t
+roundseed(uint64_t base, uint32_t round)
+{
+  uint64_t z;
+
+  /* splitmix64 */
+  z=base+(uint64_t)(round+1)*0x9e3779b97f4a7c15ull;
+  z=(z^(z>>30))*0xbf58476d1ce4e5b9ull;
+  z=(z^(z>>27))*0x94d049bb133111ebull;
+  return ((int32_t)(uint32_t)(z^(z>>31)));
+}
+
 void game(void)
 {
   int16_t t,c,i;
   bool flashplayer=false;
+  uint64_t sbase=seedbase();
+  uint32_t round=0;
 
   resetframe();
   if (dgstate.gauntlet) {
@@ -120,8 +150,10 @@ void game(void)
 
       if (playing)
         dgstate.randv=playgetrand();
+      else if (edrf_feeding)
+        dgstate.randv=edrf_getrand(); /* Replaying a recording over NetSim */
       else
-        dgstate.randv=0;
+        dgstate.randv=roundseed(sbase,round++);
 #ifdef INTDRF
       fprintf(info,"%lu\n",dgstate.randv);
       frame=0;
