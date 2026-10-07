@@ -30,6 +30,7 @@ static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.
 #include "game.h"
 #include "digger_log.h"
 #include "netsim.h"
+#include "netsim_game.h"
 #include "netsim_debug.h"
 #include "netsim_friends.h"
 #include "title_anim.h"

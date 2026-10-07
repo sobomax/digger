@@ -18,6 +18,7 @@
 #include "record.h"
 #include "game.h"
 #include "netsim.h"
+#include "netsim_game.h"
 #include "edrf.h"
 #if defined(__EMSCRIPTEN__)
 #include "ems_store.h"

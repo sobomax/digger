@@ -22,6 +22,7 @@
 #include "game.h"
 #include "edrf.h"
 #include "netsim.h"
+#include "netsim_game.h"
 #include "state_hash.h"
 #include "record.h"
 
@@ -131,7 +132,6 @@ void initdigger(void)
 #if defined(INTDRF) || 1
 static uint32_t frame;
 #endif
-static bool remote_pause_active = false;
 static bool syncframe(bool local_freeze, bool local_pause,
   bool use_pause_latch, bool *remote_freezep, bool *remote_pausep);
 static bool digger_deathmusic_pending(int n);
@@ -202,13 +202,6 @@ void newframe(void)
   (void)syncframe(false, false, true, NULL, NULL);
 }
 
-bool
-netsim_remote_pause_active(void)
-{
-
-  return (remote_pause_active);
-}
-
 static bool
 digger_deathmusic_pending(int n)
 {
@@ -244,23 +237,11 @@ dirgehold(int n)
   }
 }
 
-/* netsim_drain_frames() is running: the game is over already */
-static bool draining=false;
-/* Both peers quit the game on the same frame, see syncframe() */
-static bool quitsynced=false;
-
 static bool
 syncframe(bool local_freeze, bool local_pause, bool use_pause_latch,
   bool *remote_freezep,
   bool *remote_pausep)
 {
-  uint8_t local_bits;
-  uint8_t remote_bits;
-  bool remote_freeze = false;
-  bool remote_pause = false;
-  int remote_lead_ms = 0;
-  int local_player;
-  int remote_player;
   bool localquit;
 
   if (!local_freeze) {
@@ -270,12 +251,12 @@ syncframe(bool local_freeze, bool local_pause, bool use_pause_latch,
     gethrt(false, 3);
   }
   checkkeyb();
-  if (edrf_exhausted() && !draining)
+  if (edrf_exhausted() && !netsim_draining())
     escape=true; /* End of the recording */
-  dgstate.netsim_remote_lead_ms = 0;
   /* Quitting a NetSim game: tell the peer with this frame, so that both
      leave the game on it */
-  localquit=escape && !draining && dgstate.netsim && netsim_session_active();
+  localquit=escape && !netsim_draining() && dgstate.netsim &&
+    netsim_session_active();
   if (localquit)
     escape=false;
 
@@ -283,83 +264,8 @@ syncframe(bool local_freeze, bool local_pause, bool use_pause_latch,
   frame++;
 #endif
   input_advance_fire_state();
-  if (!dgstate.netsim || !netsim_session_active() || escape) {
-    remote_pause_active = false;
-    if (remote_freezep != NULL)
-      *remote_freezep = false;
-    if (remote_pausep != NULL)
-      *remote_pausep = false;
-    return (true);
-  }
-  local_player=netsim_local_player();
-  remote_player=1-local_player;
-  local_bits=input_snapshot_primary_controls();
-  if (edrf_feeding)
-    local_bits=edrf_feedpeek(); /* Replaying a recording over NetSim */
-  if (local_pause || (use_pause_latch && pausef && getlives(local_player) > 0))
-    local_bits |= NETSIM_CTRL_PAUSE;
-  if (localquit)
-    local_bits |= NETSIM_CTRL_QUIT;
-  if (!netsim_sync_frame(frame, local_bits, local_freeze, &remote_bits,
-        &remote_freeze, &remote_lead_ms)) {
-    escape=true;
-    input_set_network_controls(local_player, 0);
-    input_set_network_controls(remote_player, 0);
-    remote_pause_active = false;
-    if (remote_freezep != NULL)
-      *remote_freezep = false;
-    if (remote_pausep != NULL)
-      *remote_pausep = false;
-    return (false);
-  }
-  remote_pause = (remote_bits & NETSIM_CTRL_PAUSE) != 0;
-  dgstate.netsim_remote_lead_ms = remote_lead_ms;
-  input_set_network_controls(local_player,
-    local_bits & ~(NETSIM_CTRL_PAUSE | NETSIM_CTRL_QUIT | NETSIM_CTRL_FREEZE));
-  input_set_network_controls(remote_player,
-    remote_bits & ~(NETSIM_CTRL_PAUSE | NETSIM_CTRL_QUIT | NETSIM_CTRL_FREEZE));
-  if (localquit || (remote_bits & NETSIM_CTRL_QUIT) != 0) {
-    escape=true;
-    quitsynced=true;
-  }
-  remote_pause_active = remote_pause;
-  if (remote_freezep != NULL)
-    *remote_freezep = remote_freeze;
-  if (remote_pausep != NULL)
-    *remote_pausep = remote_pause;
-  return (true);
-}
-
-/* Whether the game just over was quit by both peers on the same frame
-   (and so, they can wait for each other), see syncframe() */
-bool
-netsim_quit_synced(void)
-{
-  bool q=quitsynced;
-
-  quitsynced=false;
-  return (q);
-}
-
-/*
- * The game is over here, but the peer may still miss the last frames we
- * sent: hold on to the session, sending frozen frames, until the peer is
- * done too (it freezes) or gone, so that ours can be sent again if lost.
- */
-void
-netsim_drain_frames(void)
-{
-  bool rfreeze=false,oescape=escape;
-
-  if (!dgstate.netsim || !netsim_session_active())
-    return;
-  escape=false;
-  draining=true;
-  while (!rfreeze && !escape)
-    if (!syncframe(true, false, false, &rfreeze, NULL))
-      break;
-  draining=false;
-  escape=oescape;
+  return (netsim_game_frame(frame, local_freeze, local_pause,
+    use_pause_latch, localquit, remote_freezep, remote_pausep));
 }
 
 bool
