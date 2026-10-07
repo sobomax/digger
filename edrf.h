@@ -21,6 +21,7 @@
 extern bool edrf_playing;	/* Playing back an eDRF (playing is set too) */
 extern bool edrf_failed;	/* The playback diverged from the recording */
 extern bool edrf_truncated;	/* The recording ends before its game does */
+extern bool edrf_feeding;	/* Feeding a recording to a NetSim game */
 
 void edrf_recreset(void);
 void edrf_recopen(FILE *fp);
@@ -35,5 +36,8 @@ void edrf_roundend(void);
 void edrf_gameend(void);
 void edrf_playopen(FILE *fp);
 void edrf_stopplay(void);
+bool edrf_netfeed_open(const char *name);
+void edrf_feedslot(int slot);
+uint8_t edrf_feedpeek(void);
 
 #endif

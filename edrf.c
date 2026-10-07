@@ -51,6 +51,8 @@
 bool edrf_playing=false;
 bool edrf_failed=false;
 bool edrf_truncated=false;
+bool edrf_feeding=false;
+static int feedslot=-1;
 
 /* A queue: pushed at the end, popped from the front */
 struct vec {
@@ -180,7 +182,7 @@ static bool
 reading(void)
 {
 
-  return (edrf_playing);
+  return (edrf_playing || edrf_feeding);
 }
 
 /* No controls on any of the ticks, read or not */
@@ -492,12 +494,24 @@ takein(int slot)
 uint8_t
 edrf_input(int slot, uint8_t bits)
 {
+  uint32_t x;
 
   if (slot < 0 || slot >= EDRF_SLOTS)
     return (bits);
   slotread[slot] = true;
   if (edrf_playing)
     bits = (uint8_t)takein(slot);
+  else if (edrf_feeding) {
+    /* Both players' controls, as they came out of the network, have to be
+       the recorded ones */
+    x = takein(slot);
+    if (x != (bits & 0x1f) && !edrf_failed) {
+      fprintf(stderr, "eDRF: player %d controls %02X on tick %u, recorded "
+        "%02X\n", slot + 1, (unsigned)(bits & 0x1f), (unsigned)ticks + 1,
+        (unsigned)x);
+      edrf_failed = true;
+    }
+  }
   else if (playing)
     bits = 0;
   vec_push(&rec_in[slot], bits & 0x1f);
@@ -727,3 +741,66 @@ edrf_stopplay(void)
   }
 }
 
+/*
+ * Replaying a two Digger recording over NetSim: the recording's header sets
+ * the game up, then each peer sends its own player's recorded controls
+ * (edrf_feedpeek()) instead of the keyboard's, and checks both players'
+ * controls as received (edrf_input()) and the state checkpoints against the
+ * recording.
+ */
+bool
+edrf_netfeed_open(const char *name)
+{
+  char line[512];
+  FILE *fp;
+
+  fp = fopen(name, "r");
+  if (fp == NULL)
+    return (false);
+#define GETLINE() (fgets(line, sizeof(line), fp) != NULL && \
+  (line[strcspn(line, "\r\n")] = '\0', true))
+  if (!GETLINE() || strcmp(line, EDRF_MAGIC) != 0)
+    goto out;
+  if (!GETLINE())
+    goto out;
+  kludge = atol(line + 7) <= 19981125l;
+  /* Only two Digger games make sense over NetSim */
+  if (!GETLINE() || strncmp(line, "M2", 2) != 0 ||
+      (line[2] != '\0' && line[2] != 'I'))
+    goto out;
+  dgstate.diggers = 2;
+  dgstate.nplayers = 1;
+  dgstate.gauntlet = false;
+  dgstate.startlev = line[2] == 'I' ? atoi(line + 3) : 1;
+  if (!GETLINE())
+    goto out;
+  bonusscore = atoi(line);
+#undef GETLINE
+  edrf_playopen(fp);
+  edrf_feeding = true;
+  feedslot = -1;
+  return (true);
+out:
+  fclose(fp);
+  return (false);
+}
+
+/* The NetSim session decided which player this peer is */
+void
+edrf_feedslot(int slot)
+{
+
+  feedslot = slot;
+}
+
+/* This peer's next recorded controls, sent until the game reads them */
+uint8_t
+edrf_feedpeek(void)
+{
+  const struct vec *vp;
+
+  if (feedslot < 0 || feedslot >= EDRF_SLOTS)
+    return (0);
+  vp = &ply_in[feedslot];
+  return (fill(vp) ? (uint8_t)vp->v[vp->pos] : 0);
+}

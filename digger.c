@@ -272,7 +272,7 @@ syncframe(bool local_freeze, bool local_pause, bool use_pause_latch,
     gethrt(false, 3);
   }
   checkkeyb();
-  if (edrf_exhausted())
+  if (edrf_exhausted() && !draining)
     escape=true; /* End of the recording */
   dgstate.netsim_remote_lead_ms = 0;
   /* Quitting a NetSim game: tell the peer with this frame, so that both
@@ -296,6 +296,8 @@ syncframe(bool local_freeze, bool local_pause, bool use_pause_latch,
   local_player=netsim_local_player();
   remote_player=1-local_player;
   local_bits=input_snapshot_primary_controls();
+  if (edrf_feeding)
+    local_bits=edrf_feedpeek(); /* Replaying a recording over NetSim */
   if (local_pause || (use_pause_latch && pausef && getlives(local_player) > 0))
     local_bits |= NETSIM_CTRL_PAUSE;
   if (localquit)

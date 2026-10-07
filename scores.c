@@ -18,6 +18,7 @@
 #include "record.h"
 #include "game.h"
 #include "netsim.h"
+#include "edrf.h"
 #if defined(__EMSCRIPTEN__)
 #include "ems_store.h"
 #endif
@@ -228,7 +229,8 @@ void endofgame(struct digger_draw_api *ddap)
   bool initflag=false;
   for (i=0;i<dgstate.diggers;i++)
     addscore(ddap, i,0);
-  if (playing || !drfvalid)
+  /* No high scores for playbacks, NetSim replays of recordings included */
+  if (playing || edrf_feeding || !drfvalid)
     return;
   if (dgstate.netsim)
     local_player = netsim_local_player();

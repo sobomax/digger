@@ -69,7 +69,7 @@ int16_t getlevch(int16_t x,int16_t y,int16_t l)
 {
   /* An eDRF has the maps as they were played, this included */
   if ((l==3 || l==4) && !dgstate.levfflag && dgstate.diggers==2 && y==9 &&
-      (x==6 || x==8) && !edrf_playing)
+      (x==6 || x==8) && !edrf_playing && !edrf_feeding)
     return 'H';
   return dgstate.leveldat[l-1][y][x];
 }
@@ -345,6 +345,15 @@ int mainprog(void)
   enum netsim_title_status cur_netsim_status;
   bool title_up_pressed, title_down_pressed;
 
+  /* Testing: replay a recording over NetSim, see edrf_netfeed_open() */
+  if (getenv("DIGGER_NETSIM_REPLAY") != NULL) {
+    if (!dgstate.netsim ||
+        !edrf_netfeed_open(getenv("DIGGER_NETSIM_REPLAY"))) {
+      fprintf(stderr, "eDRF: can't replay %s over NetSim\n",
+        getenv("DIGGER_NETSIM_REPLAY"));
+      exit(1);
+    }
+  }
   loadscores();
   escape=false;
   title_anim_init(&title_anim);
@@ -398,6 +407,10 @@ int mainprog(void)
         title_down_pressed = false;
       }
       started=teststart();
+      /* The replaying peer that starts the game does so on its own */
+      if (!started && edrf_feeding &&
+          getenv("DIGGER_NETSIM_REPLAY_START") != NULL)
+        started=true;
       if (!started && dgstate.netsim && netsim_remote_start_requested()) {
         started=true;
         started_by_remote=true;
@@ -451,6 +464,10 @@ int mainprog(void)
       outtext(ddap, "WAITING FOR PEER",68,0,3);
       ddap->gflush();
       if (!netsim_start_session(!started_by_remote)) {
+        if (edrf_feeding) {
+          fprintf(stderr, "eDRF: NetSim replay: no session with the peer\n");
+          exit(3);
+        }
         soundstop();
         soundddie();
         for (t=0;t<15 && !escape;t++)
@@ -459,16 +476,29 @@ int mainprog(void)
       }
       input_enable_network_mode();
       input_set_network_controls(1-netsim_local_player(), 0);
+      edrf_feedslot(netsim_local_player());
     }
     recinit();
     soundwakeup();
     game();
     /* The game is over, or both peers quit it on the same frame: both have
        to get to its end */
-    if (netsim_quit_synced() || !escape)
+    if (netsim_quit_synced() || edrf_feeding || !escape)
       netsim_drain_frames();
     if (dgstate.netsim)
       netsim_stop_session(escape && !netsim_peer_exited());
+    /* Replayed a recording over NetSim: report how it went, and that's it */
+    if (edrf_feeding) {
+      game_dbg_info_emit();
+      netsim_shutdown();
+      finish();
+      if (edrf_failed) {
+        fprintf(stderr, "eDRF: NetSim replay of %s FAILED\n",
+          getenv("DIGGER_NETSIM_REPLAY"));
+        exit(2);
+      }
+      exit(0);
+    }
     input_reset_network();
     gotgame=true;
     if (gotname) {
