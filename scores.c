@@ -445,10 +445,23 @@ void scorekill(struct digger_draw_api *ddap, int n)
   addscore(ddap, n,250);
 }
 
+/* A monster killed by a bag: half for each Digger, or all of it for one
+   if the other is out of lives (still added to, as adding counts towards
+   the penalty) */
 void scorekill2(struct digger_draw_api *ddap)
 {
-  addscore(ddap, 0,125);
-  addscore(ddap, 1,125);
+  int16_t s0=125,s1=125;
+
+  if (getlives(0)==0) {
+    s0=0;
+    s1=getlives(1)>0 ? 250 : 0;
+  }
+  else if (getlives(1)==0) {
+    s0=250;
+    s1=0;
+  }
+  addscore(ddap, 0,s0);
+  addscore(ddap, 1,s1);
 }
 
 void scoreemerald(struct digger_draw_api *ddap, int n)
