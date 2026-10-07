@@ -21,8 +21,9 @@
  *                   per line, after a space; a playback plays the level on
  *                   it
  *   R <hex>         random seed of the round starting
- *   C <tick> <hex>  game state hash every EDRF_CKPT_EVERY ticks
- *   E <tick> <hex>  game state hash at the end of a round
+ *   C <hex>         game state hash every EDRF_CKPT_EVERY ticks
+ *   E <hex>         game state hash at the end of a round, the tick it ends
+ *                   on in it too
  *   Z <tick> <hex>  game state hash at the end of the game
  *
  * A recording that ends without its Z (the program was stopped while it
@@ -276,13 +277,13 @@ flushin(void)
 
 /* Write a record of the game state, after the controls before it */
 static void
-putstate(char what, uint32_t tick, uint32_t hash)
+putstate(char what, uint32_t hash)
 {
 
   flushin();
   if (recfp == NULL)
     return;
-  fprintf(recfp, "%c %u %08X\n", what, (unsigned)tick, (unsigned)hash);
+  fprintf(recfp, "%c %08X\n", what, (unsigned)hash);
   fflush(recfp);
 }
 
@@ -386,7 +387,7 @@ load_slots(const char *p)
 static bool
 readrec(void)
 {
-  char line[512];
+  char line[512], c;
   unsigned a, b;
   size_t l;
 
@@ -440,10 +441,10 @@ readrec(void)
         return (true);
       case 'C':
       case 'E':
-        if (sscanf(line + 1, "%u %x", &a, &b) != 2)
+        /* Just the hash, nothing after it */
+        if (sscanf(line + 1, "%x %c", &a, &c) != 1)
           goto bad;
         vec_push(line[0] == 'C' ? &ply_ckpt : &ply_rend, a);
-        vec_push(line[0] == 'C' ? &ply_ckpt : &ply_rend, b);
         return (true);
       case 'Z':
         if (sscanf(line + 1, "%u %x", &a, &b) != 2)
@@ -626,23 +627,18 @@ edrf_getrand(void)
   return (x);
 }
 
-/* Check the state against the recording's next checkpoint of a kind, which
-   has to be for this tick */
+/* Check the state against the recording's next checkpoint of a kind,
+   which they come in the order of */
 static void
 verify(struct vec *vp, const char *what, uint32_t h)
 {
-  uint32_t tick, hash;
+  uint32_t hash;
 
-  if (!reading() || edrf_failed || !fill(vp))
-    return;
-  if (vp->v[vp->pos] != ticks)
-    return;
-  vec_pop(vp, &tick);
-  if (!vec_pop(vp, &hash))
+  if (!reading() || edrf_failed || !fill(vp) || !vec_pop(vp, &hash))
     return;
   if (hash != h) {
     fprintf(stderr, "eDRF: the game diverges from the recording before "
-      "tick %u (%s state %08X, recorded %08X)\n", (unsigned)tick, what,
+      "tick %u (%s state %08X, recorded %08X)\n", (unsigned)ticks, what,
       (unsigned)h, (unsigned)hash);
     edrf_failed = true;
   }
@@ -672,7 +668,7 @@ edrf_tick(void)
   if (ticks % EDRF_CKPT_EVERY != 0)
     return;
   h = game_state_hash();
-  putstate('C', ticks, h);
+  putstate('C', h);
   verify(&ply_ckpt, "tick", h);
 }
 
@@ -681,8 +677,9 @@ edrf_roundend(void)
 {
   uint32_t h;
 
-  h = game_state_hash();
-  putstate('E', ticks, h);
+  /* The tick it ends on too, that it be the same */
+  h = debug_hash_mix(game_state_hash(), ticks);
+  putstate('E', h);
   verify(&ply_rend, "end of round", h);
 }
 
@@ -692,7 +689,10 @@ edrf_gameend(void)
 
   rec_endtick = ticks;
   rec_endhash = game_state_hash();
-  putstate('Z', rec_endtick, rec_endhash);
+  flushin();
+  if (recfp != NULL)
+    fprintf(recfp, "Z %u %08X\n", (unsigned)rec_endtick,
+      (unsigned)rec_endhash);
   if (recfp != NULL) {
     fclose(recfp);
     recfp = NULL;
