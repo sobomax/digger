@@ -1012,7 +1012,7 @@ usipy_sip_tm_build_request(struct usipy_sip_tm_txi *tp, size_t tx_index,
       (tp->cache.uac.include_contact != 0 ? 1 : 0) + (include_expires ? 1 : 0) +
       (include_ctype ? 1 : 0) + (include_user_agent ? 1 : 0);
     struct usipy_sip_hdr thdrs[nbase_hdrs + neh];
-    struct usipy_hdr_db_entr ehdb[neh];
+    struct usipy_hdr_db_entr ehdb[neh > 0 ? neh : 1]; /* Not a 0 size VLA */
     struct usipy_sip_tm_default_via via;
     struct usipy_sip_tm_default_nameaddr from;
     struct usipy_sip_tm_default_nameaddr to;
