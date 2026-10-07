@@ -482,7 +482,9 @@ that peer to player 1 or player 2 in the simulation.
 
 Recordings named "*.edrf" (/R:game.edrf) are made in the extended eDRF
 format: instead of the directions Digger moved in, it has the controls every
-player pressed on every tick, together with checkpoints of the game state.
+player pressed on every tick, together with checkpoints of the game state,
+and who quit the game (F10, or over the network either player), if anybody
+did: a playback quits it at the same point, as a normal end of the game.
 It is written as the game goes, so that even if the program is stopped in
 the middle of a game, its recording can be played back as far as it goes.
 When played back the game has to go exactly the same way, or the playback

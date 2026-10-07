@@ -17,6 +17,8 @@
 static bool remote_pause_active = false;
 /* Both peers quit the game on the same frame, see netsim_game_frame() */
 static bool quitsynced = false;
+/* The player who quit it then (-1 for none, the peer gone as well) */
+static int quitter = -1;
 /* netsim_drain_frames() is running: the game is over already */
 static bool draining = false;
 
@@ -83,9 +85,19 @@ netsim_game_frame(uint32_t frame, bool local_freeze, bool local_pause,
   if (localquit || (remote_bits & NETSIM_CTRL_QUIT) != 0) {
     escape = true;
     quitsynced = true;
+    quitter = localquit ? local_player : remote_player;
   }
   setremote(remote_freeze, remote_pause, remote_freezep, remote_pausep);
   return (true);
+}
+
+/* Which player quit the game, both peers leaving it on the same frame, or
+   -1 if it wasn't quit that way */
+int
+netsim_quitter(void)
+{
+
+  return (quitter);
 }
 
 bool
@@ -103,6 +115,7 @@ netsim_quit_synced(void)
   bool q = quitsynced;
 
   quitsynced = false;
+  quitter = -1;
   return (q);
 }
 

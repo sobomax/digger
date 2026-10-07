@@ -30,6 +30,8 @@ void edrf_recopen(FILE *fp);
 uint8_t edrf_input(int slot, uint8_t bits);
 void edrf_movement(int slot, int16_t dir, bool fire);
 bool edrf_exhausted(void);
+bool edrf_quitting(void);
+void edrf_quit(void);
 void edrf_level(int level, int plan);
 void edrf_putrand(uint32_t randv);
 uint32_t edrf_getrand(void);
