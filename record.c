@@ -15,6 +15,7 @@
 #include "scores.h"
 #include "sprite.h"
 #include "game.h"
+#include "edrf.h"
 
 static char huge *recb,huge *plb,huge *plp;
 
@@ -25,6 +26,7 @@ static char rname[128];
 
 static int reccc=0,recrl=0,rlleft=0;
 static uint32_t recp=0;
+static uint32_t rechdr=0; /* Length of the header in recb */
 static char recd,rld;
 
 static void mprintf(const char *f,...) __attribute__((format(printf, 1, 2)));
@@ -58,17 +60,21 @@ smart_fgets(char * restrict str, int size, FILE * restrict stream)
   return (rval);
 }
 
+static const char *playname; /* Being played back */
+
 void openplay(char *name)
 {
   FILE *playf=fopen(name,"rb");
   int32_t l,i;
   char buf[80];
   int c,x,y,n,origgtime=dgstate.gtime;
+  bool ext;
   bool origg=dgstate.gauntlet;
   int16_t origstartlev=dgstate.startlev,orignplayers=dgstate.nplayers,origdiggers=dgstate.diggers;
 #ifdef INTDRF
   info=fopen("DRFINFO.TXT","wt");
 #endif
+  playname=name;
   if (playf==NULL) {
     escape=true;
     return;
@@ -84,7 +90,9 @@ void openplay(char *name)
   if (smart_fgets(buf, 80, playf) == NULL) {
     goto out_0;
   }
-  if (buf[0]!='D' || buf[1]!='R' || buf[2]!='F') {
+  /* A DRF, or an eDRF: same header, different body */
+  ext=strcmp(buf,EDRF_MAGIC)==0;
+  if (!ext && (buf[0]!='D' || buf[1]!='R' || buf[2]!='F')) {
     goto out_0;
   }
   /* Get version for kludge switches */
@@ -130,7 +138,8 @@ void openplay(char *name)
     goto out_0;
   }
   bonusscore=atoi(buf);
-  for (n=0;n<8;n++)
+  /* An eDRF has the maps as it goes */
+  for (n=0;n<8 && !ext;n++)
     for (y=0;y<10;y++) {
       for (x=0;x<15;x++)
         buf[x]=' ';
@@ -141,6 +150,12 @@ void openplay(char *name)
       for (x=0;x<15;x++)
         dgstate.leveldat[n][y][x]=buf[x];
     }
+
+  if (ext) {
+    edrf_playopen(playf); /* Read as it is played back */
+    plb=(char huge *)NULL;
+    goto play;
+  }
 
   /* This is the second. The line breaks here really are only so that the file
      can be emailed. */
@@ -166,12 +181,16 @@ void openplay(char *name)
   fclose(playf);
   plp=plb;
 
+play:
   playing=true;
+  edrf_playing=ext;
   recinit();
   game();
   gotgame=true;
   playing=false;
-  farfree(plb);
+  edrf_stopplay();
+  if (plb!=(char huge *)NULL)
+    farfree(plb);
   dgstate.gauntlet=origg;
   dgstate.gtime=origgtime;
   kludge=false;
@@ -237,6 +256,9 @@ static void makedir(int16_t *dir,bool *fire,char d)
 
 void playgetdir(int16_t *dir,bool *fire)
 {
+  /* An eDRF has no directions: they come from the recorded controls */
+  if (edrf_playing)
+    return;
   if (rlleft>0) {
     makedir(dir,fire,rld);
     rlleft--;
@@ -307,11 +329,42 @@ void recputdir(int16_t dir,bool fire)
   }
 }
 
+/* Recordings named *.edrf are written as eDRF */
+static bool isedrfname(const char *name)
+{
+  size_t l=strlen(name);
+  return (l>5 && stricmp(name+l-5,".edrf")==0);
+}
+
+/* An eDRF is written as the game goes: start it with the header */
+static void recstream(void)
+{
+  FILE *recf;
+  uint32_t i;
+
+  if (!gotname || !isedrfname(rname))
+    return;
+  if (playing && strcmp(rname,playname)==0) {
+    fprintf(stderr,"Cannot record over %s while playing it back\n",rname);
+    return;
+  }
+  if ((recf=fopen(rname,"wt"))==NULL) {
+    fprintf(stderr,"Cannot record to %s\n",rname);
+    return;
+  }
+  /* Same header as the DRF, minus its "DRF" id line and the maps */
+  fprintf(recf,"%s\n",EDRF_MAGIC);
+  for (i=4;i<rechdr;i++)
+    fputc(recb[i],recf);
+  edrf_recopen(recf);
+}
+
 void recinit(void)
 {
   int x,y,l;
   recp=0;
   drfvalid=true;
+  edrf_recreset();
 
   mprintf("DRF\n"); /* Required at start of DRF */
   if (kludge)
@@ -333,6 +386,7 @@ void recinit(void)
   if (dgstate.startlev>1)
     mprintf("I%i",dgstate.startlev);
   mprintf("\n%i\n",bonusscore);
+  rechdr=recp; /* An eDRF's, see recstream(): it has the maps as it goes */
   for (l=0;l<8;l++) {
     for (y=0;y<MHEIGHT;y++) {
       for (x=0;x<MWIDTH;x++)
@@ -341,10 +395,12 @@ void recinit(void)
     }
   }
   reccc=recrl=0;
+  recstream();
 }
 
 void recputrand(uint32_t randv)
 {
+  edrf_putrand(randv);
   mprintf("%08lX\n", (unsigned long)randv);
   reccc=recrl=0;
 }
@@ -356,6 +412,12 @@ void recsavedrf(void)
   int j;
   bool gotfile=true;
   char nambuf[80],init[4];
+  if (gotname && isedrfname(rname)) {
+    /* Written as the game went, see recstream(), unless it was cheated */
+    if (!drfvalid)
+      remove(rname);
+    return;
+  }
   if (!drfvalid)
     return;
   if (gotname) {
@@ -402,6 +464,8 @@ void recsavedrf(void)
 
 void playskipeol(void)
 {
+  if (edrf_playing)
+    return;
   plp+=3;
 }
 
@@ -410,6 +474,8 @@ uint32_t playgetrand(void)
   int i;
   uint32_t r=0;
   char p;
+  if (edrf_playing)
+    return edrf_getrand();
   if ((*plp)=='*')
     plp+=4;
   for (i=0;i<8;i++) {
@@ -431,6 +497,7 @@ void recputinit(char *init)
 
 void recputeol(void)
 {
+  edrf_roundend();
   if (recrl>0)
     putrun();
   if (reccc>0)

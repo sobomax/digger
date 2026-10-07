@@ -32,6 +32,7 @@ static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.
 #include "netsim_debug.h"
 #include "netsim_friends.h"
 #include "title_anim.h"
+#include "edrf.h"
 #if defined(__EMSCRIPTEN__)
 #include "ems_kbd.h"
 #include "ems_store.h"
@@ -66,7 +67,9 @@ static bool title_escape_exits_program(void);
 
 int16_t getlevch(int16_t x,int16_t y,int16_t l)
 {
-  if ((l==3 || l==4) && !dgstate.levfflag && dgstate.diggers==2 && y==9 && (x==6 || x==8))
+  /* An eDRF has the maps as they were played, this included */
+  if ((l==3 || l==4) && !dgstate.levfflag && dgstate.diggers==2 && y==9 &&
+      (x==6 || x==8) && !edrf_playing)
     return 'H';
   return dgstate.leveldat[l-1][y][x];
 }
@@ -177,6 +180,7 @@ void game(void)
         checklevdone();
         netsim_trace_state("post_tick",
           gamedat[dgstate.curplayer].levdone, alldead, penalty);
+        edrf_tick();
         testpause();
         if (escape || dgstate.timeout)
           break;
@@ -206,6 +210,7 @@ void game(void)
           t=0;
         netsim_trace_state("cleanup_post_tick",
           gamedat[dgstate.curplayer].levdone, alldead, penalty);
+        edrf_tick();
       }
       soundstop();
       for (i=0;i<dgstate.diggers;i++)
@@ -258,6 +263,7 @@ void game(void)
       flashplayer=levnotdrawn=true;
     }
   }
+  edrf_gameend();
 #ifdef INTDRF
   fprintf(info,"-1\n%lu\n%i",getscore0(),gamedat[0].level);
 #endif
@@ -606,6 +612,10 @@ sync_netsim_waiter(void)
 static void initlevel(void)
 {
   gamedat[dgstate.curplayer].levdone=false;
+  /* Recorded, or (playing back) taken from the recording, but for player
+     2's level when they aren't in the game */
+  if (dgstate.curplayer<dgstate.nplayers)
+    edrf_level(levno(),levplan());
   makefield();
   makeemfield();
   initbags();
@@ -865,7 +875,14 @@ static void parsecmd(int argc,char *argv[])
           norepf=true;
       }
       if (argch == 'E') {
+        /* /R:name /E:file re-records the playback, e.g. a DRF as an eDRF */
+        if (gotname && gotgame)
+          recsavedrf();
         finish();
+        if (edrf_failed) {
+          fprintf(stderr, "eDRF: playback of %s FAILED\n", word+i);
+          exit(2);
+        }
 	if (getenv("DIGGER_CI_RUN") != NULL) {
           game_dbg_info_emit();
 	  exit(0);

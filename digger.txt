@@ -401,7 +401,8 @@ The command line options are:
             high speeds.
   /Q      = Quiet mode (no sound at all).
   /M      = Turn background music off.
-  /R:name = Record game to file "name".
+  /R:name = Record game to file "name". A name ending in ".edrf" records
+            an eDRF (see below).
   /P:name = Playback game file "name" and restart program.
   /E:name = Playback game file "name" and exit program.
   /O      = Go back to the beginning of the command line and start again. Handy
@@ -465,6 +466,16 @@ over UDP. Once enabled, select "Two-Player NetSim" on the title screen and
 start the game on both machines. The local player always uses the player 1 key
 bindings on that machine, regardless of whether the network handshake assigns
 that peer to player 1 or player 2 in the simulation.
+
+Recordings named "*.edrf" (/R:game.edrf) are made in the extended eDRF
+format: instead of the directions Digger moved in, it has the controls every
+player pressed on every tick, together with checkpoints of the game state.
+It is written as the game goes, so that even if the program is stopped in
+the middle of a game, its recording can be played back as far as it goes.
+When played back the game has to go exactly the same way, or the playback
+stops with an error (with /E the program exits with status 2). Any recording
+can be converted into an eDRF by playing it back while recording, e.g.
+"DIGGER /R:game.edrf /E:game.drf".
 
 /U gives you the ability to save up as many lives as you like. See the FAQ
 section for more information about this.

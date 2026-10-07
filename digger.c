@@ -20,6 +20,7 @@
 #include "bags.h"
 #include "bullet_obj.h"
 #include "game.h"
+#include "edrf.h"
 #include "netsim.h"
 #include "netsim_debug.h"
 #include "record.h"
@@ -265,6 +266,8 @@ syncframe(bool local_freeze, bool local_pause, bool use_pause_latch,
     gethrt(false, 3);
   }
   checkkeyb();
+  if (edrf_exhausted())
+    escape=true; /* End of the recording */
   dgstate.netsim_remote_lead_ms = 0;
 
 #if defined(INTDRF) || 1

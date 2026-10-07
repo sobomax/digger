@@ -9,6 +9,7 @@
 #include "record.h"
 #include "digger.h"
 #include "game.h"
+#include "edrf.h"
 #ifdef _SDL
 #include "sdl_kbd.h" 
 #elif defined(_VGL)
@@ -55,6 +56,7 @@ static bool ounpressed[DIGGERS]={false,false},odnpressed[DIGGERS]={false,false},
 
 void readjoy(void);
 static void apply_network_controls(int n);
+static void edrf_controls(int n, bool *u, bool *d, bool *l, bool *r, bool *f);
 static bool key_is_title_updown(int16_t key);
 
 static bool
@@ -292,7 +294,7 @@ input_get_fire_active(int n)
 static void
 apply_network_controls(int n)
 {
-  bool un=false,dn=false,ln=false,rn=false;
+  bool un=false,dn=false,ln=false,rn=false,fn;
 
   if ((network_bits[n] & INPUT_CTRL_UP) != 0)
     un=true;
@@ -302,16 +304,12 @@ apply_network_controls(int n)
     ln=true;
   if ((network_bits[n] & INPUT_CTRL_RIGHT) != 0)
     rn=true;
-  if ((network_bits[n] & INPUT_CTRL_FIRE) != 0) {
-    if (n==0)
-      firepflag=true;
-    else
-      fire2pflag=true;
-  }
-  else if (n==0)
-    firepflag=false;
+  fn=(network_bits[n] & INPUT_CTRL_FIRE) != 0;
+  edrf_controls(n, &un, &dn, &ln, &rn, &fn);
+  if (n==0)
+    firepflag=fn;
   else
-    fire2pflag=false;
+    fire2pflag=fn;
   if (un && !ounpressed[n])
     staticdirn[n]=dynamicdirn[n]=DIR_UP;
   if (dn && !odnpressed[n])
@@ -347,10 +345,27 @@ apply_network_controls(int n)
   staticdirn[n]=DIR_NONE;
 }
 
+/* Let the eDRF code see (record) or replace (play back) a slot's controls */
+static void
+edrf_controls(int n, bool *u, bool *d, bool *l, bool *r, bool *f)
+{
+  uint8_t bits;
+
+  bits = (*u ? INPUT_CTRL_UP : 0) | (*d ? INPUT_CTRL_DOWN : 0) |
+    (*l ? INPUT_CTRL_LEFT : 0) | (*r ? INPUT_CTRL_RIGHT : 0) |
+    (*f ? INPUT_CTRL_FIRE : 0);
+  bits = edrf_input(n, bits);
+  *u = (bits & INPUT_CTRL_UP) != 0;
+  *d = (bits & INPUT_CTRL_DOWN) != 0;
+  *l = (bits & INPUT_CTRL_LEFT) != 0;
+  *r = (bits & INPUT_CTRL_RIGHT) != 0;
+  *f = (bits & INPUT_CTRL_FIRE) != 0;
+}
+
 void readdirect(int n)
 {
   int16_t j;
-  bool u=false,d=false,l=false,r=false;
+  bool u=false,d=false,l=false,r=false,f=false;
   bool u2=false,d2=false,l2=false,r2=false;
 
   if (slot_sources[n]==INPUT_SOURCE_PRIMARY) {
@@ -358,17 +373,12 @@ void readdirect(int n)
     if (adownpressed || downpressed) { d=true; adownpressed=false; }
     if (aleftpressed || leftpressed) { l=true; aleftpressed=false; }
     if (arightpressed || rightpressed) { r=true; arightpressed=false; }
-    if (f1pressed || af1pressed) {
-      if (n == 0)
-        firepflag=true;
-      else
-        fire2pflag=true;
-      af1pressed=false;
-    }
-    else if (n == 0)
-      firepflag=false;
+    if (f1pressed || af1pressed) { f=true; af1pressed=false; }
+    edrf_controls(n, &u, &d, &l, &r, &f);
+    if (n == 0)
+      firepflag=f;
     else
-      fire2pflag=false;
+      fire2pflag=f;
     if (u && !oupressed)
       staticdir=dynamicdir=DIR_UP;
     if (d && !odpressed)
@@ -408,17 +418,12 @@ void readdirect(int n)
     if (adown2pressed || down2pressed) { d2=true; adown2pressed=false; }
     if (aleft2pressed || left2pressed) { l2=true; aleft2pressed=false; }
     if (aright2pressed || right2pressed) { r2=true; aright2pressed=false; }
-    if (f12pressed || af12pressed) {
-      if (n == 0)
-        firepflag=true;
-      else
-        fire2pflag=true;
-      af12pressed=false;
-    }
-    else if (n == 0)
-      firepflag=false;
+    if (f12pressed || af12pressed) { f=true; af12pressed=false; }
+    edrf_controls(n, &u2, &d2, &l2, &r2, &f);
+    if (n == 0)
+      firepflag=f;
     else
-      fire2pflag=false;
+      fire2pflag=f;
     if (u2 && !ou2pressed)
       staticdir2=dynamicdir2=DIR_UP;
     if (d2 && !od2pressed)
@@ -545,14 +550,16 @@ int16_t getdirect(int n)
     }
   }
   if (n==0) {
-    if (playing)
+    if (playing && !edrf_playing)
       playgetdir(&dir,&firepflag);
     recputdir(dir,firepflag);
+    edrf_movement(n,dir,firepflag);
   }
   else {
-    if (playing)
+    if (playing && !edrf_playing)
       playgetdir(&dir,&fire2pflag);
     recputdir(dir,fire2pflag);
+    edrf_movement(n,dir,fire2pflag);
   }
   return dir;
 }

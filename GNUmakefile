@@ -6,7 +6,7 @@ else
 CFLAGS  += -O0 -g3 -DDIGGER_DEBUG
 endif
 RCFLAGS = -D_SDL -D_SDL_SOUND -std=gnu11 -Wall -DNO_SND_FILTER #-DNO_SND_EFFECTS
-OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o sound.o \
+OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o edrf.o sound.o \
 		sound_backend.o \
 		newsnd.o ini.o input.o monster.o bags.o alpha.o vgagrafx.o \
 	title_gz.o icon.o sdl_kbd.o sdl_vid.o sdl_timer.o sdl_snd.o \

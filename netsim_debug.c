@@ -13,6 +13,7 @@
 #include "netsim.h"
 #include "digger_log.h"
 #include "netsim_debug.h"
+#include "scores.h"
 
 static bool netsim_trace_ready = false;
 static bool netsim_trace_enabled = false;
@@ -48,6 +49,25 @@ monster_debug_hash(void)
 {
 
   return (monster_debug_hash_append(0x89abcdefU));
+}
+
+/* All of the game state that matters for determinism in one value */
+uint32_t
+game_state_hash(void)
+{
+  uint32_t h;
+  int i;
+
+  h = 0x10203040U;
+  for (i = 0; i < MSIZE; i++)
+    h = debug_hash_mix(h, (uint32_t)(uint16_t)field[i]);
+  h = debug_hash_mix(h, digger_debug_hash());
+  h = debug_hash_mix(h, monster_debug_hash());
+  h = debug_hash_mix(h, bags_debug_hash());
+  h = debug_hash_mix(h, (uint32_t)dgstate.randv);
+  h = debug_hash_mix(h, (uint32_t)gettscore(0));
+  h = debug_hash_mix(h, (uint32_t)gettscore(1));
+  return (h);
 }
 
 void

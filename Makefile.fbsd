@@ -2,7 +2,7 @@ PROG=		digger
 
 MK_PIE=		no
 
-COMMON_SRCS=	main.c digger.c drawing.c sprite.c scores.c record.c sound.c \
+COMMON_SRCS=	main.c digger.c drawing.c sprite.c scores.c record.c edrf.c sound.c \
 		sound_backend.c newsnd.c ini.c input.c monster.c bags.c \
 		alpha.c vgagrafx.c cgagrafx.c title_gz.c title_anim.c \
 		digger_math.c monster_obj.c digger_obj.c bullet_obj.c \

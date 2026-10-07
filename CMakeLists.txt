@@ -154,6 +154,7 @@ SET( DIGGER_SOURCE
      sprite.c
      scores.c
      record.c
+     edrf.c
      sound.c
      sound_backend.c
      newsnd.c
