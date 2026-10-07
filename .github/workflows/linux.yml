@@ -69,6 +69,39 @@ jobs:
           parallel: true
           path-to-lcov: ./digger_lcov/digger.info
 
+  ubsan:
+    # The tests with a build that stops at any undefined behavior
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: ['gcc', 'clang']
+    env:
+      TEST_TYPE: short
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: 'recursive'
+
+      - name: Install apt-get packages
+        run: |
+          sudo -H DEBIAN_FRONTEND=noninteractive apt-get update
+          cat apt-get-requirement.txt | xargs sudo apt-get -yq --no-install-recommends install
+          # Clang's UBSan runtime, which isn't there otherwise
+          if [ "${{ matrix.compiler }}" = "clang" ]
+          then
+            sudo apt-get -yq --no-install-recommends install libclang-rt-dev
+          fi
+
+      - name: test
+        env:
+          CC: ${{ matrix.compiler }}
+          CI_UBSAN: 1
+          UBSAN_OPTIONS: print_stacktrace=1
+        run: |
+          make do-test-cmake
+
   submit_coverage:
     needs: build
     runs-on: ubuntu-latest

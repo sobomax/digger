@@ -3,6 +3,9 @@
 *.gcno
 .depend
 /*.drf.out
+/*.edrf.out
+/*.drf.err
+/*.edrf.err
 digger
 digger.exe
 digger.res
