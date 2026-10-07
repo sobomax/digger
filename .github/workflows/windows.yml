@@ -97,7 +97,7 @@ jobs:
           # Arguments like /E:file aren't paths to convert for MSYS2
           MSYS2_ARG_CONV_EXCL: '*'
         run: |
-          TEST_TYPES='quick netsim' DIGGER_BIN=./digger.exe sh -x ./scripts/do-test-run.sh
+          TEST_TYPES='quick netsim' DIGGER_BIN=./digger.exe sh ./scripts/do-test-run.sh
 
       - name: Set package artifact output
         id: package_artifacts

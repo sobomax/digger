@@ -45,11 +45,11 @@ start_test() {
   ) &
 }
 
-# Wait for fewer than $1 tests to be running
+# Wait for fewer than $1 tests to be running, looking once a second
 wait_jobs() {
   while [ $((NSTARTED - `ls "${JOBDIR}" | grep -c '\.done$'`)) -ge "$1" ]
   do
-    sleep 0.1
+    sleep 1
   done
 }
 
