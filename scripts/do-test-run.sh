@@ -16,10 +16,12 @@ NSTARTED=0
 # DRF and eDRF (with the same result) too
 run_test() {
   SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy DIGGER_CI_RUN=1 \
-    "${DIGGER_BIN}" ${3} > "${2}-${1}.out" 2>/dev/null && rc=0 || rc=$?
+    "${DIGGER_BIN}" ${3} > "${2}-${1}.out" 2> "${2}-${1}.err" && rc=0 || rc=$?
   if [ "${rc}" -ne 0 ]
   then
+    # With what it had to say, e.g. a sanitizer's report
     echo "${1} (${2}): FAIL (exit status ${rc})"
+    tail -20 "${2}-${1}.err" | sed 's|^|    |'
     return 1
   fi
   # Windows ends the lines with CR LF
