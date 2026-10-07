@@ -238,8 +238,9 @@ void endofgame(struct digger_draw_api *ddap)
   bool initflag=false;
   for (i=0;i<dgstate.diggers;i++)
     addscore(ddap, i,0);
-  /* No high scores for playbacks, NetSim replays of recordings included */
-  if (playing || edrf_feeding || !drfvalid)
+  /* No high scores for playbacks, NetSim replays of recordings included,
+     nor for one taken over */
+  if (playing || edrf_feeding || !drfvalid || playtaken)
     return;
   if (dgstate.netsim)
     local_player = netsim_local_player();

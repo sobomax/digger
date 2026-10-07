@@ -374,6 +374,8 @@ int main(int argc,char *argv[])
   ems_store_restore(ININAME); /* Settings saved by a previous visit */
 #endif
   inir();
+  /* The speed of the settings, as a playback taken over drops back to */
+  playtakeftime=dgstate.ftime;
   playbacklast(argc,argv);
   parsecmd(argc,argv);
   maininit();
@@ -898,7 +900,7 @@ getarg(char argch, const char *allargs, bool *hasopt)
   return (-1);
 }
 
-#define BASE_OPTS "OUH?QM2CKVL:R:P:S:E:G:I:N:"
+#define BASE_OPTS "OUH?QM2CKVL:R:P:S:E:G:I:N:T:"
 #if defined(HAVE_SDL_X11_WINDOW)
 #define X11_OPTS "X:"
 #else
@@ -1006,9 +1008,10 @@ static void parsecmd(int argc,char *argv[])
           fprintf(stderr, "eDRF: playback of %s FAILED\n", word+i);
           exit(2);
         }
-        /* Not played to the end (an eDRF isn't checked then either) */
+        /* Not played to the end (an eDRF isn't checked then either), but for
+           one taken over: it's the player's game from there, however it ends */
         if (edrf_stopped || (escape && !playend && !edrf_checked &&
-            !edrf_truncated))
+            !edrf_truncated && !playtaken))
           exit(3);
         if (edrf_truncated)
           exit(4); /* Played as far as the recording goes */
@@ -1033,6 +1036,8 @@ static void parsecmd(int argc,char *argv[])
       }
       if (argch == 'I')
         sscanf(word+i,"%hi",&dgstate.startlev);
+      if (argch == 'T')
+        playtakeat=(uint32_t)strtoul(word+i,NULL,10);
       if (argch == 'N') {
         if (!netsim_configure(word+i)) {
           fprintf(stderr, "Invalid /N argument \"%s\"\n", word+i);
@@ -1061,7 +1066,7 @@ static void parsecmd(int argc,char *argv[])
                                                          "[/P:playback file]\n"
                "         [/E:playback file] [/R:record file] [/O] [/K[A]] "
                                                            "[/G[:time]] [/2]\n"
-               "         [/U] [/I:level] "
+               "         [/U] [/I:level] [/T:tick] "
                "[/N:sipuser~peeruser|sipuser[[:password]@siphost[:port]]~peeruser] "
 
 #if defined(UNIX) && defined(_SDL)
@@ -1079,6 +1084,7 @@ static void parsecmd(int argc,char *argv[])
                "/R = Record graphics to file\n"
                "/P = Playback and restart program       "
                "/E = Playback and exit program\n"
+               "/T = Take over the playback after that many ticks (also T while it plays)\n"
                "/O = Loop to beginning of command line\n"
                "/K = Redefine keyboard (also K on the title screen)\n"
                "/G = Gauntlet mode\n"

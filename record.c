@@ -65,6 +65,27 @@ smart_fgets(char * restrict str, int size, FILE * restrict stream)
 
 static const char *playname; /* Being played back */
 
+bool playtaken=false;
+uint32_t playtakeat=0;
+uint32_t playtakeftime=0;
+
+/*
+ * The player takes the game over from the playback (T, or /T), from the next
+ * tick on: what's been recorded so far stays, and goes on with the player's
+ * controls, but the game makes no high scores. It goes at the normal speed
+ * then, however fast (/S) it was played back to get there.
+ */
+void playtakeover(void)
+{
+  if (!playing)
+    return;
+  playing=false;
+  playtaken=true;
+  edrf_takeover();
+  if (playtakeftime!=0)
+    dgstate.ftime=playtakeftime;
+}
+
 void openplay(char *name)
 {
   FILE *playf=fopen(name,"rb");
@@ -374,6 +395,7 @@ void recinit(void)
   int x,y,l;
   recp=0;
   drfvalid=true;
+  playtaken=false;
   edrf_recreset();
 
   mprintf("DRF\n"); /* Required at start of DRF */

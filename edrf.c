@@ -665,11 +665,14 @@ edrf_tick(void)
     if (recfp != NULL)
       fflush(recfp);
   }
-  if (ticks % EDRF_CKPT_EVERY != 0)
-    return;
-  h = game_state_hash();
-  putstate('C', h);
-  verify(&ply_ckpt, "tick", h);
+  if (ticks % EDRF_CKPT_EVERY == 0) {
+    h = game_state_hash();
+    putstate('C', h);
+    verify(&ply_ckpt, "tick", h);
+  }
+  /* The player takes over after this one (/T) */
+  if (playtakeat != 0 && ticks == playtakeat)
+    playtakeover();
 }
 
 void
@@ -749,6 +752,14 @@ edrf_playopen(FILE *fp)
   edrf_stopped = false;
   edrf_truncated = false;
   edrf_checked = false;
+}
+
+/* The player takes over: no more of the recording, nor checks against it */
+void
+edrf_takeover(void)
+{
+
+  edrf_playing = false;
 }
 
 void

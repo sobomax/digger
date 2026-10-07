@@ -92,7 +92,9 @@ The keys you can use during the game are (by default):
 * F10 to return to the title screen.
 * + to increase the game speed by 5.
 * - to decrease the game speed by 5.
-* Ctrl-T (cheat) to take over whilst playing back a recorded game.
+* Ctrl-T (cheat) to take over whilst playing back a recorded game. What's
+  being recorded (see /R) goes on with your own play, at the normal speed
+  however fast it was played back, but the game can't go on the hall of fame.
 * Alt-Enter to toggle full-screen mode on or off.
 
 In two player mode the default keys for the second player are:
@@ -427,6 +429,10 @@ The command line options are:
   /U      = Allow unlimited lives.
   /I:level= Start on the specified level instead of level 1. You can't go on
             the hall of fame if you use this option.
+  /T:tick = Take over the playback (/P or /E) after the given number of
+            game ticks, as Ctrl-T would; /E then exits with status 0 however
+            the game ends. The playback can be sped up to there with /S, as
+            the game drops back to the normal speed once taken over.
 
 /S and /L are optional (you can just specify a name and/or number) but are
 harmless, and will help to prevent confusion (especially if you have a level
