@@ -415,9 +415,11 @@ dodigger(struct digger_draw_api *ddap)
     return;
   if (dgstate.gauntlet) {
     drawlives(ddap);
-    if (dgstate.cgtime<dgstate.ftime)
+    /* The clock counts game ticks, of the default speed's length, however
+       fast the game runs: a recording plays back the same way at any */
+    if (dgstate.cgtime<DEFAULT_FTIME)
       dgstate.timeout=true;
-    dgstate.cgtime-=dgstate.ftime;
+    dgstate.cgtime-=DEFAULT_FTIME;
   }
   for (n=dgstate.curplayer;n<dgstate.diggers+dgstate.curplayer;n++) {
     readdirect(n-dgstate.curplayer);
