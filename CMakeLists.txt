@@ -170,6 +170,9 @@ int main(void) {
     SET (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_VGL" )
 ENDIF ( NOT DIGGER_VGL )
 
+# microsippy sources, as in the GNUmakefile
+SET( MSRC microsippy/src )
+
 SET( DIGGER_SOURCE
      main.c
      digger.c
@@ -211,7 +214,7 @@ SET( DIGGER_SOURCE
      netsim_platform.c
      netsim_debug.c
      state_hash.c
-     microsippy/src/external/mackron_md5/md5.c
+     ${MSRC}/external/mackron_md5/md5.c
 )
 
 IF ( EMSCRIPTEN )
@@ -288,46 +291,46 @@ IF ((UNIX OR WIN32) AND NOT EMSCRIPTEN)
   TARGET_SOURCES(digger PRIVATE
     ${DIGGER_VERSION_HEADER}
     netsim_sip_platform.c
-    microsippy/src/usipy_sip_tm.c
-    microsippy/src/usipy_sip_tm_uac.c
-    microsippy/src/usipy_sip_tm_uas.c
-    microsippy/src/usipy_sip_tm_dialog.c
-    microsippy/src/sip_ua/usipy_sip_ua.c
-    microsippy/src/sip_ua/usipy_sip_ua_idle.c
-    microsippy/src/sip_ua/usipy_sip_ua_trying.c
-    microsippy/src/sip_ua/usipy_sip_ua_dialing.c
-    microsippy/src/sip_ua/usipy_sip_ua_connected.c
-    microsippy/src/sip_ua/usipy_sip_ua_disconnected.c
-    microsippy/src/sip_ua/usipy_sip_ua_utils.c
-    microsippy/src/usipy_sip_msg.c
-    microsippy/src/usipy_msg_heap.c
-    microsippy/src/usipy_str.c
-    microsippy/src/usipy_sip_hdr.c
-    microsippy/src/usipy_fast_parser.c
-    microsippy/src/usipy_sip_hdr_db.c
-    microsippy/src/usipy_sip_sline.c
-    microsippy/src/usipy_misc.c
-    microsippy/src/usipy_sip_method_db.c
-    microsippy/src/usipy_sip_hdr_cseq.c
-    microsippy/src/usipy_sip_hdr_via.c
-    microsippy/src/usipy_sip_uri.c
-    microsippy/src/usipy_sip_req.c
-    microsippy/src/usipy_sip_hdr_onetoken.c
-    microsippy/src/usipy_sip_hdr_nameaddr.c
-    microsippy/src/usipy_sip_hdr_auth.c
-    microsippy/src/usipy_sip_hdr_authz.c
-    microsippy/src/usipy_sip_tid.c
-    microsippy/src/usipy_sip_res.c
-    microsippy/src/usipy_sip_response_utils.c
-    microsippy/src/usipy_sip_tm_utils.c
-    microsippy/src/usipy_sip_dialog.c
-    microsippy/src/usipy_platform.c
+    ${MSRC}/usipy_sip_tm.c
+    ${MSRC}/usipy_sip_tm_uac.c
+    ${MSRC}/usipy_sip_tm_uas.c
+    ${MSRC}/usipy_sip_tm_dialog.c
+    ${MSRC}/sip_ua/usipy_sip_ua.c
+    ${MSRC}/sip_ua/usipy_sip_ua_idle.c
+    ${MSRC}/sip_ua/usipy_sip_ua_trying.c
+    ${MSRC}/sip_ua/usipy_sip_ua_dialing.c
+    ${MSRC}/sip_ua/usipy_sip_ua_connected.c
+    ${MSRC}/sip_ua/usipy_sip_ua_disconnected.c
+    ${MSRC}/sip_ua/usipy_sip_ua_utils.c
+    ${MSRC}/usipy_sip_msg.c
+    ${MSRC}/usipy_msg_heap.c
+    ${MSRC}/usipy_str.c
+    ${MSRC}/usipy_sip_hdr.c
+    ${MSRC}/usipy_fast_parser.c
+    ${MSRC}/usipy_sip_hdr_db.c
+    ${MSRC}/usipy_sip_sline.c
+    ${MSRC}/usipy_misc.c
+    ${MSRC}/usipy_sip_method_db.c
+    ${MSRC}/usipy_sip_hdr_cseq.c
+    ${MSRC}/usipy_sip_hdr_via.c
+    ${MSRC}/usipy_sip_uri.c
+    ${MSRC}/usipy_sip_req.c
+    ${MSRC}/usipy_sip_hdr_onetoken.c
+    ${MSRC}/usipy_sip_hdr_nameaddr.c
+    ${MSRC}/usipy_sip_hdr_auth.c
+    ${MSRC}/usipy_sip_hdr_authz.c
+    ${MSRC}/usipy_sip_tid.c
+    ${MSRC}/usipy_sip_res.c
+    ${MSRC}/usipy_sip_response_utils.c
+    ${MSRC}/usipy_sip_tm_utils.c
+    ${MSRC}/usipy_sip_dialog.c
+    ${MSRC}/usipy_platform.c
     microsippy/platforms/posix/usipy_tm_uac.c
     ${DIGGER_SIP_PLATFORM_SOURCE}
   )
   TARGET_INCLUDE_DIRECTORIES(digger PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}
-    microsippy/src
+    ${MSRC}
     ${DIGGER_SIP_PLATFORM_INCLUDE_DIR}
     ${DIGGER_SIP_PLATFORM_PORT_INCLUDE_DIR}
     microsippy/platforms/posix
