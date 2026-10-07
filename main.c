@@ -401,10 +401,15 @@ int mainprog(void)
 
   /* Testing: replay a recording over NetSim, see edrf_netfeed_open() */
   if (getenv("DIGGER_NETSIM_REPLAY") != NULL) {
-    if (!dgstate.netsim ||
-        !edrf_netfeed_open(getenv("DIGGER_NETSIM_REPLAY"))) {
-      fprintf(stderr, "eDRF: can't replay %s over NetSim\n",
-        getenv("DIGGER_NETSIM_REPLAY"));
+    const char *why=NULL;
+
+    if (!dgstate.netsim)
+      why="no NetSim game (/N) to replay it in";
+    else if (!edrf_netfeed_open(getenv("DIGGER_NETSIM_REPLAY")))
+      why=errno!=0 ? strerror(errno) : "not a two Digger eDRF";
+    if (why!=NULL) {
+      fprintf(stderr, "eDRF: can't replay %s over NetSim: %s\n",
+        getenv("DIGGER_NETSIM_REPLAY"), why);
       exit(1);
     }
   }

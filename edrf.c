@@ -33,6 +33,7 @@
  * was being made) plays back as far as it goes.
  */
 
+#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -818,7 +819,7 @@ edrf_stopplay(void)
  * the game up, then each peer sends its own player's recorded controls
  * (edrf_feedpeek()) instead of the keyboard's, and checks both players'
  * controls as received (edrf_input()) and the state checkpoints against the
- * recording.
+ * recording. Fails with errno set if it can't be read, 0 if it isn't one.
  */
 bool
 edrf_netfeed_open(const char *name)
@@ -854,6 +855,7 @@ edrf_netfeed_open(const char *name)
   return (true);
 out:
   fclose(fp);
+  errno = 0; /* Not one to replay, see main() */
   return (false);
 }
 
