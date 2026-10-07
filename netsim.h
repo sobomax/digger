@@ -33,6 +33,7 @@ void netsim_shutdown(void);
 bool netsim_sync_frame(uint32_t frame, uint8_t local_bits, bool local_freeze,
   uint8_t *remote_bits, bool *remote_freeze, int *remote_lead_ms);
 int netsim_local_player(void);
+uint64_t netsim_session_nonce(void);
 bool netsim_session_active(void);
 bool netsim_peer_exited(void);
 bool netsim_pump_title_events(void);

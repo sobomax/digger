@@ -2702,6 +2702,14 @@ netsim_local_player(void)
   return (g_session.local_player);
 }
 
+/* Random, and the same for both peers of a session */
+uint64_t
+netsim_session_nonce(void)
+{
+
+  return (g_session.session_nonce);
+}
+
 bool
 netsim_session_active(void)
 {
