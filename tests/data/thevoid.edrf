@@ -3,16 +3,16 @@ MS MPL 20190212
 1
 20000
 L 1
-M S   B     HHHHS
-M V  CC  C  V B  
-M VB CC  C  V    
-M V  CCB CB V CCC
-M V  CC  C  V CCC
-M HH CC  C  V CCC
-M  V    B B V    
-M  HHHH     V    
-M C   V     V   C
-M CC  HHHHHHH  CC
+ S   B     HHHHS
+ V  CC  C  V B  
+ VB CC  C  V    
+ V  CCB CB V CCC
+ V  CC  C  V CCC
+ HH CC  C  V CCC
+  V    B B V    
+  HHHH     V    
+ C   V     V   C
+ CC  HHHHHHH  CC
 R 00176238
 I D3@A13H9B6
 I B5D5A5B2D2@A5B3H4
@@ -132,16 +132,16 @@ I D4A11H10@B6
 I RT3@
 E 3301 2C95660A
 L 2
-M SHHHHH  B B  HS
-M  CC  V       V 
-M  CC  V CCCCC V 
-M BCCB V CCCCC V 
-M CCCC V       V 
-M CCCC V B  HHHH 
-M  CC  V CC V    
-M  BB  VCCCCV CC 
-M C    V CC V CC 
-M CC   HHHHHH    
+ SHHHHH  B B  HS
+  CC  V       V 
+  CC  V CCCCC V 
+ BCCB V CCCCC V 
+ CCCC V       V 
+ CCCC V B  HHHH 
+  CC  V CC V    
+  BB  VCCCCV CC 
+ C    V CC V CC 
+ CC   HHHHHH    
 R 0017AE5D
 I @2D14A11
 C 3328 CB5CF9C4

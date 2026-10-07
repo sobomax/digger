@@ -17,8 +17,9 @@
  *                   runs are those of every slot (a slot not read on a tick
  *                   could have had any)
  *   L <level> [<n>] a level starting, on map <n> (they are numbered from 1
- *   M <row>         as they come), or a new one given after it, a row of it
- *                   per M line; a playback plays the level on it
+ *    <row>          as they come), or a new one given after it, a row of it
+ *                   per line, after a space; a playback plays the level on
+ *                   it
  *   R <hex>         random seed of the round starting
  *   C <tick> <hex>  game state hash every EDRF_CKPT_EVERY ticks
  *   E <tick> <hex>  game state hash at the end of a round
@@ -402,6 +403,29 @@ readrec(void)
     }
     while (l > 0 && (line[l - 1] == '\n' || line[l - 1] == '\r'))
       line[--l] = '\0';
+    /* A row of a map being read, which an empty line is, all of its
+       spaces gone */
+    if (lev_rows >= 0) {
+      const char *rp;
+
+      if (l == 0)
+        rp = "";
+      else if (line[0] == ' ')
+        rp = line + 1;
+      else
+        goto bad;
+      if (strlen(rp) > MWIDTH)
+        goto bad;
+      for (a = 0; a < MWIDTH; a++)
+        lev_new[lev_rows * MWIDTH + a] = a < strlen(rp) ? rp[a] : ' ';
+      if (++lev_rows == MHEIGHT) {
+        /* All of the map: the level can be played */
+        maps_add(&ply_maps, lev_new);
+        levread(lev_newno, lev_new);
+        lev_rows = -1;
+      }
+      return (true);
+    }
     if (l == 0)
       continue;
     switch (line[0]) {
@@ -429,8 +453,6 @@ readrec(void)
         ply_hasend = true;
         return (true);
       case 'L':
-        if (lev_rows >= 0)
-          goto bad;
         switch (sscanf(line + 1, "%u %u", &a, &b)) {
           case 2: /* On a map had before */
             if (b < 1 || (int)b > ply_maps.n)
@@ -443,18 +465,6 @@ readrec(void)
             return (true);
         }
         goto bad;
-      case 'M':
-        if (lev_rows < 0 || line[1] != ' ' || l > 2 + MWIDTH)
-          goto bad;
-        for (a = 0; a < MWIDTH; a++)
-          lev_new[lev_rows * MWIDTH + a] = a < l - 2 ? line[2 + a] : ' ';
-        if (++lev_rows == MHEIGHT) {
-          /* All of the map: the level can be played */
-          maps_add(&ply_maps, lev_new);
-          levread(lev_newno, lev_new);
-          lev_rows = -1;
-        }
-        return (true);
     }
 bad:
     fprintf(stderr, "eDRF: bad record \"%s\"\n", line);
@@ -593,7 +603,7 @@ edrf_level(int level, int plan)
   maps_add(&rec_maps, map);
   fprintf(recfp, "L %d\n", level);
   for (i = 0; i < MHEIGHT; i++)
-    fprintf(recfp, "M %.*s\n", MWIDTH, (const char *)map + i * MWIDTH);
+    fprintf(recfp, " %.*s\n", MWIDTH, (const char *)map + i * MWIDTH);
 }
 
 void
