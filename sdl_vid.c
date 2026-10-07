@@ -795,10 +795,14 @@ sdl_set_x11_parent(unsigned int xp)
 void cgainit(void) {}
 void cgaclear(void) {}
 void cgatitle(void) {}
-void cgawrite(int16_t x, int16_t y, int16_t ch, int16_t c) {}
-void cgaputim(int16_t x, int16_t y, int16_t ch, int16_t w, int16_t h) {}
-void cgageti(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h) {}
-void cgaputi(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h) {}
-void cgapal(int16_t pal) {}
-void cgainten(int16_t inten) {}
-int16_t cgagetpix(int16_t x, int16_t y) {return(0);}
+void cgawrite(int16_t x, int16_t y, int16_t ch, int16_t c)
+  {(void)x; (void)y; (void)ch; (void)c;}
+void cgaputim(int16_t x, int16_t y, int16_t ch, int16_t w, int16_t h)
+  {(void)x; (void)y; (void)ch; (void)w; (void)h;}
+void cgageti(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h)
+  {(void)x; (void)y; (void)p; (void)w; (void)h;}
+void cgaputi(int16_t x, int16_t y, uint8_t *p, int16_t w, int16_t h)
+  {(void)x; (void)y; (void)p; (void)w; (void)h;}
+void cgapal(int16_t pal) {(void)pal;}
+void cgainten(int16_t inten) {(void)inten;}
+int16_t cgagetpix(int16_t x, int16_t y) {(void)x; (void)y; return(0);}
