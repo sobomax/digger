@@ -93,11 +93,11 @@ do
       if [ "${TTYPE}" = "xlong" ]
       then
         eval `cat tests/results/${TRFNAME}`
-	if [ ${frames} -gt 8000 ]
+	if [ ${ticks} -gt 8000 ]
         then
           continue
 	fi
-        if [ ${frames} -gt 7000 ]
+        if [ ${ticks} -gt 7000 ]
         then
           DIG_OPTS="${DIG_OPT_HSPD} ${DIG_OPTS}"
         fi

@@ -137,7 +137,6 @@ levread(uint32_t level, const uint8_t *map)
     vec_push(&ply_lev, map[i]);
 }
 static uint32_t ply_endtick, ply_endhash;
-static uint32_t ticks;
 
 static void
 vec_push(struct vec *vp, uint32_t x)
@@ -301,7 +300,6 @@ edrf_recreset(void)
     recfp = NULL;
   }
   rec_endtick = rec_endhash = 0;
-  ticks = 0;
 }
 
 /* Stream the recording of the game to fp, which already has the header */
@@ -520,8 +518,8 @@ edrf_input(int slot, uint8_t bits)
     x = takein(slot);
     if (x != (bits & 0x1f) && !edrf_failed) {
       fprintf(stderr, "eDRF: player %d controls %02X on tick %u, recorded "
-        "%02X\n", slot + 1, (unsigned)(bits & 0x1f), (unsigned)ticks + 1,
-        (unsigned)x);
+        "%02X\n", slot + 1, (unsigned)(bits & 0x1f),
+        (unsigned)dgstate.ticks + 1, (unsigned)x);
       edrf_failed = true;
     }
   }
@@ -638,8 +636,8 @@ verify(struct vec *vp, const char *what, uint32_t h)
     return;
   if (hash != h) {
     fprintf(stderr, "eDRF: the game diverges from the recording before "
-      "tick %u (%s state %08X, recorded %08X)\n", (unsigned)ticks, what,
-      (unsigned)h, (unsigned)hash);
+      "tick %u (%s state %08X, recorded %08X)\n", (unsigned)dgstate.ticks,
+      what, (unsigned)h, (unsigned)hash);
     edrf_failed = true;
   }
 }
@@ -659,19 +657,18 @@ edrf_tick(void)
     }
     slotread[s] = false;
   }
-  ticks++;
-  if (ticks % EDRF_CHUNK == 0) {
+  if (dgstate.ticks % EDRF_CHUNK == 0) {
     flushin();
     if (recfp != NULL)
       fflush(recfp);
   }
-  if (ticks % EDRF_CKPT_EVERY == 0) {
+  if (dgstate.ticks % EDRF_CKPT_EVERY == 0) {
     h = game_state_hash();
     putstate('C', h);
     verify(&ply_ckpt, "tick", h);
   }
   /* The player takes over after this one (/T) */
-  if (playtakeat != 0 && ticks == playtakeat)
+  if (playtakeat != 0 && dgstate.ticks == playtakeat)
     playtakeover();
 }
 
@@ -681,7 +678,7 @@ edrf_roundend(void)
   uint32_t h;
 
   /* The tick it ends on too, that it be the same */
-  h = game_state_hash_tick(ticks);
+  h = game_state_hash_tick(dgstate.ticks);
   putstate('E', h);
   verify(&ply_rend, "end of round", h);
 }
@@ -690,7 +687,7 @@ void
 edrf_gameend(void)
 {
 
-  rec_endtick = ticks;
+  rec_endtick = dgstate.ticks;
   rec_endhash = game_state_hash();
   flushin();
   if (recfp != NULL)

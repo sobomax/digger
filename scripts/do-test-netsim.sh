@@ -48,7 +48,7 @@ run_peer() {
 # check_peer name expected: exit status 0 and the expected score and level
 check_peer() {
   rc=`cat "${TMPD}/${1}.rc"`
-  got=`tr -d '\r' < "${TMPD}/${1}.out" | grep '^score=' | sed 's| frames=.*||'`
+  got=`tr -d '\r' < "${TMPD}/${1}.out" | grep '^score='`
   if [ "${rc}" -ne 0 -o "${got}" != "${2}" ]
   then
     echo "    ${1}: FAIL (exit status ${rc}, got \"${got}\", expected" \
@@ -64,8 +64,8 @@ do
   # Only two Digger games can be played over NetSim
   sed -n 3p "${rec}" | grep -q '^M2\(I[0-9]*\)*$' || continue
   name=`basename "${rec}"`
-  # The result, but the frame count (NetSim has frames that aren't ticks)
-  expected=`sed 's| frames=.*||' "tests/results/${name%.edrf}.out"`
+  # The same result, to the tick
+  expected=`cat "tests/results/${name%.edrf}.out"`
   for loss in ${LOSSES}
   do
     penv="DIGGER_NETSIM_REPLAY=${PWD}/${rec}"

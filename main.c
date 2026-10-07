@@ -96,11 +96,11 @@ game_dbg_info_emit(void)
 
   /* Both players' scores in a two player game */
   if (twoplayers)
-    printf("score=%d score2=%d level=%d frames=%u\n", gettscore(0),
-      gettscore(1), levno(), (unsigned int)getframe());
+    printf("score=%d score2=%d level=%d ticks=%u\n", gettscore(0),
+      gettscore(1), levno(), (unsigned int)dgstate.ticks);
   else
-    printf("score=%d level=%d frames=%u\n", gettscore(0), levno(),
-      (unsigned int)getframe());
+    printf("score=%d level=%d ticks=%u\n", gettscore(0), levno(),
+      (unsigned int)dgstate.ticks);
 }
 
 /*
@@ -138,6 +138,7 @@ void game(void)
   uint32_t round=0;
 
   resetframe();
+  dgstate.ticks=0;
   twoplayers=dgstate.nplayers==2 || dgstate.diggers==2;
   if (dgstate.gauntlet) {
     dgstate.cgtime=dgstate.gtime*1193181l;
@@ -229,7 +230,7 @@ void game(void)
         checklevdone();
         netsim_trace_state("post_tick",
           gamedat[dgstate.curplayer].levdone, alldead, penalty);
-        edrf_tick();
+        game_tick();
         testpause();
         if (escape || dgstate.timeout)
           break;
@@ -259,7 +260,7 @@ void game(void)
           t=0;
         netsim_trace_state("cleanup_post_tick",
           gamedat[dgstate.curplayer].levdone, alldead, penalty);
-        edrf_tick();
+        game_tick();
       }
       soundstop();
       /* Player 2's Digger when it's their turn in an alternating game */

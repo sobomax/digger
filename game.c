@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "def.h"
+#include "edrf.h"
 #include "game.h"
 
 /* Game state that is shared by multiple modules */
@@ -13,6 +14,7 @@ struct gamestate dgstate = {
   .levfflag = false, .randv = 0, .netsim_remote_lead_ms = 0,
   .gtime = 0, .gauntlet = false,
   .netsim = false, .timeout = false, .unlimlives = false,
+  .ticks = 0,
   .leveldat = {{"S   B     HHHHS",
                 "V  CC  C  V B  ",
                 "VB CC  C  V    ",
@@ -94,3 +96,12 @@ struct gamestate dgstate = {
                 "VCCCCCV VCCCCCV",
                 "HHHHHHHHHHHHHHH"}}
 };
+
+/* One more tick of the game is done */
+void
+game_tick(void)
+{
+
+  dgstate.ticks++;
+  edrf_tick();
+}

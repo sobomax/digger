@@ -12,6 +12,11 @@ struct gamestate {
   int gtime;
   bool gauntlet, netsim, timeout, unlimlives;
   uint32_t ftime, cgtime;
+  /* Game ticks so far: the game's own clock, as it goes on the same on a
+     playback and on both NetSim peers, unlike the frames (see syncframe()) */
+  uint32_t ticks;
 };
 
 extern struct gamestate dgstate;
+
+void game_tick(void);
