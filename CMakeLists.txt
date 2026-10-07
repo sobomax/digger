@@ -9,7 +9,24 @@ SET( CMAKE_C_EXTENSIONS ON )
 
 IF( NOT MSVC )
   SET( WARN_FLAGS "-Wall -Wformat=2" )
-  SET( WARN_FLAGS_DEBUG "-Wextra -pedantic" )
+  IF( CMAKE_C_COMPILER_ID MATCHES "Clang" )
+    # -pedantic, but for the GNU (and newer C) extensions the code relies on,
+    # those of the switches the compiler has (checked as -W..., as -Wno-...
+    # is taken whether known or not)
+    SET( WARN_FLAGS_DEBUG "-Wextra -pedantic" )
+    INCLUDE( CheckCCompilerFlag )
+    FOREACH( WEXT gnu zero-length-array c23-extensions variadic-macros
+      language-extension-token )
+      STRING( MAKE_C_IDENTIFIER "HAVE_W_${WEXT}" WEXT_VAR )
+      CHECK_C_COMPILER_FLAG( "-W${WEXT}" ${WEXT_VAR} )
+      IF( ${WEXT_VAR} )
+        SET( WARN_FLAGS_DEBUG "${WARN_FLAGS_DEBUG} -Wno-${WEXT}" )
+      ENDIF()
+    ENDFOREACH()
+  ELSE()
+    # GCC's -pedantic has no switches for the extensions: no -pedantic
+    SET( WARN_FLAGS_DEBUG "-Wextra" )
+  ENDIF()
   SET( C_FLAGS "-DLINUX -D_REENTRANT -pipe -Wall" )
   SET( CMAKE_C_FLAGS "${C_FLAGS} ${WARN_FLAGS} ${CMAKE_C_FLAGS}" )
   SET( CMAKE_C_FLAGS_DEBUG "${CFLAGS} ${WARN_FLAGS} ${WARN_FLAGS_DEBUG} -g3 -O0 ${CMAKE_C_FLAGS_DEBUG} -DDIGGER_DEBUG" )
