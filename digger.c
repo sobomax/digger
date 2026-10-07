@@ -30,9 +30,19 @@ static struct digger
         deathstage,deathbag,deathani,deathtime,emocttime,emn,msc,lives,ivt;
   bool notfiring,firepressed,dead,levdone,invin;
   uint16_t deathmusicdone;
+  int16_t dirgetime;
   struct digger_obj dob;
   struct bullet_obj bob;
 } digdat[DIGGERS];
+
+/* Running through the rest of a death that can't be seen nor heard */
+static bool deathffwd=false;
+
+/*
+ * Game ticks (of the default speed) the dirge plays for, until its final
+ * rest: 513 sound interrupts at 72.8 Hz, or 7.05s, see musicupdate().
+ */
+#define DIRGE_TICKS 89
 
 enum digger_death_stage {
   DGR_DEATH_BAG = 1,
@@ -74,6 +84,7 @@ void initdigger(void)
       digdat[dig].deathstage=DGR_DEATH_DONE;
       soundackcancel(digdat[dig].deathmusicdone);
       digdat[dig].deathmusicdone=0;
+      digdat[dig].dirgetime=0;
       digdat[dig].dob.alive=false;
       digdat[dig].bagtime=0;
       digdat[dig].notfiring=true;
@@ -99,6 +110,8 @@ void initdigger(void)
     digdat[dig].deathstage=DGR_DEATH_BAG;
     soundackcancel(digdat[dig].deathmusicdone);
     digdat[dig].deathmusicdone=0;
+    digdat[dig].dirgetime=0;
+    deathffwd=false;
     y = digdat[dig].v * 18 + 18;
     digger_obj_init(&digdat[dig].dob, dig - dgstate.curplayer, dir, x, y);
     CALL_METHOD(&digdat[dig].dob, put);
@@ -121,7 +134,7 @@ static bool remote_pause_active = false;
 static bool syncframe(bool local_freeze, bool local_pause,
   bool use_pause_latch, bool *remote_freezep, bool *remote_pausep);
 static bool digger_deathmusic_pending(int n);
-static bool any_digger_deathmusic_pending(void);
+static void dirgehold(int n);
 
 uint32_t
 getframe(void)
@@ -216,18 +229,20 @@ digger_deathmusic_pending(int n)
   return (true);
 }
 
-static bool
-any_digger_deathmusic_pending(void)
+/*
+ * The game has waited for the dirge as many ticks as it takes to play, but
+ * it may still be heard (the sound lags, or the game runs faster than the
+ * default speed): let it finish, with the game held still, so that how
+ * long it takes doesn't change the game.
+ */
+static void
+dirgehold(int n)
 {
-  int dig;
 
-  if (dgstate.diggers != 1 || playing)
-    return (false);
-  for (dig=dgstate.curplayer;dig<dgstate.diggers+dgstate.curplayer;dig++) {
-    if (digger_deathmusic_pending(dig))
-      return (true);
+  while (digger_deathmusic_pending(n) && !escape) {
+    gethrt(false, 1);
+    checkkeyb();
   }
-  return (false);
 }
 
 static bool
@@ -244,20 +259,13 @@ syncframe(bool local_freeze, bool local_pause, bool use_pause_latch,
   int remote_player;
 
   if (!local_freeze) {
-    gethrt(false, 1);
+    if (!deathffwd)
+      gethrt(false, 1);
   } else {
     gethrt(false, 3);
   }
   checkkeyb();
   dgstate.netsim_remote_lead_ms = 0;
-  if (!local_freeze && any_digger_deathmusic_pending()) {
-    remote_pause_active = false;
-    if (remote_freezep != NULL)
-      *remote_freezep = false;
-    if (remote_pausep != NULL)
-      *remote_pausep = false;
-    return (true);
-  }
 
 #if defined(INTDRF) || 1
   frame++;
@@ -727,6 +735,8 @@ diggerdie(struct digger_draw_api *ddap, int n)
 {
   int clfirst[TYPES],clcoll[SPRITES],i;
   bool alldead;
+  if (digdat[n].dirgetime!=0)
+    digdat[n].dirgetime--;
   switch (digdat[n].deathstage) {
     case DGR_DEATH_BAG:
       if (bagy(digdat[n].deathbag)+6>digdat[n].dob.y)
@@ -747,6 +757,9 @@ diggerdie(struct digger_draw_api *ddap, int n)
         break;
       }
       if (digdat[n].deathani==0) {
+        /* The dirge plays with the music off too, and the game waits for
+           it to end as many ticks either way */
+        digdat[n].dirgetime=DIRGE_TICKS;
         if (dgstate.diggers == 1)
           digdat[n].deathmusicdone = musicwithack(MUSIC_DIRGE, 1.0);
         else {
@@ -769,10 +782,9 @@ diggerdie(struct digger_draw_api *ddap, int n)
       }
       else {
         digdat[n].deathstage=DGR_DEATH_TOMBSTONE;
-        if (musicflag || dgstate.diggers>1)
-          digdat[n].deathtime=60;
-        else
-          digdat[n].deathtime=10;
+        /* Same with the music off: only how long it takes differs, see
+           DGR_DEATH_TOMBSTONE */
+        digdat[n].deathtime=60;
       }
       break;
     case DGR_DEATH_MONSTER:
@@ -798,11 +810,21 @@ diggerdie(struct digger_draw_api *ddap, int n)
       }
       break;
     case DGR_DEATH_TOMBSTONE:
+      /* The round ends with the death, and everything gets drawn anew:
+         once there's no dirge to be heard and the short (music off) grave
+         time is over, the rest of the death takes the same game ticks, but
+         no time. */
+      deathffwd=dgstate.diggers==1 && digdat[n].deathtime<=50 &&
+        !digger_deathmusic_pending(n);
       if (digdat[n].deathtime!=0)
         digdat[n].deathtime--;
       else {
-        if (dgstate.diggers == 1 && digger_deathmusic_pending(n))
-          break;
+        if (dgstate.diggers == 1) {
+          if (digdat[n].dirgetime!=0)
+            break;
+          dirgehold(n);
+        }
+        deathffwd=false;
         digdat[n].deathmusicdone=0;
         digdat[n].dead=true;
         alldead=true;
