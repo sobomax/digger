@@ -261,7 +261,8 @@ void game(void)
         edrf_tick();
       }
       soundstop();
-      for (i=0;i<dgstate.diggers;i++)
+      /* Player 2's Digger when it's their turn in an alternating game */
+      for (i=dgstate.curplayer;i<dgstate.diggers+dgstate.curplayer;i++)
         killfire(i);
       erasebonus(ddap);
       cleanupbags();
