@@ -52,6 +52,7 @@ jobs:
           install: >-
             make
             zip
+            diffutils
             mingw-w64-x86_64-gcc
             mingw-w64-x86_64-binutils
 
@@ -88,6 +89,15 @@ jobs:
         with:
           name: digger-win64-installer
           path: pkg/windows/DiggerRemastered-Setup.exe
+
+      - name: Test
+        # After the packaging: the game writes its .ini, .sco and .log next
+        # to the executable
+        env:
+          # Arguments like /E:file aren't paths to convert for MSYS2
+          MSYS2_ARG_CONV_EXCL: '*'
+        run: |
+          TEST_TYPES=quick DIGGER_BIN=./digger.exe sh -x ./scripts/do-test-run.sh
 
       - name: Set package artifact output
         id: package_artifacts
