@@ -3,7 +3,11 @@
 set -e
 
 DIFF="diff -u"
-TEST_TYPES=${TEST_TYPES:-"quick short long xlong"}
+# The recordings played back at the speeds of quick, short, long and xlong,
+# and replayed over NetSim (netsim); separated by spaces or commas
+TEST_TYPES=${TEST_TYPES:-"quick short long xlong netsim"}
+TEST_TYPES=`echo "${TEST_TYPES}" | tr ',' ' '`
+NETSIM_TESTS=false
 DIGGER_BIN=${DIGGER_BIN:-}
 
 # Run as many tests at once as there are CPUs
@@ -63,6 +67,11 @@ then
 fi
 for TTYPE in ${TEST_TYPES}
 do
+  if [ "${TTYPE}" = "netsim" ]
+  then
+    NETSIM_TESTS=true
+    continue
+  fi
   for x in tests/data/*.drf tests/data/*.edrf
   do
     DIG_OPTS="/E:${x}"
@@ -124,7 +133,7 @@ then
 fi
 
 # The two Digger recordings, replayed over NetSim on localhost
-if [ -z "${NO_NETSIM_TESTS}" ]
+if [ "${NETSIM_TESTS}" = "true" ]
 then
   DIGGER_BIN="${DIGGER_BIN}" sh ./scripts/do-test-netsim.sh
 fi

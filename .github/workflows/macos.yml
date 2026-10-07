@@ -101,7 +101,7 @@ jobs:
             done
           ) &
           WATCHDOG=$!
-          TEST_TYPES=quick DIGGER_BIN=/usr/local/bin/digger sh -x ./scripts/do-test-run.sh
+          TEST_TYPES='quick netsim' DIGGER_BIN=/usr/local/bin/digger sh -x ./scripts/do-test-run.sh
           kill "${WATCHDOG}" 2>/dev/null || true
 
       - name: Upload package
