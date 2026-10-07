@@ -82,12 +82,21 @@ extern FILE *info;
 
 extern struct digger_draw_api *ddap;
 
+/* The game last played had two players, see game_dbg_info_emit() (a
+   playback's mode is gone by the time it is reported) */
+static bool twoplayers;
+
 static void
 game_dbg_info_emit(void)
 {
 
-  printf("score=%d level=%d frames=%u\n", gettscore(0), levno(),
-   (unsigned int)getframe());
+  /* Both players' scores in a two player game */
+  if (twoplayers)
+    printf("score=%d score2=%d level=%d frames=%u\n", gettscore(0),
+      gettscore(1), levno(), (unsigned int)getframe());
+  else
+    printf("score=%d level=%d frames=%u\n", gettscore(0), levno(),
+      (unsigned int)getframe());
 }
 
 /*
@@ -125,6 +134,7 @@ void game(void)
   uint32_t round=0;
 
   resetframe();
+  twoplayers=dgstate.nplayers==2 || dgstate.diggers==2;
   if (dgstate.gauntlet) {
     dgstate.cgtime=dgstate.gtime*1193181l;
     dgstate.timeout=false;
