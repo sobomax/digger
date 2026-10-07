@@ -226,6 +226,9 @@ struct pending_tx {
 struct netsim_config {
   bool configured;
   struct netsim_sip_config sip;
+  /* Where to wait for the peer, "/N:user-peer@[host][:port]" */
+  char listen_host_buf[64];
+  char listen_port_buf[8];
 };
 
 enum netsim_session_state {
@@ -847,8 +850,9 @@ open_socket(const struct netsim_config *cfgp, netsim_socket_t *sockp,
     return (false);
   }
   if (peer_mode)
-    bind_host[0] = '\0';
-  if (!netsim_socket_open_bound_udp(bind_host, peer_mode ? "5060" : "0", sockp, local_desc,
+    strcpy(bind_host, cfgp->listen_host_buf);
+  if (!netsim_socket_open_bound_udp(bind_host,
+        peer_mode ? cfgp->listen_port_buf : "0", sockp, local_desc,
         sizeof(local_desc), errbuf, sizeof(errbuf))) {
     netsim_err("%s", errbuf);
     return (false);
@@ -2202,13 +2206,42 @@ netsim_thread(void *arg)
 bool
 netsim_configure(const char *spec)
 {
-  const char *sep, *atp, *passp;
+  const char *sep, *atp, *passp, *portp;
+  char specbuf[512];
   size_t len;
   bool peer_omitted;
 
   memset(&g_cfg, '\0', sizeof(g_cfg));
   netsim_friends_reset();
   g_begin_wait_retry_at_ms = 0;
+  strcpy(g_cfg.listen_port_buf, "5060");
+  /*
+   * Waiting for the peer on a local address and/or port: "user-peer@" (no
+   * password, the peer before the "@") followed by "[host][:port]".
+   */
+  atp = strchr(spec, '@');
+  if (atp != NULL && memchr(spec, ':', (size_t)(atp - spec)) == NULL &&
+      (memchr(spec, '-', (size_t)(atp - spec)) != NULL ||
+       memchr(spec, '~', (size_t)(atp - spec)) != NULL)) {
+    portp = strrchr(atp + 1, ':');
+    len = (size_t)((portp != NULL ? portp : atp + 1 + strlen(atp + 1)) -
+      (atp + 1));
+    if (len >= sizeof(g_cfg.listen_host_buf))
+      return (false);
+    memcpy(g_cfg.listen_host_buf, atp + 1, len);
+    g_cfg.listen_host_buf[len] = '\0';
+    if (portp != NULL) {
+      if (portp[1] == '\0' || strlen(portp + 1) >= sizeof(g_cfg.listen_port_buf))
+        return (false);
+      strcpy(g_cfg.listen_port_buf, portp + 1);
+    }
+    len = (size_t)(atp - spec);
+    if (len >= sizeof(specbuf))
+      return (false);
+    memcpy(specbuf, spec, len);
+    specbuf[len] = '\0';
+    spec = specbuf;
+  }
   sep = strrchr(spec, '~');
   if (sep == NULL)
     sep = strrchr(spec, '-');

@@ -58,7 +58,10 @@ supported modes:
 
 In both modes, the value before `-` is the local SIP user and the value after
 `-` is the peer SIP user. In peer-to-peer mode the host side omits `@server`
-and binds to `*:5060`; in SIP-server mode `@server[:port]` is required.
+and binds to `*:5060`, or to the local address and/or port given after the
+peer user (e.g. `/N:alice-bob@:5070`, with the peer using
+`/N:bob@192.168.50.10:5070-alice`); in SIP-server mode `@server[:port]` is
+required.
 
 # Future Plans
 
