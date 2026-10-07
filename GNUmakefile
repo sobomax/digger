@@ -132,12 +132,16 @@ OBJS    +=  digger.res
 VPATH   += ./pkg/windows
 endif
 
+# microsippy reads words of what it parses in the host's byte order
+USIPY_BIGENDIAN := $(or $(shell printf '\#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__\n1\n\#else\n0\n\#endif\n' | \
+  $(CC) -E -P - 2>/dev/null | tr -d '[:space:]'),0)
+
 ifeq ($(ARCH),FREEBSD)
 	OBJS	+= fbsd_sup.o	# strup()
 	OBJS	+= $(DIGGER_SIP_COMMON_OBJS)
 	OBJS	+= $(DIGGER_SIP_POSIX_OBJS)
 	DIGGER_VERSION_HDR = digger_version.h
-	RCFLAGS	+= -DFREEBSD -DUSIPY_BIGENDIAN=0 \
+	RCFLAGS	+= -DFREEBSD -DUSIPY_BIGENDIAN=$(USIPY_BIGENDIAN) \
 		-I./$(MSRC) -I./$(MPOSIX) \
 		-I./$(MPOSIX)/usipy_port \
 		$(shell pkg-config sdl2 --cflags)
@@ -150,7 +154,7 @@ ifeq ($(ARCH),LINUX)
 	OBJS	+= $(DIGGER_SIP_COMMON_OBJS)
 	OBJS	+= $(DIGGER_SIP_POSIX_OBJS)
 	DIGGER_VERSION_HDR = digger_version.h
-	RCFLAGS	+= -DLINUX -DUSIPY_BIGENDIAN=0 \
+	RCFLAGS	+= -DLINUX -DUSIPY_BIGENDIAN=$(USIPY_BIGENDIAN) \
 		-I./$(MSRC) -I./$(MPOSIX) \
 		-I./$(MPOSIX)/usipy_port \
 		$(shell pkg-config sdl2 --cflags)
