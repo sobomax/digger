@@ -118,7 +118,12 @@ do
       fi
       DIG_OPTS="/Q ${DIG_OPT_FSPD} ${DIG_OPTS}"
     fi
-    wait_jobs "${MAXJOBS}"
+    # At the real speed (xlong) a test mostly waits for its time to come:
+    # those all go at once
+    if [ "${TTYPE}" != "xlong" ]
+    then
+      wait_jobs "${MAXJOBS}"
+    fi
     start_test "${TFNAME}" "${TTYPE}" "${DIG_OPTS}" "${TRFNAME}"
   done
 done
