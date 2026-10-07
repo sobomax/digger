@@ -997,7 +997,9 @@ static void parsecmd(int argc,char *argv[])
           recsavedrf();
         finish();
         if (playbad) {
-          fprintf(stderr, "Cannot play back %s\n", word+i);
+          fprintf(stderr, "Cannot play back %s: %s\n", word+i,
+            playerrno != 0 ? strerror(playerrno) :
+            "not a recording, or a broken one");
           exit(1);
         }
         if (edrf_failed) {

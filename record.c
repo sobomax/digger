@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <errno.h>
 #include <string.h>
 #include "def.h"
 #include "record.h"
@@ -19,6 +20,7 @@
 
 static char huge *recb,huge *plb,huge *plp;
 bool playend=false,playbad=false;
+int playerrno=0;
 
 bool playing=false,savedrf=false,gotname=false,gotgame=false,drfvalid=true,
      kludge=false;
@@ -77,12 +79,14 @@ void openplay(char *name)
 #endif
   playname=name;
   if (playf==NULL) {
+    playerrno=errno;
     playbad=true;
     escape=true;
     return;
   }
   playend=false;
   playbad=false;
+  playerrno=0;
   dgstate.gauntlet=false;
   dgstate.startlev=1;
   dgstate.nplayers=1;

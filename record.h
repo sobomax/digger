@@ -18,3 +18,4 @@ void recsavedrf(void);
 extern bool playing,savedrf,gotname,gotgame,drfvalid,kludge;
 extern bool playend; /* The playback got to the end of the recording */
 extern bool playbad; /* The recording couldn't be read */
+extern int playerrno; /* Why, if it couldn't be opened, or 0 */
