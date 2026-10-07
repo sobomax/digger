@@ -182,6 +182,8 @@ void game(void)
           for (i=0;i<dgstate.diggers;i++)
             addscore(ddap, i,0);
         }
+        else
+          drawscores(ddap); /* The other player's too, on a new level */
       }
       else
         initchars();
