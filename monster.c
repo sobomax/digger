@@ -223,8 +223,10 @@ monai(struct digger_draw_api *ddap, int16_t mon)
     /* Set up monster direction properties to chase Digger */
 
     dig=mondat[mon].chase;
+    /* The other Digger of the current player's (the same one, if it's the
+       only one) */
     if (!digalive(dig))
-      dig=(dgstate.diggers-1)-dig;
+      dig=2*dgstate.curplayer+(dgstate.diggers-1)-dig;
 
     if (abs(diggery(dig)-mopos.y)>abs(diggerx(dig)-mopos.x)) {
       if (diggery(dig)<mopos.y) { mdirp1=DIR_UP;    mdirp4=DIR_DOWN; }
