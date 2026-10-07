@@ -11,6 +11,7 @@
 #include "microsippy/src/usipy_sip_uri.h"
 #include "microsippy/src/usipy_sip_res.h"
 #include "microsippy/src/public/usipy_sip_response_utils.h"
+#include "microsippy/src/public/usipy_platform.h"
 
 #if NETSIM_PLATFORM_SUPPORTED
 
@@ -150,7 +151,8 @@ extract_register_binding(const struct usipy_msg *msg,
     return (USIPY_SIP_TM_ERR_BADMSG);
   memcpy(outp->target_host, urip->host.s.ro, urip->host.l);
   outp->target_host[urip->host.l] = '\0';
-  outp->target_port = (uint16_t)(urip->port != 0 ? urip->port : 5060);
+  outp->target_port = (uint16_t)(urip->port != 0 ? urip->port :
+    DEFAULT_UDP_PORT);
   outp->contact_uri = contactp->addr_spec;
   outp->expires = expires;
   return (USIPY_SIP_TM_OK);

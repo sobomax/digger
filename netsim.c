@@ -7,6 +7,7 @@
 #include "netsim_platform.h"
 #include "netsim_rx.h"
 #include "netsim_sip.h"
+#include "public/usipy_platform.h"
 
 #include <stdbool.h>
 #include <assert.h>
@@ -464,9 +465,9 @@ parse_sip_host_port(const char *spec, char *hostbuf, size_t hostbuf_len,
     if (strlen(spec) >= hostbuf_len)
       return (false);
     strcpy(hostbuf, spec);
-    strcpy(portbuf, "5060");
+    strcpy(portbuf, DEFAULT_UDP_PORT_s.s.ro);
     *hostp = (struct usipy_str){.s.ro = hostbuf, .l = strlen(hostbuf)};
-    *portstrp = (struct usipy_str){.s.ro = portbuf, .l = 4};
+    *portstrp = (struct usipy_str){.s.ro = portbuf, .l = DEFAULT_UDP_PORT_s.l};
     return (hostp->l != 0);
   }
   if (sep == spec || sep[1] == '\0')
@@ -2214,7 +2215,7 @@ netsim_configure(const char *spec)
   memset(&g_cfg, '\0', sizeof(g_cfg));
   netsim_friends_reset();
   g_begin_wait_retry_at_ms = 0;
-  strcpy(g_cfg.listen_port_buf, "5060");
+  strcpy(g_cfg.listen_port_buf, DEFAULT_UDP_PORT_s.s.ro);
   /*
    * Waiting for the peer on a local address and/or port: "user-peer@" (no
    * password, the peer before the "@") followed by "[host][:port]".
@@ -2258,9 +2259,9 @@ netsim_configure(const char *spec)
     memcpy(g_cfg.sip.username_buf, spec, len);
     g_cfg.sip.username_buf[len] = '\0';
     g_cfg.sip.username = (struct usipy_str){.s.ro = g_cfg.sip.username_buf, .l = len};
-    strcpy(g_cfg.sip.server_port_buf, "5060");
+    strcpy(g_cfg.sip.server_port_buf, DEFAULT_UDP_PORT_s.s.ro);
     g_cfg.sip.server_port = (struct usipy_str){.s.ro = g_cfg.sip.server_port_buf,
-      .l = 4};
+      .l = DEFAULT_UDP_PORT_s.l};
   } else {
     passp = memchr(spec, ':', (size_t)(atp - spec));
     if (passp == NULL) {
