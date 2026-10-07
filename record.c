@@ -539,6 +539,7 @@ void recputeol(void)
 
 void recputeog(void)
 {
+  edrf_quit();
   mprintf("EOG\n");
 }
 

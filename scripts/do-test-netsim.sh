@@ -5,10 +5,17 @@
 # sending its own player's recorded controls. Both have to receive the
 # recorded controls of the other player, pass the recording's state
 # checkpoints and end the game the same way, also with packets being lost.
+# So does a game of one quit half way through by either player (Q), which
+# both have to leave on the same frame.
 
 set -e
 
 DIGGER_BIN=${DIGGER_BIN:-./digger}
+# Run from elsewhere too, see quit_rec()
+case "${DIGGER_BIN}" in
+/*) ;;
+*) DIGGER_BIN="${PWD}/${DIGGER_BIN}" ;;
+esac
 NETSIM_TIMEOUT=${NETSIM_TIMEOUT:-120}
 
 # Packet loss variants, as environment settings for both peers
@@ -58,6 +65,47 @@ check_peer() {
   fi
 }
 
+# quit_rec rec slot out: rec, quit by player slot+1 at its middle checkpoint,
+# as a recording of its own in ${TMPD}, named out (played back, for its E
+# and Z); its result. The files are given to digger relative to ${TMPD}:
+# MSYS would mangle the absolute names in the options.
+quit_rec() {
+  nckpt=`grep -c '^C ' "${1}"`
+  awk -v k=$((nckpt / 2)) '{ print } /^C / { if (++c == k) exit }' \
+    "${1}" > "${TMPD}/cut.edrf"
+  echo "Q ${2}" >> "${TMPD}/cut.edrf"
+  (
+    cd "${TMPD}"
+    # It ends before its game does (status 4)
+    env SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy "${DIGGER_BIN}" \
+      /Q /S:0 /R:"${3}" /E:cut.edrf > /dev/null 2>&1 || true
+    env SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy DIGGER_CI_RUN=1 \
+      "${DIGGER_BIN}" /Q /S:0 /E:"${3}" 2> /dev/null | tr -d '\r'
+  )
+}
+
+# replay_test rec expected label: rec replayed over NetSim, with each loss
+replay_test() {
+  for loss in ${LOSSES}
+  do
+    penv="DIGGER_NETSIM_REPLAY=${1}"
+    test "${loss}" != none && penv="${penv} ${loss}"
+    run_peer alice "${penv}" /N:alice-bob@:${PORT}
+    sleep 1
+    run_peer bob "${penv} DIGGER_NETSIM_REPLAY_START=1" \
+      /N:bob@127.0.0.1:${PORT}-alice
+    wait
+    if check_peer alice "${2}" && check_peer bob "${2}"
+    then
+      echo "${3} (netsim, loss: ${loss}): PASS"
+    else
+      echo "${3} (netsim, loss: ${loss}): FAIL"
+      NFAILED=$((NFAILED + 1))
+    fi
+    rm -rf "${TMPD}"/alice* "${TMPD}"/bob*
+  done
+}
+
 NFAILED=0
 for rec in tests/data/*.edrf
 do
@@ -65,24 +113,13 @@ do
   sed -n 3p "${rec}" | grep -q '^M2\(I[0-9]*\)*$' || continue
   name=`basename "${rec}"`
   # The same result, to the tick
-  expected=`cat "tests/results/${name%.edrf}.out"`
-  for loss in ${LOSSES}
+  replay_test "${PWD}/${rec}" "`cat "tests/results/${name%.edrf}.out"`" \
+    "${name}"
+  for slot in 0 1
   do
-    penv="DIGGER_NETSIM_REPLAY=${PWD}/${rec}"
-    test "${loss}" != none && penv="${penv} ${loss}"
-    run_peer alice "${penv}" /N:alice-bob@:${PORT}
-    sleep 1
-    run_peer bob "${penv} DIGGER_NETSIM_REPLAY_START=1" \
-      /N:bob@127.0.0.1:${PORT}-alice
-    wait
-    if check_peer alice "${expected}" && check_peer bob "${expected}"
-    then
-      echo "${name} (netsim, loss: ${loss}): PASS"
-    else
-      echo "${name} (netsim, loss: ${loss}): FAIL"
-      NFAILED=$((NFAILED + 1))
-    fi
-    rm -rf "${TMPD}"/alice* "${TMPD}"/bob*
+    expected=`quit_rec "${rec}" ${slot} quit${slot}.edrf`
+    replay_test "${TMPD}/quit${slot}.edrf" "${expected}" \
+      "${name} quit by player $((slot + 1))"
   done
 done
 

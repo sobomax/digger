@@ -24,6 +24,9 @@
  *   C <hex>         game state hash every EDRF_CKPT_EVERY ticks
  *   E <hex>         game state hash at the end of a round, the tick it ends
  *                   on in it too
+ *   Q <slot>        the game quit by the player of input slot <slot>
+ *                   (F10, or over NetSim the peer that did), before its
+ *                   Z; a playback quits it there the same way
  *   Z <tick> <hex>  game state hash at the end of the game
  *
  * A recording that ends without its Z (the program was stopped while it
@@ -41,6 +44,7 @@
 #include "game.h"
 #include "input.h"
 #include "main.h"
+#include "netsim_game.h"
 #include "state_hash.h"
 #include "record.h"
 #include "scores.h"
@@ -73,6 +77,7 @@ static uint32_t rec_endtick, rec_endhash;
 static struct vec ply_in[EDRF_SLOTS], ply_rand, ply_ckpt, ply_rend;
 static FILE *plyfp;
 static bool plyeof, ply_hasend;
+static int ply_quit = -1; /* Q: the slot of the player who quit, or -1 */
 /* Levels read: the number, then the map; and the one being read */
 static struct vec ply_lev;
 static uint8_t lev_new[MSIZE];
@@ -444,6 +449,11 @@ readrec(void)
           goto bad;
         vec_push(line[0] == 'C' ? &ply_ckpt : &ply_rend, a);
         return (true);
+      case 'Q':
+        if (sscanf(line + 1, "%u %c", &a, &c) != 1 || a >= EDRF_SLOTS)
+          goto bad;
+        ply_quit = (int)a;
+        return (true);
       case 'Z':
         if (sscanf(line + 1, "%u %x", &a, &b) != 2)
           goto bad;
@@ -563,6 +573,37 @@ edrf_exhausted(void)
     if (!readrec())
       return (true);
   }
+}
+
+/*
+ * The playback quits the game here, its recording played to the end: as
+ * it was quit (Q), or as far as one cut short goes. Not over NetSim if it
+ * was the peer's player who quit: the peer does it, this one follows.
+ */
+bool
+edrf_quitting(void)
+{
+
+  if (!edrf_exhausted())
+    return (false);
+  return (!edrf_feeding || ply_quit < 0 || ply_quit == feedslot);
+}
+
+/* The game is being quit (escape): say who quit it, if anybody did */
+void
+edrf_quit(void)
+{
+  int slot;
+
+  if (reading() && edrf_exhausted())
+    slot = ply_quit; /* As the recording played back was */
+  else if (dgstate.netsim)
+    slot = netsim_quitter(); /* Not if the peer is gone */
+  else
+    slot = 0;
+  flushin();
+  if (recfp != NULL && slot >= 0)
+    fprintf(recfp, "Q %d\n", slot);
 }
 
 /*
@@ -745,6 +786,7 @@ edrf_playopen(FILE *fp)
     fclose(plyfp);
   plyfp = fp;
   plyeof = ply_hasend = false;
+  ply_quit = -1;
   edrf_failed = false;
   edrf_stopped = false;
   edrf_truncated = false;

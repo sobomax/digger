@@ -251,7 +251,7 @@ syncframe(bool local_freeze, bool local_pause, bool use_pause_latch,
     gethrt(false, 3);
   }
   checkkeyb();
-  if (edrf_exhausted() && !netsim_draining())
+  if (edrf_quitting() && !netsim_draining())
     escape=true; /* End of the recording */
   /* Quitting a NetSim game: tell the peer with this frame, so that both
      leave the game on it */
