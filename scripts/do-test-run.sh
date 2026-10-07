@@ -22,6 +22,9 @@ run_test() {
     echo "${1} (${2}): FAIL (exit status ${rc})"
     return 1
   fi
+  # Windows ends the lines with CR LF
+  tr -d '\r' < "${2}-${1}.out" > "${2}-${1}.out.lf"
+  mv "${2}-${1}.out.lf" "${2}-${1}.out"
   ${DIFF} "tests/results/${4}" "${2}-${1}.out" || return 1
   echo "${1} (${2}): PASS"
 }
