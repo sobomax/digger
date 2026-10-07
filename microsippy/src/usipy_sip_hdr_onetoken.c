@@ -12,6 +12,7 @@ usipy_sip_hdr_1token_parse(struct usipy_msg_heap *hp, const struct usipy_str *hv
 {
     union usipy_sip_hdr_parsed ru;
 
+    (void)hp;
     ru.generic = hvp;
     return (ru);
 }

@@ -2,7 +2,24 @@
 
 #include "usipy_debug.h"
 #include "usipy_sip_res.h"
+#include "usipy_sip_dialog_internal.h"
 #include "sip_ua/usipy_sip_ua_internal.h"
+
+/* The call answered here never got the ACK: the dialog has sent the BYE.
+ * Only for the call still up (the handler is set when it's answered, and
+ * called later, from the transaction manager). */
+static void
+usipy_sip_ua_trying_no_ack(void *arg, size_t bye_index)
+{
+    struct usipy_sip_ua *uap = arg;
+
+    if (uap->state != USIPY_SIP_UA_STATE_CONNECTED) {
+        return;
+    }
+    uap->tx_index = bye_index;
+    usipy_sip_ua_transition(uap, USIPY_SIP_UA_STATE_DISCONNECTED);
+    usipy_sip_ua_emit_event(uap, USIPY_SIP_UA_EMIT_DISCONNECT, bye_index, NULL);
+}
 
 static int
 usipy_sip_ua_trying_on_transaction(struct usipy_sip_ua *uap, size_t tx_index,
@@ -45,6 +62,8 @@ usipy_sip_ua_trying_on_event(struct usipy_sip_ua *uap,
         if (uap->dialogp == NULL) {
             return (USIPY_SIP_TM_ERR_UNSUPPORTED);
         }
+        usipy_sip_dialog_set_no_ack_handler(uap->dialogp,
+          usipy_sip_ua_trying_no_ack, uap);
         usipy_sip_ua_transition(uap, USIPY_SIP_UA_STATE_CONNECTED);
         usipy_sip_ua_emit_event(uap, USIPY_SIP_UA_EMIT_CONNECT, uap->tx_index, NULL);
         *indexp = uap->tx_index;

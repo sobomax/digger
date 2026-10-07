@@ -7,6 +7,9 @@
 
 struct usipy_sip_dialog;
 
+/* Dialogs must be destroyed before their transaction manager. The UAS
+ * constructor owns 2xx retransmission until ACK and sends BYE on ACK timeout;
+ * usipy_sip_tm_run() drives this work, including response.callbacks.no_ack. */
 struct usipy_sip_dialog *usipy_sip_dialog_uac_ctor(struct usipy_sip_tm *, size_t,
   const struct usipy_msg *);
 struct usipy_sip_dialog *usipy_sip_dialog_uas_ctor(struct usipy_sip_tm *, size_t,

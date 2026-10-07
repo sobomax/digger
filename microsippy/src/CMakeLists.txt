@@ -14,7 +14,7 @@ set(src_microsippy
  "public/usipy_sip_tm.h" "public/usipy_sip_tm_utils.h"
  "public/usipy_sip_dialog.h" "public/usipy_sip_ua.h" "public/usipy_sip_ua_utils.h"
  "public/usipy_sip_response_utils.h"
- "usipy_sip_dialog.c" "usipy_sip_tm_internal.h" "usipy_sip_msg_priv.h"
+ "usipy_sip_dialog.c" "usipy_sip_dialog_internal.h" "usipy_sip_tm_internal.h" "usipy_sip_msg_priv.h"
  "usipy_sip_tm_priv.h" "usipy_append_priv.h"
  "usipy_sip_method_db.h" "public/usipy_sip_method_types.h" "usipy_sip_hdr_cseq.c"
  "usipy_sip_hdr_cseq.h" "usipy_sip_hdr_via.c"

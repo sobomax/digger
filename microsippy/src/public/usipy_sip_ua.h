@@ -55,8 +55,16 @@ struct usipy_sip_ua_emit {
     size_t transaction_index;
     const struct usipy_msg *message;
     struct usipy_str body;
+    /* Non-NULL for a peer BYE: the response to it, 200 OK, which the
+     * callback may change, e.g. to give it a body, or to fail the BYE (the
+     * call is over here all the same). It's sent after the callback
+     * returns: what it points to has to outlive the callback (not be its
+     * locals), until usipy_sip_ua_on_transaction() returns. */
+    struct usipy_sip_tm_uas_response_params *response;
 };
 
+/* For a peer BYE, DISCONNECT is emitted after entering DISCONNECTED but
+ * before building or queuing emit.response. */
 typedef void (*usipy_sip_ua_emit_cb)(void *, const struct usipy_sip_ua_emit *);
 
 struct usipy_sip_ua_ctor_params {

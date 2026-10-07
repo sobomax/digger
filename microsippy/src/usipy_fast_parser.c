@@ -13,8 +13,8 @@ usipy_fp_classify(const struct usipy_fast_parser *fp, const struct usipy_str *sp
     uint32_t cval, res;
 
     res = sp->l;
-    for (int i = 0; i < sp->l; i += sizeof(cval)) {
-        int remain = sp->l - i;
+    for (size_t i = 0; i < sp->l; i += sizeof(cval)) {
+        size_t remain = sp->l - i;
         if (remain < sizeof(cval)) {
             cval = 0;
             memcpy(&cval, sp->s.ro + i, remain);

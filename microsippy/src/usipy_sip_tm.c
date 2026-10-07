@@ -12,8 +12,8 @@
 #include "public/usipy_sip_method_types.h"
 #include "public/usipy_sip_tm.h"
 #include "public/usipy_sip_hdr_types.h"
-#include "public/usipy_sip_sline.h"
 #include "public/usipy_sip_msg.h"
+#include "public/usipy_sip_sline.h"
 #include "usipy_sip_hdr.h"
 #include "usipy_sip_hdr_db.h"
 #include "usipy_sip_hdr_auth.h"
@@ -216,17 +216,15 @@ usipy_sip_tm_tx_reset(struct usipy_sip_tm_txi *tp)
     tp->pub.common.timer.due_at_ms = 0;
     memset(&tp->callbacks, '\0', sizeof(tp->callbacks));
     memset(&tp->uas_callbacks, '\0', sizeof(tp->uas_callbacks));
+    memset(&tp->uas_owner, '\0', sizeof(tp->uas_owner));
     memset(&tp->outbound, '\0', sizeof(tp->outbound));
     tp->outbound.checkpoint = USIPY_MSG_HEAP_CHECKPOINT_NONE;
     tp->outbound.pub.raw = USIPY_STR_NULL;
     tp->outbound.pub.next_send_at_ms = USIPY_SIP_TM_TIME_NONE;
     tp->parent_index = USIPY_SIP_TM_TX_INDEX_NONE;
     tp->child_index = USIPY_SIP_TM_TX_INDEX_NONE;
-    tp->invite_timeout_at_ms = USIPY_SIP_TM_TIME_NONE;
+    tp->invite = NULL;
     tp->final_reported = 0;
-    tp->invite_provisional_seen = 0;
-    tp->invite_cancel_state = USIPY_SIP_TM_INVITE_CANCEL_NONE;
-    tp->invite_timeout_id = USIPY_SIP_TM_TIMEOUT_NONE;
     tp->pub.common.outbound = tp->outbound.pub;
     usipy_msg_heap_init(&tp->scratch, tp->scratch_buf, tp->scratch_capacity,
       tp->scratch_checkpoints, USIPY_SIP_TM_TX_NCHECKPOINTS);
@@ -358,6 +356,32 @@ usipy_sip_tm_drop_transaction(struct usipy_sip_tm *tm, size_t index)
     return (USIPY_SIP_TM_OK);
 }
 
+/*
+ * A timer policy as the transactions use it, field by field: its base
+ * timers (T1, T2, T4) left 0 are RFC 3261's, and the other timers left 0
+ * stay so, for them to be derived from the base ones. No policy at all is
+ * RFC 3261's.
+ */
+void
+usipy_sip_tm_timer_policy_resolve(struct usipy_sip_tm_timer_policy *dstp,
+  const struct usipy_sip_tm_timer_policy *srcp)
+{
+    static const struct usipy_sip_tm_timer_policy rfc3261 =
+      USIPY_SIP_TM_TIMER_POLICY_RFC3261;
+
+    USIPY_DASSERT(dstp != NULL);
+    *dstp = srcp != NULL ? *srcp : rfc3261;
+    if (dstp->t1_ms == 0) {
+        dstp->t1_ms = rfc3261.t1_ms;
+    }
+    if (dstp->t2_ms == 0) {
+        dstp->t2_ms = rfc3261.t2_ms;
+    }
+    if (dstp->t4_ms == 0) {
+        dstp->t4_ms = rfc3261.t4_ms;
+    }
+}
+
 int
 usipy_sip_tm_set_timer_policy(struct usipy_sip_tm *tm, size_t index,
   const struct usipy_sip_tm_timer_policy *policy)
@@ -368,7 +392,8 @@ usipy_sip_tm_set_timer_policy(struct usipy_sip_tm *tm, size_t index,
     if (!tm->transactions[index].active) {
         return (USIPY_SIP_TM_ERR_NOT_FOUND);
     }
-    tm->transactions[index].pub.common.timers = *policy;
+    usipy_sip_tm_timer_policy_resolve(&tm->transactions[index].pub.common.timers,
+      policy);
     return (USIPY_SIP_TM_OK);
 }
 

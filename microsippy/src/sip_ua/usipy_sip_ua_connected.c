@@ -2,28 +2,37 @@
 
 #include "usipy_debug.h"
 #include "usipy_sip_res.h"
+#include "usipy_sip_dialog_internal.h"
 #include "sip_ua/usipy_sip_ua_internal.h"
 
 static int
 usipy_sip_ua_connected_on_transaction(struct usipy_sip_ua *uap, size_t tx_index,
   const struct usipy_msg *msg)
 {
+    struct usipy_sip_tm *tm;
+    struct usipy_sip_tm_uas_response_params response = {
+      .status = &usipy_sip_res_ok,
+    };
     int rval;
 
     USIPY_DASSERT(uap != NULL);
     USIPY_DASSERT(msg != NULL);
 
+    tm = uap->tm;
     if (uap->dialogp == NULL) {
         return (USIPY_SIP_TM_ERR_UNSUPPORTED);
     }
-    rval = usipy_sip_dialog_handle_uas_transaction(uap->dialogp, tx_index, msg);
+    rval = usipy_sip_dialog_accept_uas_bye(uap->dialogp, tx_index, msg);
     if (rval != USIPY_SIP_TM_OK) {
         return (rval);
     }
     uap->tx_index = tx_index;
     usipy_sip_ua_transition(uap, USIPY_SIP_UA_STATE_DISCONNECTED);
-    usipy_sip_ua_emit_event(uap, USIPY_SIP_UA_EMIT_DISCONNECT, tx_index, msg);
-    return (USIPY_SIP_TM_OK);
+    usipy_sip_ua_emit_response_event(uap, USIPY_SIP_UA_EMIT_DISCONNECT,
+      tx_index, msg, &response);
+    /* Should this fail, the call is over here all the same (and the
+     * application told so): the peer's BYE, resent, finds no dialog */
+    return (usipy_sip_tm_send_uas_response(tm, tx_index, &response));
 }
 
 static int

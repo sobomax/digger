@@ -25,6 +25,8 @@
 #include "usipy_sip_tm_priv.h"
 #include "usipy_tvpair.h"
 
+#define USIPY_SIP_TM_ABANDONED_HEAP_SIZE 1024u
+
 struct usipy_sip_tm_build_request_params {
     const struct usipy_sip_tm_request_payload *payload;
     const struct usipy_sip_tm_extra_header *extra_headers;
@@ -338,6 +340,16 @@ usipy_sip_tm_set_route_set(struct usipy_sip_tm_txi *tp, struct usipy_str *routes
     tp->cache.uac.nroutes = nroutes;
 }
 
+static void
+usipy_sip_tm_uac_reset_invite(struct usipy_sip_tm_uac_invite *invite)
+{
+    *invite = (struct usipy_sip_tm_uac_invite){
+      .timeout_at_ms = USIPY_SIP_TM_TIME_NONE,
+      .cancel_state = USIPY_SIP_TM_INVITE_CANCEL_NONE,
+      .timeout_id = USIPY_SIP_TM_TIMEOUT_NONE,
+    };
+}
+
 static int
 usipy_sip_tm_activate_uac_slot(struct usipy_sip_tm *tm, struct usipy_sip_tm_txi *tp,
   enum usipy_sip_tm_state state,
@@ -368,6 +380,14 @@ usipy_sip_tm_activate_uac_slot(struct usipy_sip_tm *tm, struct usipy_sip_tm_txi 
         }
     } else {
         local = tm->laddr;
+    }
+    if (request_idp->method_type == USIPY_SIP_METHOD_INVITE) {
+        /* Retain this state across outbound rebuilds and auth retries. */
+        tp->invite = usipy_msg_heap_alloc(&tp->scratch, sizeof(*tp->invite));
+        if (tp->invite == NULL) {
+            return (USIPY_SIP_TM_ERR_NOSPC);
+        }
+        usipy_sip_tm_uac_reset_invite(tp->invite);
     }
     tp->callbacks = *callbacksp;
     tp->outbound.checkpoint = usipy_msg_heap_checkpoint(&tp->scratch);
@@ -511,11 +531,10 @@ usipy_sip_tm_tx_reset_uac_runtime(struct usipy_sip_tm_txi *tp)
     tp->pub.role_data.uac.response_class = 0;
     tp->outbound.pub.raw = USIPY_STR_NULL;
     tp->outbound.pub.next_send_at_ms = 0;
-    tp->invite_timeout_at_ms = USIPY_SIP_TM_TIME_NONE;
+    if (tp->invite != NULL) {
+        usipy_sip_tm_uac_reset_invite(tp->invite);
+    }
     tp->final_reported = 0;
-    tp->invite_provisional_seen = 0;
-    tp->invite_cancel_state = USIPY_SIP_TM_INVITE_CANCEL_NONE;
-    tp->invite_timeout_id = USIPY_SIP_TM_TIMEOUT_NONE;
     tp->pub.common.outbound = tp->outbound.pub;
 }
 
@@ -550,8 +569,11 @@ usipy_sip_tm_tx_clear_invite_timeout(struct usipy_sip_tm_txi *tp)
 {
     USIPY_DASSERT(tp != NULL);
 
-    tp->invite_timeout_at_ms = USIPY_SIP_TM_TIME_NONE;
-    tp->invite_timeout_id = USIPY_SIP_TM_TIMEOUT_NONE;
+    if (tp->invite == NULL) {
+        return;
+    }
+    tp->invite->timeout_at_ms = USIPY_SIP_TM_TIME_NONE;
+    tp->invite->timeout_id = USIPY_SIP_TM_TIMEOUT_NONE;
 }
 
 static void
@@ -579,6 +601,7 @@ usipy_sip_tm_tx_terminate_child(struct usipy_sip_tm *tm, size_t *indexp)
     USIPY_DASSERT(*indexp < tm->max_transactions);
     childp = &tm->transactions[*indexp];
     if (childp->active) {
+        usipy_sip_tm_tx_terminate_child(tm, &childp->child_index);
         usipy_sip_tm_tx_mark_terminated(childp);
         usipy_sip_tm_tx_clear_timer(childp);
         usipy_sip_tm_tx_clear_invite_timeout(childp);
@@ -746,7 +769,8 @@ usipy_sip_tm_clone_uac_invite(struct usipy_sip_tm *tm, size_t parent_index,
     childp->pub.role = USIPY_SIP_TM_ROLE_UAC;
     childp->pub.state = method_type == USIPY_SIP_METHOD_ACK ?
       USIPY_SIP_TM_STATE_CALLING : USIPY_SIP_TM_STATE_TRYING;
-    childp->pub.common.flags = srcp->pub.common.flags;
+    /* The INVITE's cleanup is its own; its ACK or CANCEL is an ordinary one */
+    childp->pub.common.flags = srcp->pub.common.flags & ~USIPY_SIP_TM_F_ABANDONED;
     if (usipy_sip_tm_copy_target_addr(childp, &childp->pub.common.peer,
       &srcp->pub.common.peer) != USIPY_SIP_TM_OK) {
         usipy_sip_tm_tx_fini(childp);
@@ -777,11 +801,11 @@ usipy_sip_tm_uac_start_cancel(struct usipy_sip_tm *tm, size_t parent_index)
     USIPY_DASSERT(parent_index < tm->max_transactions);
 
     parentp = &tm->transactions[parent_index];
-    if (parentp->invite_cancel_state == USIPY_SIP_TM_INVITE_CANCEL_ONWIRE) {
+    if (parentp->invite->cancel_state == USIPY_SIP_TM_INVITE_CANCEL_ONWIRE) {
         return (USIPY_SIP_TM_OK);
     }
-    if (!parentp->invite_provisional_seen) {
-        parentp->invite_cancel_state = USIPY_SIP_TM_INVITE_CANCEL_SCHEDULED;
+    if (!parentp->invite->provisional_seen) {
+        parentp->invite->cancel_state = USIPY_SIP_TM_INVITE_CANCEL_SCHEDULED;
         return (USIPY_SIP_TM_OK);
     }
     if (usipy_sip_tm_clone_uac_invite(tm, parent_index, USIPY_SIP_METHOD_CANCEL,
@@ -789,7 +813,7 @@ usipy_sip_tm_uac_start_cancel(struct usipy_sip_tm *tm, size_t parent_index)
         return (USIPY_SIP_TM_ERR_NOSPC);
     }
     cancel_index = (size_t)(cancelp - tm->transactions);
-    cancelp->callbacks.arg = parentp->callbacks.arg;
+    cancelp->callbacks.arg = NULL;
     cancelp->callbacks.response = NULL;
     cancelp->callbacks.timeout = NULL;
     if (usipy_sip_tm_build_request(cancelp, cancel_index, tm, NULL) != USIPY_SIP_TM_OK) {
@@ -799,24 +823,133 @@ usipy_sip_tm_uac_start_cancel(struct usipy_sip_tm *tm, size_t parent_index)
         }
         return (USIPY_SIP_TM_ERR_NOSPC);
     }
-    parentp->invite_cancel_state = USIPY_SIP_TM_INVITE_CANCEL_ONWIRE;
+    parentp->invite->cancel_state = USIPY_SIP_TM_INVITE_CANCEL_ONWIRE;
+    /* The cleanup helper arms the final-response guard once time is known. */
+    usipy_sip_tm_tx_clear_invite_timeout(parentp);
     usipy_sip_tm_uac_arm_send_now(cancelp, 0);
+    return (USIPY_SIP_TM_OK);
+}
+
+/* If cleanup cannot allocate a CANCEL, give up locally. In particular, an
+ * expired application deadline must not starve other slots in tm_run(). */
+static void
+usipy_sip_tm_uac_finish_abandoned(struct usipy_sip_tm_txi *tp)
+{
+    usipy_sip_tm_tx_mark_terminated(tp);
+    usipy_sip_tm_tx_clear_invite_timeout(tp);
+    usipy_sip_tm_release_outbound(tp);
+}
+
+/* Transfer ownership to protocol cleanup before notifying the application.
+ * No callbacks or borrowed application state survive this point. */
+static void
+usipy_sip_tm_uac_abandon(struct usipy_sip_tm *tm, size_t index)
+{
+    struct usipy_sip_tm_txi *tp = &tm->transactions[index];
+    int rval;
+
+    USIPY_DASSERT((tp->pub.common.flags & USIPY_SIP_TM_F_ABANDONED) == 0);
+    tp->callbacks = (struct usipy_sip_tm_uac_callbacks){0};
+    tp->pub.common.flags |= USIPY_SIP_TM_F_ABANDONED;
+    usipy_sip_tm_tx_clear_invite_timeout(tp);
+    if (tp->pub.common.retransmit_count == 0) {
+        /* The INVITE never left this process; there is nothing to cancel. */
+        usipy_sip_tm_uac_finish_abandoned(tp);
+        return;
+    }
+    rval = usipy_sip_tm_uac_start_cancel(tm, index);
+    if (rval != USIPY_SIP_TM_OK) {
+        usipy_sip_tm_uac_finish_abandoned(tp);
+    }
+}
+
+/* Cleanup guards use 64*T1, independently of the no-response Timer B policy.
+ * A shorter Timer B must not cut short the peer's final-response retries. */
+static uint32_t
+usipy_sip_tm_uac_cleanup_ms(const struct usipy_sip_tm_timer_policy *timers)
+{
+    const uint64_t ms = (uint64_t)timers->t1_ms * 64u;
+
+    USIPY_DASSERT(ms <= UINT32_MAX);
+    return ((uint32_t)ms);
+}
+
+static void
+usipy_sip_tm_uac_arm_cleanup(struct usipy_sip_tm_txi *tp, uint64_t now_ms)
+{
+    if ((tp->pub.common.flags & USIPY_SIP_TM_F_ABANDONED) == 0) {
+        return;
+    }
+    switch (tp->pub.state) {
+    case USIPY_SIP_TM_STATE_CALLING:
+        if (tp->invite->cancel_state != USIPY_SIP_TM_INVITE_CANCEL_SCHEDULED) {
+            return;
+        }
+        break;
+    case USIPY_SIP_TM_STATE_PROCEEDING:
+        if (tp->invite->cancel_state != USIPY_SIP_TM_INVITE_CANCEL_ONWIRE) {
+            return;
+        }
+        break;
+    default:
+        return;
+    }
+    if (tp->invite->timeout_at_ms != USIPY_SIP_TM_TIME_NONE) {
+        return;
+    }
+    tp->invite->timeout_at_ms = now_ms +
+      usipy_sip_tm_uac_cleanup_ms(&tp->pub.common.timers);
+}
+
+/* ACK is prepared by normal transaction processing. Queue BYE behind its
+ * successful send; the transaction manager owns both, independent of the UA.
+ * Like the normal UAC path, this retains only one final response/dialog:
+ * separate forked 2xx responses (including one after a 487) are not supported. */
+static int
+usipy_sip_tm_abandoned_uac(struct usipy_sip_tm *tm, size_t index,
+  const struct usipy_msg *msg, uint8_t sclass)
+{
+    struct usipy_sip_tm_txi *tp = &tm->transactions[index];
+    struct usipy_sip_tm_dialog_request dialog;
+    struct usipy_sip_tm_new_in_dialog_transaction_params params;
+    struct usipy_msg_heap heap;
+    uint64_t storage[USIPY_SIP_TM_ABANDONED_HEAP_SIZE / sizeof(uint64_t)];
+    size_t bye_index;
+    int rval;
+
+    if (sclass != 2 || tp->invite->bye_started) {
+        return (USIPY_SIP_TM_OK);
+    }
+    usipy_msg_heap_init(&heap, storage, sizeof(storage), NULL, 0);
+    rval = usipy_sip_tm_init_uac_dialog_request_params(tm, index, msg,
+      USIPY_SIP_METHOD_BYE, &heap, &dialog);
+    if (rval != USIPY_SIP_TM_OK) {
+        return (rval);
+    }
+    dialog.request_id.cseq += 1;
+    usipy_sip_tm_dialog_request_get_params(&dialog, &params);
+    rval = usipy_sip_tm_new_in_dialog_transaction(tm, &params, &bye_index);
+    if (rval != USIPY_SIP_TM_OK) {
+        return (rval);
+    }
+    tm->transactions[bye_index].outbound.pub.next_send_at_ms = USIPY_SIP_TM_TIME_NONE;
+    tm->transactions[bye_index].pub.common.outbound.next_send_at_ms = USIPY_SIP_TM_TIME_NONE;
+    tm->transactions[bye_index].parent_index = index;
+    tm->transactions[tp->child_index].child_index = bye_index;
+    tp->invite->bye_started = 1;
     return (USIPY_SIP_TM_OK);
 }
 
 static uint32_t
 usipy_sip_tm_timer_d_ms(const struct usipy_sip_tm_timer_policy *tp)
 {
-    uint32_t dms;
+    USIPY_DASSERT(tp != NULL);
+    USIPY_DASSERT(tp->timer_d_ms != 0 || tp->t4_ms != 0);
 
     if (tp->timer_d_ms != 0) {
         return (tp->timer_d_ms);
     }
-    dms = tp->t4_ms;
-    if (dms != 0) {
-        return (dms);
-    }
-    return (5000u);
+    return (tp->t4_ms);
 }
 
 static uint32_t
@@ -859,9 +992,16 @@ usipy_sip_tm_uac_handle_invite_final(struct usipy_sip_tm *tm,
     USIPY_DASSERT(deliver_responsep != NULL);
 
     usipy_sip_tm_tx_clear_invite_timeout(tp);
-    tp->pub.common.timer.type = USIPY_SIP_TM_TIMER_D;
-    tp->pub.common.timer.value_ms = usipy_sip_tm_timer_d_ms(&tp->pub.common.timers);
-    tp->pub.common.timer.due_at_ms = now_ms + tp->pub.common.timer.value_ms;
+    if (!tp->final_reported ||
+      (tp->pub.common.flags & USIPY_SIP_TM_F_ABANDONED) == 0) {
+        tp->pub.common.timer.type = USIPY_SIP_TM_TIMER_D;
+        tp->pub.common.timer.value_ms = usipy_sip_tm_timer_d_ms(&tp->pub.common.timers);
+        if (sclass == 2 && (tp->pub.common.flags & USIPY_SIP_TM_F_ABANDONED) != 0) {
+            /* Keep the ACK for the peer's full 2xx retry window (Timer M). */
+            tp->pub.common.timer.value_ms = usipy_sip_tm_uac_cleanup_ms(&tp->pub.common.timers);
+        }
+        tp->pub.common.timer.due_at_ms = now_ms + tp->pub.common.timer.value_ms;
+    }
     tp->pub.state = USIPY_SIP_TM_STATE_COMPLETED;
     *deliver_responsep = (tp->final_reported == 0);
     if (tp->child_index == USIPY_SIP_TM_TX_INDEX_NONE) {
@@ -906,6 +1046,15 @@ usipy_sip_tm_uac_handle_invite_final(struct usipy_sip_tm *tm,
             return (USIPY_SIP_TM_ERR_NOSPC);
         }
     }
+    /* No BYE to follow it (no slot, or its dialog doesn't fit) and the 2xx
+     * goes without an ACK too: the peer then ends the call itself */
+    if ((tp->pub.common.flags & USIPY_SIP_TM_F_ABANDONED) != 0) {
+        const int rval = usipy_sip_tm_abandoned_uac(tm, index, msg, sclass);
+
+        if (rval != USIPY_SIP_TM_OK) {
+            return (rval);
+        }
+    }
     usipy_sip_tm_uac_arm_send_now(ackp, now_ms);
     tp->final_reported = 1;
     return (USIPY_SIP_TM_OK);
@@ -930,6 +1079,9 @@ usipy_sip_tm_handle_incoming_response(const struct usipy_sip_tm_handle_incoming_
         if (!usipy_sip_tm_tid_matches_tx(tidp, &tp->pub)) {
             continue;
         }
+        if (usipy_sip_tm_tx_is_invite(tp) && sclass == 1 && tp->final_reported) {
+            goto response_done;
+        }
         tp->pub.common.updated_at_ms = inp->now_ms;
         tp->pub.common.outbound.next_send_at_ms = USIPY_SIP_TM_TIME_NONE;
         tp->pub.common.outbound.raw = USIPY_STR_NULL;
@@ -938,15 +1090,25 @@ usipy_sip_tm_handle_incoming_response(const struct usipy_sip_tm_handle_incoming_
         tp->pub.role_data.uac.response_class = sclass;
         if (usipy_sip_tm_tx_is_invite(tp) && sclass == 1) {
             tp->pub.state = USIPY_SIP_TM_STATE_PROCEEDING;
-            tp->invite_provisional_seen = 1;
-            tp->invite_timeout_id = USIPY_SIP_TM_TIMEOUT_FR;
-            if (tp->invite_cancel_state ==
+            /* Ringing: no more Timer B, but the INVITE's Expires, counted
+               from when it was first sent, after which it's CANCELed */
+            if (tp->invite->provisional_seen == 0 &&
+              tp->invite->timeout_at_ms != USIPY_SIP_TM_TIME_NONE) {
+                tp->invite->timeout_at_ms = tp->pub.common.created_at_ms +
+                  (uint64_t)tp->cache.uac.invite_expires * 1000u;
+            }
+            tp->invite->provisional_seen = 1;
+            if ((tp->pub.common.flags & USIPY_SIP_TM_F_ABANDONED) == 0) {
+                tp->invite->timeout_id = USIPY_SIP_TM_TIMEOUT_FR;
+            }
+            if (tp->invite->cancel_state ==
               USIPY_SIP_TM_INVITE_CANCEL_SCHEDULED) {
                 const int rval = usipy_sip_tm_uac_start_cancel(tm, i);
 
                 if (rval != USIPY_SIP_TM_OK) {
-                    return (rval);
+                    usipy_sip_tm_uac_finish_abandoned(tp);
                 }
+                usipy_sip_tm_uac_arm_cleanup(tp, inp->now_ms);
             }
         } else if (usipy_sip_tm_tx_is_invite(tp) && sclass >= 2) {
             const int rval = usipy_sip_tm_uac_handle_invite_final(tm, tp, i, msg,
@@ -970,6 +1132,7 @@ usipy_sip_tm_handle_incoming_response(const struct usipy_sip_tm_handle_incoming_
         if (deliver_response && tp->callbacks.response != NULL) {
             tp->callbacks.response(tp->callbacks.arg, i, &tp->pub, msg);
         }
+response_done:
         if (outp != NULL) {
             outp->error = USIPY_SIP_TM_OK;
             outp->consumed = 1;
@@ -1012,7 +1175,7 @@ usipy_sip_tm_build_request(struct usipy_sip_tm_txi *tp, size_t tx_index,
       (tp->cache.uac.include_contact != 0 ? 1 : 0) + (include_expires ? 1 : 0) +
       (include_ctype ? 1 : 0) + (include_user_agent ? 1 : 0);
     struct usipy_sip_hdr thdrs[nbase_hdrs + neh];
-    struct usipy_hdr_db_entr ehdb[neh];
+    struct usipy_hdr_db_entr ehdb[neh > 0 ? neh : 1]; /* Not a 0 size VLA */
     struct usipy_sip_tm_default_via via;
     struct usipy_sip_tm_default_nameaddr from;
     struct usipy_sip_tm_default_nameaddr to;
@@ -1257,6 +1420,21 @@ usipy_sip_tm_uac_post_send_ack(struct usipy_sip_tm_txi *tp)
     tp->outbound.pub.next_send_at_ms = USIPY_SIP_TM_TIME_NONE;
 }
 
+/* How long the application waits for any INVITE response (Timer B). */
+static uint32_t
+usipy_sip_tm_timer_b_ms(const struct usipy_sip_tm_timer_policy *tp)
+{
+    uint64_t bms;
+
+    USIPY_DASSERT(tp != NULL);
+    if (tp->timer_b_ms != 0) {
+        return (tp->timer_b_ms);
+    }
+    bms = (uint64_t)tp->t1_ms * 64u;
+    USIPY_DASSERT(bms <= UINT32_MAX);
+    return ((uint32_t)bms);
+}
+
 static void
 usipy_sip_tm_uac_post_send_invite(struct usipy_sip_tm_txi *tp, uint64_t now_ms)
 {
@@ -1266,11 +1444,14 @@ usipy_sip_tm_uac_post_send_invite(struct usipy_sip_tm_txi *tp, uint64_t now_ms)
         tp->outbound.pub.next_send_at_ms = USIPY_SIP_TM_TIME_NONE;
         return;
     }
-    if (tp->invite_timeout_at_ms == USIPY_SIP_TM_TIME_NONE) {
-        tp->invite_timeout_at_ms = now_ms + ((uint64_t)tp->cache.uac.invite_expires * 1000u);
-        tp->invite_timeout_id = USIPY_SIP_TM_TIMEOUT_PR;
+    /* Timer B gives up on the call; the abandoned handler finishes cleanup.
+     * After a provisional response, Expires supplies the deadline instead. */
+    if (tp->invite->timeout_at_ms == USIPY_SIP_TM_TIME_NONE) {
+        tp->invite->timeout_at_ms = now_ms +
+          usipy_sip_tm_timer_b_ms(&tp->pub.common.timers);
+        tp->invite->timeout_id = USIPY_SIP_TM_TIMEOUT_PR;
     }
-    if (tp->invite_provisional_seen != 0 ||
+    if (tp->invite->provisional_seen != 0 ||
       (tp->pub.common.flags & USIPY_SIP_TM_F_RELIABLE_TRANSPORT) != 0) {
         tp->outbound.pub.next_send_at_ms = USIPY_SIP_TM_TIME_NONE;
         return;
@@ -1295,35 +1476,72 @@ usipy_sip_tm_uac_post_send_noninvite(struct usipy_sip_tm_txi *tp, uint64_t now_m
     tp->outbound.pub.next_send_at_ms = now_ms + usipy_sip_tm_uac_next_send_delay_ms(tp);
 }
 
+/* Return true when an INVITE timeout was handled. Other methods have no
+ * INVITE runtime and use only the common transaction timer. */
+static int
+usipy_sip_tm_uac_expire_invite(struct usipy_sip_tm_txi *tp, size_t index,
+  const struct usipy_sip_tm *tm, const struct usipy_sip_tm_run_in *inp,
+  struct usipy_sip_tm_run_out *outp)
+{
+    enum usipy_sip_tm_uac_timeout_id timeout_id;
+
+    if (tp->invite == NULL) {
+        return (0);
+    }
+    usipy_sip_tm_uac_arm_cleanup(tp, inp->now_ms);
+    const int invite_expired = tp->invite->timeout_at_ms != USIPY_SIP_TM_TIME_NONE &&
+      tp->invite->timeout_at_ms <= inp->now_ms;
+    if (!invite_expired) {
+        return (0);
+    }
+    timeout_id = (enum usipy_sip_tm_uac_timeout_id)tp->invite->timeout_id;
+    if ((tp->pub.common.flags & USIPY_SIP_TM_F_ABANDONED) == 0) {
+        const struct usipy_sip_tm_uac_callbacks callbacks = tp->callbacks;
+
+        usipy_sip_tm_uac_abandon((struct usipy_sip_tm *)tm, index);
+        usipy_sip_tm_uac_arm_cleanup(tp, inp->now_ms);
+        usipy_sip_tm_run_out_consider(outp, inp->now_ms);
+        if (outp != NULL) {
+            outp->ntimeouts += 1;
+        }
+        if (callbacks.timeout != NULL) {
+            callbacks.timeout(callbacks.arg, index, &tp->pub, timeout_id);
+        }
+        return (1);
+    }
+    usipy_sip_tm_tx_mark_terminated(tp);
+    usipy_sip_tm_tx_clear_invite_timeout(tp);
+    if (tp->callbacks.timeout != NULL) {
+        tp->callbacks.timeout(tp->callbacks.arg, index, &tp->pub, timeout_id);
+    }
+    usipy_sip_tm_release_outbound(tp);
+    if (outp != NULL) {
+        outp->ntimeouts += 1;
+    }
+    return (1);
+}
+
+static void
+usipy_sip_tm_uac_consider_invite(struct usipy_sip_tm_run_out *outp,
+  const struct usipy_sip_tm_uac_invite *invite)
+{
+    if (invite == NULL) {
+        return;
+    }
+    usipy_sip_tm_run_out_consider(outp, invite->timeout_at_ms);
+}
+
 int
 usipy_sip_tm_uac_run(struct usipy_sip_tm_txi *tp, size_t index, const struct usipy_sip_tm *tm,
   const struct usipy_sip_tm_run_in *inp, struct usipy_sip_tm_run_out *outp)
 {
-    enum usipy_sip_tm_uac_timeout_id timeout_id;
     int rval;
 
     if (tp->pub.state == USIPY_SIP_TM_STATE_TERMINATED ||
       (tp->pub.common.flags & USIPY_SIP_TM_F_TERMINATED) != 0) {
         return (USIPY_SIP_TM_OK);
     }
-    if (tp->invite_timeout_at_ms != USIPY_SIP_TM_TIME_NONE &&
-      tp->invite_timeout_at_ms <= inp->now_ms) {
-        timeout_id = (enum usipy_sip_tm_uac_timeout_id)tp->invite_timeout_id;
-        if (timeout_id == USIPY_SIP_TM_TIMEOUT_FR) {
-            rval = usipy_sip_tm_uac_start_cancel((struct usipy_sip_tm *)tm, index);
-            if (rval != USIPY_SIP_TM_OK) {
-                return (rval);
-            }
-        }
-        usipy_sip_tm_tx_mark_terminated(tp);
-        usipy_sip_tm_tx_clear_invite_timeout(tp);
-        if (tp->callbacks.timeout != NULL) {
-            tp->callbacks.timeout(tp->callbacks.arg, index, &tp->pub, timeout_id);
-        }
-        usipy_sip_tm_release_outbound(tp);
-        if (outp != NULL) {
-            outp->ntimeouts += 1;
-        }
+    if (usipy_sip_tm_uac_expire_invite(tp, index, tm, inp, outp)) {
         return (USIPY_SIP_TM_OK);
     }
     if (tp->pub.common.timer.type != USIPY_SIP_TM_TIMER_NONE &&
@@ -1346,7 +1564,7 @@ usipy_sip_tm_uac_run(struct usipy_sip_tm_txi *tp, size_t index, const struct usi
     if (tp->outbound.pub.next_send_at_ms == USIPY_SIP_TM_TIME_NONE ||
       tp->outbound.pub.next_send_at_ms > inp->now_ms) {
         usipy_sip_tm_run_out_consider(outp, tp->outbound.pub.next_send_at_ms);
-        usipy_sip_tm_run_out_consider(outp, tp->invite_timeout_at_ms);
+        usipy_sip_tm_uac_consider_invite(outp, tp->invite);
         usipy_sip_tm_run_out_consider_timer(outp, &tp->pub.common.timer);
         return (USIPY_SIP_TM_OK);
     }
@@ -1364,6 +1582,14 @@ usipy_sip_tm_uac_run(struct usipy_sip_tm_txi *tp, size_t index, const struct usi
     usipy_sip_tm_uac_note_send(tp, inp->now_ms);
     if (usipy_sip_tm_tx_is_ack(tp)) {
         usipy_sip_tm_uac_post_send_ack(tp);
+        if (tp->child_index != USIPY_SIP_TM_TX_INDEX_NONE) {
+            struct usipy_sip_tm_txi *byep = &tm->transactions[tp->child_index];
+
+            byep->parent_index = USIPY_SIP_TM_TX_INDEX_NONE;
+            usipy_sip_tm_uac_arm_send_now(byep, inp->now_ms);
+            tp->child_index = USIPY_SIP_TM_TX_INDEX_NONE;
+            usipy_sip_tm_run_out_consider(outp, inp->now_ms);
+        }
     } else if (usipy_sip_tm_tx_is_invite(tp)) {
         usipy_sip_tm_uac_post_send_invite(tp, inp->now_ms);
     } else {
@@ -1374,7 +1600,7 @@ usipy_sip_tm_uac_run(struct usipy_sip_tm_txi *tp, size_t index, const struct usi
         outp->nsent += 1;
     }
     usipy_sip_tm_run_out_consider(outp, tp->outbound.pub.next_send_at_ms);
-    usipy_sip_tm_run_out_consider(outp, tp->invite_timeout_at_ms);
+    usipy_sip_tm_uac_consider_invite(outp, tp->invite);
     usipy_sip_tm_run_out_consider_timer(outp, &tp->pub.common.timer);
     return (USIPY_SIP_TM_OK);
 }
@@ -1390,8 +1616,7 @@ usipy_sip_tm_new_uac_tr(struct usipy_sip_tm *tm,
     const struct usipy_method_db_entr *mdp;
     const struct usipy_sip_tm_addr *localp;
     const struct usipy_sip_tm_uac_callbacks *callbacksp;
-    const struct usipy_sip_tm_timer_policy timers =
-      USIPY_SIP_TM_TIMER_POLICY_RFC3261;
+    struct usipy_sip_tm_timer_policy timers;
     int rval;
     size_t tx_index;
 
@@ -1433,6 +1658,7 @@ usipy_sip_tm_new_uac_tr(struct usipy_sip_tm *tm,
     }
     tp->cache.uac.contact_expires = tpp->contact_expires;
     tp->cache.uac.invite_expires = tpp->invite_expires != 0 ? tpp->invite_expires : 300u;
+    usipy_sip_tm_timer_policy_resolve(&timers, tpp->timers);
     rval = usipy_sip_tm_activate_uac_slot(tm, tp,
       tpp->request_id->method_type == USIPY_SIP_METHOD_INVITE ?
       USIPY_SIP_TM_STATE_CALLING : USIPY_SIP_TM_STATE_TRYING,
@@ -1464,13 +1690,10 @@ usipy_sip_tm_new_in_dialog_transaction(struct usipy_sip_tm *tm,
     const struct usipy_method_db_entr *mdp;
     static const struct usipy_sip_tm_addr empty_local;
     static const struct usipy_sip_tm_route_set empty_route_set;
-    static const struct usipy_sip_tm_timer_policy default_timers =
-      USIPY_SIP_TM_TIMER_POLICY_RFC3261;
     static const struct usipy_sip_tm_uac_callbacks empty_callbacks;
     const struct usipy_sip_tm_addr *localp;
     const struct usipy_sip_tm_route_set *route_setp;
     const struct usipy_sip_tm_dialog_tags *dialog_tagsp;
-    const struct usipy_sip_tm_timer_policy *timersp;
     const struct usipy_sip_tm_uac_callbacks *callbacksp;
     struct usipy_sip_tm_timer_policy timers;
     int rval;
@@ -1504,7 +1727,6 @@ usipy_sip_tm_new_in_dialog_transaction(struct usipy_sip_tm *tm,
     }
     route_setp = tpp->route_set != NULL ? tpp->route_set : &empty_route_set;
     localp = tpp->local != NULL ? tpp->local : &empty_local;
-    timersp = tpp->timers != NULL ? tpp->timers : &default_timers;
     callbacksp = tpp->callbacks != NULL ? tpp->callbacks : &empty_callbacks;
     dialog_tagsp = tpp->dialog_tags;
     USIPY_DASSERT(route_setp->nroutes == 0 || route_setp->routes != NULL);
@@ -1532,7 +1754,7 @@ usipy_sip_tm_new_in_dialog_transaction(struct usipy_sip_tm *tm,
         goto nospc;
     }
     usipy_sip_tm_set_route_set(tp, tp->cache.uac.routes, route_setp->nroutes);
-    timers = timersp->t1_ms != 0 ? *timersp : default_timers;
+    usipy_sip_tm_timer_policy_resolve(&timers, tpp->timers);
     rval = usipy_sip_tm_activate_uac_slot(tm, tp, USIPY_SIP_TM_STATE_TRYING,
       tpp->request_id, localp, tpp->request_target->target, callbacksp,
       &timers);
@@ -1615,6 +1837,9 @@ usipy_sip_tm_next_transaction(struct usipy_sip_tm *tm, size_t index,
     if (!tp->active) {
         return (USIPY_SIP_TM_ERR_NOT_FOUND);
     }
+    if ((tp->pub.common.flags & USIPY_SIP_TM_F_ABANDONED) != 0) {
+        return (USIPY_SIP_TM_ERR_UNSUPPORTED);
+    }
     if (tp->child_index != USIPY_SIP_TM_TX_INDEX_NONE) {
         USIPY_DASSERT(tp->child_index < tm->max_transactions);
         childp = &tm->transactions[tp->child_index];
@@ -1622,9 +1847,6 @@ usipy_sip_tm_next_transaction(struct usipy_sip_tm *tm, size_t index,
             return (USIPY_SIP_TM_ERR_UNSUPPORTED);
         }
         tp->child_index = USIPY_SIP_TM_TX_INDEX_NONE;
-    }
-    if (tp->invite_cancel_state == USIPY_SIP_TM_INVITE_CANCEL_SCHEDULED) {
-        return (USIPY_SIP_TM_ERR_UNSUPPORTED);
     }
     rval = usipy_sip_tm_transition(tp, USIPY_SIP_TM_STATE_CALLING);
     if (rval != USIPY_SIP_TM_OK) {
@@ -1666,5 +1888,14 @@ usipy_sip_tm_cancel(struct usipy_sip_tm *tm, size_t index)
     if (tp->child_index != USIPY_SIP_TM_TX_INDEX_NONE || tp->final_reported != 0) {
         return (USIPY_SIP_TM_ERR_UNSUPPORTED);
     }
-    return (usipy_sip_tm_uac_start_cancel(tm, index));
+    USIPY_DASSERT(tp->invite->app_cancelled == 0);
+    if (tp->invite->app_cancelled) {
+        return (USIPY_SIP_TM_ERR_UNSUPPORTED);
+    }
+    tp->invite->app_cancelled = 1;
+    if ((tp->pub.common.flags & USIPY_SIP_TM_F_ABANDONED) != 0) {
+        return (USIPY_SIP_TM_OK);
+    }
+    usipy_sip_tm_uac_abandon(tm, index);
+    return (USIPY_SIP_TM_OK);
 }

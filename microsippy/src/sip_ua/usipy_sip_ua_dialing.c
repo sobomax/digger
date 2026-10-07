@@ -94,6 +94,7 @@ static int
 usipy_sip_ua_dialing_on_event(struct usipy_sip_ua *uap,
   const struct usipy_sip_ua_event *eventp, size_t *indexp)
 {
+    const struct usipy_sip_tm_tx *txp;
     int rval;
 
     USIPY_DASSERT(uap != NULL);
@@ -104,9 +105,19 @@ usipy_sip_ua_dialing_on_event(struct usipy_sip_ua *uap,
     if (eventp->type != USIPY_SIP_UA_EVENT_DISCONNECT) {
         return (USIPY_SIP_TM_ERR_UNSUPPORTED);
     }
-    rval = usipy_sip_tm_cancel(uap->tm, uap->tx_index);
-    if (rval != USIPY_SIP_TM_OK) {
-        return (rval);
+    txp = usipy_sip_tm_get_transaction(uap->tm, uap->tx_index);
+    /* Our INVITE may be gone already, reaped, and its slot reused since */
+    if (txp != NULL && (txp->role != USIPY_SIP_TM_ROLE_UAC ||
+      txp->common.id.method_type != USIPY_SIP_METHOD_INVITE ||
+      uap->dialingp == NULL ||
+      !usipy_str_eq(&txp->common.id.call_id, &uap->dialingp->request_call_id))) {
+        txp = NULL;
+    }
+    if (txp != NULL && (txp->common.flags & USIPY_SIP_TM_F_ABANDONED) == 0) {
+        rval = usipy_sip_tm_cancel(uap->tm, uap->tx_index);
+        if (rval != USIPY_SIP_TM_OK) {
+            return (rval);
+        }
     }
     usipy_sip_ua_clear_dialing_request(uap);
     usipy_sip_ua_transition(uap, USIPY_SIP_UA_STATE_DISCONNECTED);

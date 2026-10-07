@@ -29,10 +29,10 @@
         return (wrd | msk); \
     }
 
-TOLOWER_FUNC(long);
-TOLOWER_FUNC(int);
-TOLOWER_FUNC(short);
-TOLOWER_FUNC(char);
+TOLOWER_FUNC(long)
+TOLOWER_FUNC(int)
+TOLOWER_FUNC(short)
+TOLOWER_FUNC(char)
 
 #define FASTCASEBCMP_LOOP(itype) \
     while (len >= sizeof(unsigned itype)) { \

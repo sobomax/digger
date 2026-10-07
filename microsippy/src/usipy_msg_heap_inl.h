@@ -11,20 +11,20 @@ usipy_msg_heap_cnt_rollback(struct usipy_msg_heap *hp, const struct usipy_msg_he
     memset(hp->first + hp->alen, '\0', cntp->alen);
 }
 
+/*
+ * usipy_msg_heap_alloc(), with the allocation recorded in *cntp, for the
+ * caller to extend, reclaim or roll back.
+ */
 static inline void *
 usipy_msg_heap_alloc_cnt(struct usipy_msg_heap *hp, size_t len,
   struct usipy_msg_heap_cnt *cntp)
 {
     void *rp;
-    size_t currfree, alen;
 
-    alen = USIPY_ALIGNED_SIZE(len);
-    currfree = usipy_msg_heap_remaining(hp);
-    if (currfree < len)
+    rp = usipy_msg_heap_alloc(hp, len);
+    if (rp == NULL)
        return (NULL);
-    rp = hp->first + hp->alen;
-    hp->alen += alen;
-    cntp->alen = alen;
+    cntp->alen = USIPY_ALIGNED_SIZE(len);
     USIPY_DCODE(cntp->lastalen = hp->alen);
     return (rp);
 }

@@ -28,32 +28,67 @@ jobs:
             packages: clang
             cc_flags: -march=native
 
-          - name: Ubuntu 24.04 GCC
-            os: ubuntu-24.04
+          - name: Ubuntu 26.04 GCC
+            os: ubuntu-26.04
             cc: gcc
             cxx: g++
             packages: build-essential
             cc_flags: -march=native
 
-          - name: Ubuntu 24.04 Clang
-            os: ubuntu-24.04
+          - name: Ubuntu 26.04 Clang
+            os: ubuntu-26.04
             cc: clang
             cxx: clang++
             packages: clang
             cc_flags: -march=native
 
+          - name: Ubuntu 26.04 GCC UBSan
+            os: ubuntu-26.04
+            cc: gcc
+            cxx: g++
+            packages: build-essential
+            cc_flags: -fsanitize=undefined -fno-sanitize-recover=all -g
+            ld_flags: -fsanitize=undefined
+
+          - name: Ubuntu 26.04 Clang ASan + UBSan
+            os: ubuntu-26.04
+            cc: clang
+            cxx: clang++
+            packages: clang
+            cc_flags: -fsanitize=address,undefined -fno-sanitize-recover=all -fno-omit-frame-pointer -g
+            ld_flags: -fsanitize=address,undefined
+
+          - name: Ubuntu 26.04 Clang MSan
+            os: ubuntu-26.04
+            cc: clang
+            cxx: clang++
+            packages: clang llvm
+            cc_flags: -fsanitize=memory -fsanitize-memory-track-origins=2 -fno-omit-frame-pointer -fPIE -g
+            ld_flags: -fsanitize=memory -pie
+
+          - name: Ubuntu 26.04 Clang UBSan
+            os: ubuntu-26.04
+            cc: clang
+            cxx: clang++
+            packages: clang
+            cc_flags: -fsanitize=undefined -fno-sanitize-recover=all -g
+            ld_flags: -fsanitize=undefined
+
     env:
       CC: ${{ matrix.cc }}
       CXX: ${{ matrix.cxx }}
       CC_FLAGS: ${{ matrix.cc_flags }}
+      LD_FLAGS: ${{ matrix.ld_flags }}
+      UBSAN_OPTIONS: print_stacktrace=1
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Install dependencies
         run: |
           sudo apt-get update
+          sudo apt-get upgrade -y
           sudo apt-get install -y cmake expect netcat-openbsd ${{ matrix.packages }}
 
       - name: Show tool versions
@@ -65,6 +100,7 @@ jobs:
         run: |
           cmake \
             -DCMAKE_C_FLAGS="-Werror ${CC_FLAGS}" \
+            -DCMAKE_EXE_LINKER_FLAGS="${LD_FLAGS}" \
             -S platforms/posix \
             -B platforms/posix/build
 

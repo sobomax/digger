@@ -5,6 +5,9 @@ endif()
 project (usipy_test)
 find_package (Threads)
 include (CheckIPOSupported)
+include (CheckSymbolExists)
+check_symbol_exists(clock_nanosleep "time.h" HAVE_CLOCK_NANOSLEEP)
+check_symbol_exists(TIMER_ABSTIME "time.h" HAVE_TIMER_ABSTIME)
 
 include (TestBigEndian)
 TEST_BIG_ENDIAN(IS_BIG_ENDIAN)
@@ -36,6 +39,13 @@ target_include_directories(microsippy PRIVATE
 target_sources(microsippy PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/usipy_platform_default.c"
 )
+target_compile_definitions(microsippy PRIVATE HAVE_CMAKE_SYMBOL_CHECKS=1)
+if (HAVE_CLOCK_NANOSLEEP)
+  target_compile_definitions(microsippy PRIVATE HAVE_CLOCK_NANOSLEEP=1)
+endif()
+if (HAVE_TIMER_ABSTIME)
+  target_compile_definitions(microsippy PRIVATE HAVE_TIMER_ABSTIME=1)
+endif()
 target_link_libraries(usipy_test PRIVATE
   microsippy
   ${CMAKE_THREAD_LIBS_INIT}

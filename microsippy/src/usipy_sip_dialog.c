@@ -16,8 +16,8 @@
 #include "usipy_sip_method_db.h"
 #include "usipy_sip_res.h"
 #include "usipy_sip_tid.h"
+#include "usipy_sip_dialog_internal.h"
 #include "usipy_sip_tm_internal.h"
-#include "usipy_sip_uri.h"
 
 #define USIPY_SIP_DIALOG_HEAP_SIZE 1024u
 
@@ -44,6 +44,12 @@ struct usipy_sip_dialog {
     struct usipy_sip_tm *tm;
     struct usipy_msg_heap heap;
     struct usipy_sip_dialog_state state;
+    size_t invite_index;
+    uint32_t retry_ms;
+    int ack_pending;
+    struct usipy_sip_tm_uas_callbacks invite_callbacks;
+    void (*no_ack_handler)(void *, size_t);
+    void *no_ack_arg;
     int ended;
     unsigned char _storage[USIPY_SIP_DIALOG_HEAP_SIZE];
 };
@@ -171,6 +177,7 @@ usipy_sip_dialog_uac_ctor(struct usipy_sip_tm *tm, size_t invite_index,
     }
     usipy_msg_heap_init(&dp->heap, dp->_storage, sizeof(dp->_storage), NULL, 0);
     dp->tm = tm;
+    dp->invite_index = USIPY_SIP_TM_TX_INDEX_NONE;
     if (usipy_sip_tm_init_uac_dialog_request_params(tm, invite_index, msg,
       USIPY_SIP_METHOD_BYE, &dp->heap, &tpp) != USIPY_SIP_TM_OK) {
         free(dp);
@@ -180,6 +187,73 @@ usipy_sip_dialog_uac_ctor(struct usipy_sip_tm *tm, size_t invite_index,
     usipy_sip_dialog_store_state(&dp->state, &params);
     return (dp);
 }
+
+/* The 2xx went out: send it again in retry_ms, and that twice as late the
+   next time, up to T2. End-to-end reliability applies even when our hop
+   uses TCP/TLS. */
+static void
+usipy_sip_dialog_uas_sent(void *arg, uint64_t now_ms)
+{
+    struct usipy_sip_dialog *dp = arg;
+    uint64_t doubled;
+
+    if (!dp->ack_pending || usipy_sip_tm_uas_send_at(dp->tm,
+      dp->invite_index, dp, now_ms + dp->retry_ms) != USIPY_SIP_TM_OK) {
+        return;
+    }
+    doubled = (uint64_t)dp->retry_ms * 2;
+    dp->retry_ms = doubled < dp->state.timers.t2_ms ?
+      (uint32_t)doubled : dp->state.timers.t2_ms;
+}
+
+/* No more of the 2xx: its ACK came, or the dialog is over */
+static void
+usipy_sip_dialog_uas_acked(void *arg)
+{
+    struct usipy_sip_dialog *dp = arg;
+
+    dp->ack_pending = 0;
+    /* Nothing to stop for a UAC dialog, or once the INVITE is reaped */
+    (void)usipy_sip_tm_uas_send_at(dp->tm, dp->invite_index, dp,
+      USIPY_SIP_TM_TIME_NONE);
+}
+
+/* Timer L: without the ACK by now, end the session (RFC 3261 13.3.1.4),
+   unless the no_ack callback keeps it */
+static int
+usipy_sip_dialog_uas_timeout(void *arg)
+{
+    struct usipy_sip_dialog *dp = arg;
+    const struct usipy_sip_tm_tx *txp;
+    const struct usipy_sip_tm_uas_callbacks callbacks = dp->invite_callbacks;
+    void (*handler)(void *, size_t) = dp->no_ack_handler;
+    void *handler_arg = dp->no_ack_arg;
+    const size_t invite_index = dp->invite_index;
+    size_t bye_index = USIPY_SIP_TM_TX_INDEX_NONE;
+
+    txp = usipy_sip_tm_uas_owned_tx(dp->tm, invite_index, dp);
+    if (txp == NULL || !dp->ack_pending) {
+        return (0);
+    }
+    usipy_sip_dialog_uas_acked(dp);
+    if (callbacks.no_ack != NULL &&
+      callbacks.no_ack(callbacks.arg, invite_index, txp) != 0) {
+        return (1);
+    }
+    /* Even if a BYE cannot be allocated, report the failed session. The
+       handler may destroy the dialog: it goes last. */
+    (void)usipy_sip_dialog_end(dp, NULL, &bye_index);
+    if (handler != NULL) {
+        handler(handler_arg, bye_index);
+    }
+    return (1);
+}
+
+static const struct usipy_sip_tm_uas_owner usipy_sip_dialog_uas_owner = {
+    .sent = usipy_sip_dialog_uas_sent,
+    .acked = usipy_sip_dialog_uas_acked,
+    .timeout = usipy_sip_dialog_uas_timeout,
+};
 
 struct usipy_sip_dialog *
 usipy_sip_dialog_uas_ctor(struct usipy_sip_tm *tm, size_t invite_index,
@@ -199,8 +273,21 @@ usipy_sip_dialog_uas_ctor(struct usipy_sip_tm *tm, size_t invite_index,
     if (dp == NULL) {
         return (NULL);
     }
+    /* The INVITE's own callbacks, before the 2xx makes it drop no_ack */
+    if (usipy_sip_tm_uas_get_callbacks(tm, invite_index,
+      &dp->invite_callbacks) != USIPY_SIP_TM_OK) {
+        free(dp);
+        return (NULL);
+    }
     usipy_msg_heap_init(&dp->heap, dp->_storage, sizeof(dp->_storage), NULL, 0);
     dp->tm = tm;
+    dp->invite_index = invite_index;
+    if (rpp->callbacks != NULL) {
+        dp->invite_callbacks.no_ack = rpp->callbacks->no_ack;
+        if (rpp->callbacks->arg != NULL) {
+            dp->invite_callbacks.arg = rpp->callbacks->arg;
+        }
+    }
     if (usipy_sip_tm_init_uas_dialog_request_params(tm, invite_index,
       USIPY_SIP_METHOD_BYE, &dp->heap, &tpp) != USIPY_SIP_TM_OK ||
       usipy_sip_tm_send_uas_response(tm, invite_index, rpp) != USIPY_SIP_TM_OK) {
@@ -209,13 +296,34 @@ usipy_sip_dialog_uas_ctor(struct usipy_sip_tm *tm, size_t invite_index,
     }
     usipy_sip_tm_dialog_request_get_params(&tpp, &params);
     usipy_sip_dialog_store_state(&dp->state, &params);
+    dp->ack_pending = 1;
+    dp->retry_ms = dp->state.timers.t1_ms;
+    if (usipy_sip_tm_uas_set_owner(tm, invite_index,
+      &usipy_sip_dialog_uas_owner, dp) != USIPY_SIP_TM_OK) {
+        free(dp);
+        return (NULL);
+    }
     return (dp);
+}
+
+void
+usipy_sip_dialog_set_no_ack_handler(struct usipy_sip_dialog *dp,
+  void (*handler)(void *, size_t), void *arg)
+{
+    dp->no_ack_handler = handler;
+    dp->no_ack_arg = arg;
 }
 
 void
 usipy_sip_dialog_dtor(struct usipy_sip_dialog *dp)
 {
+
     USIPY_DASSERT(dp != NULL);
+    if (dp->invite_index != USIPY_SIP_TM_TX_INDEX_NONE) {
+        usipy_sip_dialog_uas_acked(dp);
+        /* The INVITE may be reaped already */
+        (void)usipy_sip_tm_uas_clear_owner(dp->tm, dp->invite_index, dp);
+    }
     free(dp);
 }
 
@@ -229,14 +337,10 @@ usipy_sip_dialog_matches_uas_transaction(const struct usipy_sip_dialog *dp,
 }
 
 int
-usipy_sip_dialog_handle_uas_transaction(struct usipy_sip_dialog *dp, size_t tx_index,
+usipy_sip_dialog_accept_uas_bye(struct usipy_sip_dialog *dp, size_t tx_index,
   const struct usipy_msg *msg)
 {
     const struct usipy_sip_tm_tx *txp;
-    const struct usipy_sip_tm_uas_response_params ok = {
-      .status = &usipy_sip_res_ok,
-    };
-    int rval;
 
     USIPY_DASSERT(dp != NULL);
     USIPY_DASSERT(msg != NULL);
@@ -252,12 +356,25 @@ usipy_sip_dialog_handle_uas_transaction(struct usipy_sip_dialog *dp, size_t tx_i
       msg->sline.parsed.rl.method->cantype != USIPY_SIP_METHOD_BYE) {
         return (USIPY_SIP_TM_ERR_UNSUPPORTED);
     }
-    rval = usipy_sip_tm_send_uas_response(dp->tm, tx_index, &ok);
+    dp->ended = 1;
+    usipy_sip_dialog_uas_acked(dp);
+    return (USIPY_SIP_TM_OK);
+}
+
+int
+usipy_sip_dialog_handle_uas_transaction(struct usipy_sip_dialog *dp, size_t tx_index,
+  const struct usipy_msg *msg)
+{
+    const struct usipy_sip_tm_uas_response_params ok = {
+      .status = &usipy_sip_res_ok,
+    };
+    int rval;
+
+    rval = usipy_sip_dialog_accept_uas_bye(dp, tx_index, msg);
     if (rval != USIPY_SIP_TM_OK) {
         return (rval);
     }
-    dp->ended = 1;
-    return (USIPY_SIP_TM_OK);
+    return (usipy_sip_tm_send_uas_response(dp->tm, tx_index, &ok));
 }
 
 int
@@ -291,5 +408,6 @@ usipy_sip_dialog_end(struct usipy_sip_dialog *dp,
     }
     dp->state.request_id.cseq = request_id.cseq;
     dp->ended = 1;
+    usipy_sip_dialog_uas_acked(dp);
     return (USIPY_SIP_TM_OK);
 }
