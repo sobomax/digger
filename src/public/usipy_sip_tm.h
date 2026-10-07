@@ -25,7 +25,8 @@ enum usipy_sip_tm_state {
     USIPY_SIP_TM_STATE_PROCEEDING,
     USIPY_SIP_TM_STATE_COMPLETED,
     USIPY_SIP_TM_STATE_CONFIRMED,
-    USIPY_SIP_TM_STATE_TERMINATED
+    USIPY_SIP_TM_STATE_TERMINATED,
+    USIPY_SIP_TM_STATE_ACCEPTED
 };
 
 enum usipy_sip_tm_transport {
@@ -81,7 +82,8 @@ enum usipy_sip_tm_timer_kind {
     USIPY_SIP_TM_TIMER_H,
     USIPY_SIP_TM_TIMER_I,
     USIPY_SIP_TM_TIMER_J,
-    USIPY_SIP_TM_TIMER_K
+    USIPY_SIP_TM_TIMER_K,
+    USIPY_SIP_TM_TIMER_L
 };
 
 struct usipy_sip_tm_addr {
@@ -110,12 +112,16 @@ struct usipy_sip_tm_timer_policy {
     uint32_t t2_ms;
     uint32_t t4_ms;
     uint32_t timer_a_ms;
+    /* Outgoing INVITE no-response deadline (0 uses 64*T1). Reports
+     * TIMEOUT_PR and detaches application callbacks; internal cleanup keeps
+     * retransmitting for up to another 64*T1 while awaiting a response. */
     uint32_t timer_b_ms;
     uint32_t timer_d_ms;
     uint32_t timer_e_ms;
     uint32_t timer_f_ms;
     uint32_t timer_j_ms;
     uint32_t timer_k_ms;
+    uint32_t timer_l_ms;
 };
 
 #define USIPY_SIP_TM_TIMER_POLICY_RFC3261 \
@@ -129,13 +135,15 @@ struct usipy_sip_tm_timer_policy {
       .timer_e_ms = 0, \
       .timer_f_ms = 0, \
       .timer_j_ms = 0, \
-      .timer_k_ms = 0 \
+      .timer_k_ms = 0, \
+      .timer_l_ms = 0 \
     })
 
 #define USIPY_SIP_TM_TIMER_POLICY_DEFAULT USIPY_SIP_TM_TIMER_POLICY_RFC3261
 
 #define USIPY_SIP_TM_F_RELIABLE_TRANSPORT 0x00000001u
 #define USIPY_SIP_TM_F_TERMINATED         0x00000002u
+#define USIPY_SIP_TM_F_ABANDONED          0x00000004u
 
 #define USIPY_SIP_TM_TX_INDEX_NONE  ((size_t)-1)
 #define USIPY_SIP_TM_TIME_NONE      UINT64_MAX
@@ -195,7 +203,7 @@ typedef void (*usipy_sip_tm_uac_timeout_cb)(void *, size_t,
   const struct usipy_sip_tm_tx *, enum usipy_sip_tm_uac_timeout_id);
 typedef void (*usipy_sip_tm_uas_cancel_cb)(void *, size_t,
   const struct usipy_sip_tm_tx *, const struct usipy_msg *);
-typedef void (*usipy_sip_tm_uas_no_ack_cb)(void *, size_t,
+typedef int (*usipy_sip_tm_uas_no_ack_cb)(void *, size_t,
   const struct usipy_sip_tm_tx *);
 typedef void (*usipy_sip_tm_incoming_request_cb)(void *,
   const struct usipy_sip_tm_handle_incoming_in *, const struct usipy_msg *);
@@ -209,6 +217,9 @@ struct usipy_sip_tm_uac_callbacks {
 struct usipy_sip_tm_uas_callbacks {
     void *arg;
     usipy_sip_tm_uas_cancel_cb cancel;
+    /* No ACK: by Timer H for an error answer (the return is ignored), or
+     * by Timer L for a 2xx, where non-zero keeps the call, rather than it
+     * being ended with BYE (and the UA told) as RFC 3261 13.3.1.4 has it. */
     usipy_sip_tm_uas_no_ack_cb no_ack;
 };
 
@@ -291,9 +302,15 @@ struct usipy_sip_tm_new_uac_tr_params {
     const struct usipy_sip_tm_addr *local;
     const struct usipy_sip_tm_request_parties *parties_by_username;
     uint32_t contact_expires;
+    /* An INVITE's Expires (s, 300 if 0): how long it may ring before it's
+     * CANCELed; with no response at all Timer B gives up before that.
+     * Expiry reports TIMEOUT_FR once and detaches application callbacks;
+     * retain the transaction and keep pumping the TM for CANCEL/ACK/BYE. */
     uint32_t invite_expires;
     const struct usipy_sip_tm_request_payload *payload;
     const struct usipy_sip_tm_uac_callbacks *callbacks;
+    /* NULL, or fields left 0, for RFC 3261's */
+    const struct usipy_sip_tm_timer_policy *timers;
 };
 
 struct usipy_sip_tm_new_uas_tr_params {
@@ -400,6 +417,13 @@ int usipy_sip_tm_uas_tr_cancelled(struct usipy_sip_tm *,
 int usipy_sip_tm_next_transaction(struct usipy_sip_tm *, size_t,
   const struct usipy_sip_tm_request_payload *,
   const struct usipy_sip_tm_extra_header *, size_t);
+/* Abandon an outgoing INVITE and detach its application callbacks. Repeating
+ * application cancellation of a pending INVITE is a programming error (debug
+ * assertion); acknowledging automatic abandonment once is allowed. Cleanup
+ * waits for any provisional before CANCEL, ACKs final responses and sends BYE
+ * after a crossed 2xx. Keep running the TM and reap only terminated slots;
+ * drop_transaction() deliberately discards this cleanup state. If CANCEL
+ * cannot be allocated, the INVITE terminates locally without SIP cleanup. */
 int usipy_sip_tm_cancel(struct usipy_sip_tm *, size_t);
 int usipy_sip_tm_run(struct usipy_sip_tm_run_in *,
   struct usipy_sip_tm_run_out *);

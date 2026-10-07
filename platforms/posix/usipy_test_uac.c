@@ -831,8 +831,15 @@ assert_invite_ack_request(const struct usipy_msg *invite_reqp,
     }
 }
 
+struct init_invite_tx_args {
+    struct usipy_sip_tm *tm;
+    struct invite_cbarg *carg;
+    size_t *tx_indexp;
+    const struct usipy_sip_tm_timer_policy *timersp;
+};
+
 static void
-init_invite_tx(struct usipy_sip_tm *tm, struct invite_cbarg *carg, size_t *tx_indexp)
+init_invite_tx_with(const struct init_invite_tx_args *args)
 {
     struct usipy_sip_tm_new_uac_tr_params tp = {
       .request_id = &(struct usipy_sip_tm_request_id){
@@ -856,15 +863,27 @@ init_invite_tx(struct usipy_sip_tm *tm, struct invite_cbarg *carg, size_t *tx_in
       },
       .invite_expires = 1,
       .callbacks = &(struct usipy_sip_tm_uac_callbacks){
-        .arg = carg,
+        .arg = args->carg,
         .response = invite_response,
         .timeout = invite_timeout,
       },
+      .timers = args->timersp,
     };
+
+    ASSERT_CALL_EQ(usipy_sip_tm_new_uac_tr(args->tm, &tp, args->tx_indexp),
+      USIPY_SIP_TM_OK);
+}
+
+static void
+init_invite_tx(struct usipy_sip_tm *tm, struct invite_cbarg *carg, size_t *tx_indexp)
+{
     struct usipy_sip_tm_tx *txp;
 
-    ASSERT_CALL_EQ(usipy_sip_tm_new_uac_tr(tm, &tp, tx_indexp),
-      USIPY_SIP_TM_OK);
+    init_invite_tx_with(&(struct init_invite_tx_args){
+      .tm = tm,
+      .carg = carg,
+      .tx_indexp = tx_indexp,
+    });
     txp = (struct usipy_sip_tm_tx *)usipy_sip_tm_get_transaction(tm, *tx_indexp);
     assert(txp != NULL);
     txp->common.timers.t1_ms = 10;
@@ -1041,7 +1060,7 @@ build_uas_invite_cancel(const struct usipy_msg *invite_reqp)
     return (usipy_sip_msg_ctor_fromwire(raw, (size_t)blen, &perr));
 }
 
-static void
+static int
 uas_no_ack(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp)
 {
     struct uas_cbarg *carg = arg;
@@ -1050,6 +1069,7 @@ uas_no_ack(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp)
     assert(txp != NULL);
     assert(tx_index == carg->tx_index);
     carg->nnoacks += 1;
+    return (0);
 }
 
 static void
@@ -1836,7 +1856,7 @@ assert_bye_request(const struct usipy_msg *invite_reqp, const struct usipy_msg *
     ASSERT_CALL_EQ(usipy_sip_msg_parse_hdrs_get((struct usipy_msg *)bye_reqp,
       USIPY_HFT_MASK(USIPY_HF_FROM) | USIPY_HFT_MASK(USIPY_HF_TO) |
       USIPY_HFT_MASK(USIPY_HF_CSEQ) | USIPY_HFT_MASK(USIPY_HF_CALLID) |
-      USIPY_HFT_MASK(USIPY_HF_ROUTE), 0, matchp), 0);
+      (nroutes != 0 ? USIPY_HFT_MASK(USIPY_HF_ROUTE) : 0), 0, matchp), 0);
     fromp = NULL;
     top = NULL;
     cseqp = NULL;
@@ -1934,15 +1954,65 @@ test_invite_pr_timeout(void)
     assert(sarg.nsent == 1);
     assert_request_expires(txp, "1");
 
-    carg.now_ms = 1000;
-    invite_run_step(&sarg, &rin, &rout, 1000);
+    /* Timer B reports failure; protocol cleanup continues independently. */
+    carg.now_ms = 639;
+    invite_run_step(&sarg, &rin, &rout, 639);
+    assert(carg.ntimeouts == 0);
+    carg.now_ms = 640;
+    invite_run_step(&sarg, &rin, &rout, 640);
     txp = usipy_sip_tm_get_transaction(tm, tx_index);
     assert(txp != NULL);
-    assert(txp->state == USIPY_SIP_TM_STATE_TERMINATED);
+    assert(txp->state == USIPY_SIP_TM_STATE_CALLING);
+    assert((txp->common.flags & USIPY_SIP_TM_F_ABANDONED) != 0);
     assert(carg.nresponses == 0);
     assert(carg.ntimeouts == 1);
     assert(carg.timeout_ids[0] == USIPY_SIP_TM_TIMEOUT_PR);
 
+    invite_run_step(&sarg, &rin, &rout, 1280);
+    assert(txp->state == USIPY_SIP_TM_STATE_TERMINATED);
+    assert(carg.ntimeouts == 1);
+    usipy_sip_tm_dtor(tm);
+    close(sock);
+}
+
+/* A policy given with the INVITE: just its Timer B, the rest RFC 3261's */
+static void
+test_invite_timer_b_policy(void)
+{
+    static const char scenario[] = "INVITE (Timer B 300ms) -> PR timeout";
+    struct invite_cbarg carg = {0};
+    struct invite_send_arg sarg = {0};
+    struct usipy_sip_tm_run_in rin = {0};
+    struct usipy_sip_tm_run_out rout;
+    const struct usipy_sip_tm_tx *txp;
+    struct usipy_sip_tm *tm;
+    size_t tx_index;
+    int sock;
+
+    tm = invite_tm_ctor(&sock);
+    carg.scenario = scenario;
+    sarg.scenario = scenario;
+    invite_print_banner(scenario);
+    init_invite_tx_with(&(struct init_invite_tx_args){
+      .tm = tm,
+      .carg = &carg,
+      .tx_indexp = &tx_index,
+      .timersp = &(struct usipy_sip_tm_timer_policy){.timer_b_ms = 300},
+    });
+    txp = usipy_sip_tm_get_transaction(tm, tx_index);
+    assert(txp != NULL);
+    assert(txp->common.timers.t1_ms == 500 && txp->common.timers.timer_b_ms == 300);
+    rin.tm = tm;
+    rin.send_to = invite_send_to;
+    rin.send_to_arg = &sarg;
+    invite_run_step(&sarg, &rin, &rout, 0);
+    carg.now_ms = 299;
+    invite_run_step(&sarg, &rin, &rout, 299);
+    assert(carg.ntimeouts == 0);
+    carg.now_ms = 300;
+    invite_run_step(&sarg, &rin, &rout, 300);
+    assert(carg.ntimeouts == 1);
+    assert(carg.timeout_ids[0] == USIPY_SIP_TM_TIMEOUT_PR);
     usipy_sip_tm_dtor(tm);
     close(sock);
 }
@@ -1986,11 +2056,16 @@ test_invite_fr_timeout_single_100(void)
     assert(carg.nresponses == 1);
     assert(carg.status_codes[0] == 100);
 
+    /* Ringing: Timer B (640ms) is no more, the INVITE Expires (1s) is */
+    carg.now_ms = 640;
+    invite_run_step(&sarg, &rin, &rout, 640);
+    assert(carg.ntimeouts == 0);
     carg.now_ms = 1000;
     invite_run_step(&sarg, &rin, &rout, 1000);
     txp = usipy_sip_tm_get_transaction(tm, tx_index);
     assert(txp != NULL);
-    assert(txp->state == USIPY_SIP_TM_STATE_TERMINATED);
+    assert(txp->state == USIPY_SIP_TM_STATE_PROCEEDING);
+    assert((txp->common.flags & USIPY_SIP_TM_F_ABANDONED) != 0);
     assert(carg.ntimeouts == 1);
     assert(carg.timeout_ids[0] == USIPY_SIP_TM_TIMEOUT_FR);
 
@@ -2044,7 +2119,8 @@ test_invite_fr_timeout_repeated_100(void)
     invite_run_step(&sarg, &rin, &rout, 1000);
     txp = usipy_sip_tm_get_transaction(tm, tx_index);
     assert(txp != NULL);
-    assert(txp->state == USIPY_SIP_TM_STATE_TERMINATED);
+    assert(txp->state == USIPY_SIP_TM_STATE_PROCEEDING);
+    assert((txp->common.flags & USIPY_SIP_TM_F_ABANDONED) != 0);
     assert(carg.ntimeouts == 1);
     assert(carg.timeout_ids[0] == USIPY_SIP_TM_TIMEOUT_FR);
 
@@ -2352,8 +2428,7 @@ test_invite_cancel_pending(void)
     hin.peer = &txp->common.peer;
     hin.local = &txp->common.local;
     invite_handle_step(&carg, &hin, &hout, resp100, 100);
-    assert(carg.nresponses == 1);
-    assert(carg.status_codes[0] == 100);
+    assert(carg.nresponses == 0);
 
     invite_run_step(&sarg, &rin, &rout, 100);
     cancel_index = find_method_tx(tm, tx_index, USIPY_SIP_METHOD_CANCEL);
@@ -2373,7 +2448,7 @@ test_invite_cancel_pending(void)
     hin.len = cancel_resp->onwire.l;
     hin.now_ms = 110;
     ASSERT_CALL_EQ(usipy_sip_tm_handle_incoming(&hin, &hout), USIPY_SIP_TM_OK);
-    assert(carg.nresponses == 1);
+    assert(carg.nresponses == 0);
     assert(carg.ntimeouts == 0);
 
     usipy_sip_msg_dtor(cancel_resp);
@@ -2539,7 +2614,7 @@ test_uas_invite_2xx_ack(void)
     assert(sarg.nsent == 1);
     txp = usipy_sip_tm_get_transaction(tm, tx_index);
     assert(txp != NULL);
-    assert(txp->state == USIPY_SIP_TM_STATE_COMPLETED);
+    assert(txp->state == USIPY_SIP_TM_STATE_ACCEPTED);
     respp = usipy_sip_msg_ctor_fromwire(txp->common.outbound.raw.s.ro,
       txp->common.outbound.raw.l, &perr);
     assert(respp != NULL);
@@ -2558,7 +2633,7 @@ test_uas_invite_2xx_ack(void)
 
     txp = usipy_sip_tm_get_transaction(tm, tx_index);
     assert(txp != NULL);
-    assert(txp->state == USIPY_SIP_TM_STATE_COMPLETED);
+    assert(txp->state == USIPY_SIP_TM_STATE_ACCEPTED);
 
     usipy_sip_msg_dtor(ackp);
     usipy_sip_msg_dtor(respp);
@@ -2611,7 +2686,8 @@ test_invite_fr_timeout_auto_cancel(void)
     txp = usipy_sip_tm_get_transaction(tm, tx_index);
     cancel_index = find_method_tx(tm, tx_index, USIPY_SIP_METHOD_CANCEL);
     assert(txp != NULL);
-    assert(txp->state == USIPY_SIP_TM_STATE_TERMINATED);
+    assert(txp->state == USIPY_SIP_TM_STATE_PROCEEDING);
+    assert((txp->common.flags & USIPY_SIP_TM_F_ABANDONED) != 0);
     assert(cancel_index != USIPY_SIP_TM_TX_INDEX_NONE);
     assert(carg.ntimeouts == 1);
     assert(carg.timeout_ids[0] == USIPY_SIP_TM_TIMEOUT_FR);
@@ -2635,6 +2711,416 @@ test_invite_fr_timeout_auto_cancel(void)
     usipy_sip_msg_dtor(cancel_reqp);
     usipy_sip_msg_dtor(resp100);
     usipy_sip_msg_dtor(invite_reqp);
+    usipy_sip_tm_dtor(tm);
+    close(sock);
+}
+
+static int
+fail_ack_send(void *arg, size_t index, const struct usipy_sip_tm_tx *txp,
+  const struct usipy_sip_tm_outbound *outp)
+{
+    if (txp->common.id.method_type == USIPY_SIP_METHOD_ACK) {
+        return (USIPY_SIP_TM_ERR_NOSPC);
+    }
+    return (invite_send_to(arg, index, txp, outp));
+}
+
+/* A lost provisional leaves the caller retransmitting after abandonment.
+ * Both explicit cancellation and the application deadline detach callbacks. */
+static void
+test_abandoned_invite(int deadline, int provisional, int success)
+{
+    const char *scenario = "abandoned INVITE cleanup";
+    struct invite_cbarg carg = {.scenario = scenario};
+    struct invite_send_arg sarg = {.scenario = scenario};
+    struct usipy_sip_tm_run_in rin = {0};
+    struct usipy_sip_tm_run_out rout;
+    struct usipy_sip_tm_handle_incoming_in hin = {0};
+    struct usipy_sip_tm_handle_incoming_out hout;
+    const struct usipy_str tag = USIPY_2STR(";tag=late");
+    const struct usipy_str contact = USIPY_2STR("sip:bob@127.0.0.1:5070");
+    const struct usipy_sip_tm_tx *txp;
+    struct usipy_msg *request, *response, *trying, *ack, *bye;
+    struct usipy_sip_tm *tm;
+    size_t index, ack_index, bye_index, before;
+    int sock;
+
+    tm = invite_tm_ctor(&sock);
+    init_invite_tx_with(&(struct init_invite_tx_args){
+      .tm = tm,
+      .carg = &carg,
+      .tx_indexp = &index,
+      .timersp = &(struct usipy_sip_tm_timer_policy){
+        .t1_ms = 10,
+        .t4_ms = 400,
+        .timer_b_ms = deadline ? 5 : 0,
+      },
+    });
+    rin.tm = tm;
+    rin.send_to = invite_send_to;
+    rin.send_to_arg = &sarg;
+    invite_run_step(&sarg, &rin, &rout, 0);
+    txp = usipy_sip_tm_get_transaction(tm, index);
+    request = dup_tx_request(txp);
+    hin.tm = tm;
+    hin.peer = &txp->common.peer;
+    hin.local = &txp->common.local;
+    if (deadline) {
+        invite_run_step(&sarg, &rin, &rout, 5);
+        assert(carg.ntimeouts == 1);
+        assert(carg.timeout_ids[0] == USIPY_SIP_TM_TIMEOUT_PR);
+    } else {
+        ASSERT_CALL_EQ(usipy_sip_tm_cancel(tm, index), USIPY_SIP_TM_OK);
+    }
+    assert((txp->common.flags & USIPY_SIP_TM_F_ABANDONED) != 0);
+    invite_run_step(&sarg, &rin, &rout, 10);
+    assert(sarg.nsent == 2 && sarg.tx_indexes[1] == index);
+    assert(find_method_tx(tm, index, USIPY_SIP_METHOD_CANCEL) ==
+      USIPY_SIP_TM_TX_INDEX_NONE);
+    if (provisional) {
+        trying = build_trying_response(request);
+        invite_handle_step(&carg, &hin, &hout, trying, 11);
+        invite_run_step(&sarg, &rin, &rout, 11);
+        assert(find_method_tx(tm, index, USIPY_SIP_METHOD_CANCEL) !=
+          USIPY_SIP_TM_TX_INDEX_NONE);
+        usipy_sip_msg_dtor(trying);
+    }
+    response = success ? build_response_with_contact_routes(request,
+      &usipy_sip_res_ok, &tag, &contact, NULL, 0) :
+      build_basic_response(request, &usipy_sip_res_req_term, &tag);
+    invite_handle_step(&carg, &hin, &hout, response, 12);
+    assert(carg.nresponses == 0);
+    ack_index = find_method_tx(tm, index, USIPY_SIP_METHOD_ACK);
+    bye_index = find_method_tx(tm, index, USIPY_SIP_METHOD_BYE);
+    assert(ack_index != USIPY_SIP_TM_TX_INDEX_NONE);
+    assert((usipy_sip_tm_get_transaction(tm, ack_index)->common.flags &
+      USIPY_SIP_TM_F_ABANDONED) == 0);
+    assert((bye_index != USIPY_SIP_TM_TX_INDEX_NONE) == success);
+    before = sarg.nsent;
+    rin.now_ms = 12;
+    rin.send_to = fail_ack_send;
+    ASSERT_CALL_EQ(usipy_sip_tm_run(&rin, &rout), USIPY_SIP_TM_ERR_NOSPC);
+    assert(sarg.nsent == before); /* No BYE if ACK failed. */
+    rin.send_to = invite_send_to;
+    invite_run_step(&sarg, &rin, &rout, 12);
+    assert(sarg.tx_indexes[before] == ack_index);
+    ack = dup_tx_request(usipy_sip_tm_get_transaction(tm, ack_index));
+    assert_invite_ack_request(request, ack, "late", !success,
+      success ? "sip:bob@127.0.0.1:5070" : "sip:bob@example.test", NULL, 0);
+    usipy_sip_msg_dtor(ack);
+    if (success) {
+        assert(sarg.tx_indexes[before + 1] == bye_index);
+        bye = dup_tx_request(usipy_sip_tm_get_transaction(tm, bye_index));
+        assert_bye_request(request, bye, "late", "sip:bob@127.0.0.1:5070", NULL, 0);
+        usipy_sip_msg_dtor(bye);
+    }
+    const struct usipy_sip_tm_tx final = *txp;
+    trying = build_trying_response(request);
+    invite_handle_step(&carg, &hin, &hout, trying, 13);
+    /* Compare fields, not the struct's uninitialized padding. */
+    assert(txp->state == final.state);
+    assert(txp->role_data.uac.last_status_code == final.role_data.uac.last_status_code);
+    assert(txp->role_data.uac.response_class == final.role_data.uac.response_class);
+    assert(txp->common.updated_at_ms == final.common.updated_at_ms);
+    assert(txp->common.outbound.next_send_at_ms == final.common.outbound.next_send_at_ms);
+    assert(txp->common.outbound.raw.s.ro == final.common.outbound.raw.s.ro);
+    assert(txp->common.outbound.raw.l == final.common.outbound.raw.l);
+    assert(txp->common.timer.due_at_ms == final.common.timer.due_at_ms);
+    usipy_sip_msg_dtor(trying);
+    before = sarg.nsent;
+    invite_handle_step(&carg, &hin, &hout, response, 13);
+    invite_run_step(&sarg, &rin, &rout, 13);
+    assert(sarg.nsent == before + 1 && sarg.tx_indexes[before] == ack_index);
+    assert(carg.nresponses == 0 && carg.ntimeouts == (size_t)deadline);
+    invite_run_step(&sarg, &rin, &rout, 1000);
+    assert(txp->state == USIPY_SIP_TM_STATE_TERMINATED);
+    assert(carg.nresponses == 0 && carg.ntimeouts == (size_t)deadline);
+    usipy_sip_msg_dtor(response);
+    usipy_sip_msg_dtor(request);
+    usipy_sip_tm_dtor(tm);
+    close(sock);
+}
+
+static void
+test_abandoned_invite_guard(int provisional)
+{
+    const char *scenario = "abandoned INVITE bounded cleanup";
+    struct invite_cbarg carg = {.scenario = scenario};
+    struct invite_send_arg sarg = {.scenario = scenario};
+    struct usipy_sip_tm_run_in rin = {0};
+    struct usipy_sip_tm_run_out rout;
+    struct usipy_sip_tm_handle_incoming_in hin = {0};
+    struct usipy_sip_tm_handle_incoming_out hout;
+    const struct usipy_sip_tm_tx *txp;
+    struct usipy_msg *request, *trying;
+    struct usipy_sip_tm *tm;
+    size_t index, count;
+    int sock;
+
+    tm = invite_tm_ctor(&sock);
+    init_invite_tx_with(&(struct init_invite_tx_args){
+      .tm = tm,
+      .carg = &carg,
+      .tx_indexp = &index,
+      .timersp = &(struct usipy_sip_tm_timer_policy){
+        .t1_ms = 10,
+        .t4_ms = 400,
+        .timer_b_ms = 5,
+      },
+    });
+    rin.tm = tm;
+    rin.send_to = invite_send_to;
+    rin.send_to_arg = &sarg;
+    invite_run_step(&sarg, &rin, &rout, 0);
+    txp = usipy_sip_tm_get_transaction(tm, index);
+    request = dup_tx_request(txp);
+    trying = build_trying_response(request);
+    hin.tm = tm;
+    hin.peer = &txp->common.peer;
+    hin.local = &txp->common.local;
+    if (provisional) {
+        invite_handle_step(&carg, &hin, &hout, trying, 1);
+    }
+    invite_run_step(&sarg, &rin, &rout, provisional ? 1000 : 5);
+    assert(carg.ntimeouts == 1);
+    assert(carg.timeout_ids[0] == (provisional ? USIPY_SIP_TM_TIMEOUT_FR :
+      USIPY_SIP_TM_TIMEOUT_PR));
+    ASSERT_CALL_EQ(usipy_sip_tm_cancel(tm, index), USIPY_SIP_TM_OK);
+    /* A duplicate provisional must not extend the cleanup guard. */
+    if (provisional) {
+        invite_handle_step(&carg, &hin, &hout, trying, 1100);
+    }
+    invite_run_step(&sarg, &rin, &rout, provisional ? 1640 : 645);
+    assert(txp->state == USIPY_SIP_TM_STATE_TERMINATED);
+    count = sarg.nsent;
+    invite_run_step(&sarg, &rin, &rout, 2000);
+    assert(sarg.nsent == count);
+    assert(carg.ntimeouts == 1 && carg.nresponses == (size_t)provisional);
+    usipy_sip_msg_dtor(trying);
+    usipy_sip_msg_dtor(request);
+    usipy_sip_tm_dtor(tm);
+    close(sock);
+}
+
+static void
+test_cancel_unsent_invite(void)
+{
+    struct invite_cbarg carg = {.scenario = "cancel unsent INVITE"};
+    struct invite_send_arg sarg = {.scenario = carg.scenario};
+    struct usipy_sip_tm_run_in rin = {0};
+    struct usipy_sip_tm_run_out rout;
+    struct usipy_sip_tm *tm;
+    size_t index;
+    int sock;
+
+    tm = invite_tm_ctor(&sock);
+    init_invite_tx(tm, &carg, &index);
+    ASSERT_CALL_EQ(usipy_sip_tm_cancel(tm, index), USIPY_SIP_TM_OK);
+    rin.tm = tm;
+    rin.send_to = invite_send_to;
+    rin.send_to_arg = &sarg;
+    invite_run_step(&sarg, &rin, &rout, 0);
+    assert(sarg.nsent == 0 && carg.nresponses == 0 && carg.ntimeouts == 0);
+    assert(usipy_sip_tm_get_transaction(tm, index)->state ==
+      USIPY_SIP_TM_STATE_TERMINATED);
+    ASSERT_CALL_EQ(usipy_sip_tm_cancel(tm, index), USIPY_SIP_TM_ERR_UNSUPPORTED);
+    usipy_sip_tm_dtor(tm);
+    close(sock);
+}
+
+static void
+test_abandoned_invite_slot_pressure(void)
+{
+    const char *scenario = "abandoned INVITE cleanup slot pressure";
+    struct invite_cbarg carg = {.scenario = scenario};
+    struct invite_send_arg sarg = {.scenario = scenario};
+    struct usipy_sip_tm_run_in rin = {0};
+    struct usipy_sip_tm_run_out rout;
+    struct usipy_sip_tm_handle_incoming_in hin = {0};
+    struct usipy_sip_tm_handle_incoming_out hout;
+    const struct usipy_str tag = USIPY_2STR(";tag=late");
+    const struct usipy_str contact = USIPY_2STR("sip:bob@127.0.0.1:5070");
+    const struct usipy_sip_tm_tx *txp;
+    struct usipy_msg *request, *response;
+    struct usipy_sip_tm *tm;
+    size_t index, filler1, filler2, ack_index, bye_index;
+    int sock;
+
+    tm = invite_tm_ctor(&sock);
+    init_invite_tx(tm, &carg, &index);
+    rin.tm = tm;
+    rin.send_to = invite_send_to;
+    rin.send_to_arg = &sarg;
+    invite_run_step(&sarg, &rin, &rout, 0);
+    txp = usipy_sip_tm_get_transaction(tm, index);
+    request = dup_tx_request(txp);
+    ASSERT_CALL_EQ(usipy_sip_tm_cancel(tm, index), USIPY_SIP_TM_OK);
+    init_invite_tx(tm, &carg, &filler1);
+    init_invite_tx(tm, &carg, &filler2);
+    response = build_response_with_contact_routes(request,
+      &usipy_sip_res_ok, &tag, &contact, NULL, 0);
+    hin.tm = tm;
+    hin.peer = &txp->common.peer;
+    hin.local = &txp->common.local;
+    hin.now_ms = 1;
+    hin.buf = response->onwire.s.ro;
+    hin.len = response->onwire.l;
+    ASSERT_CALL_EQ(usipy_sip_tm_handle_incoming(&hin, &hout), USIPY_SIP_TM_ERR_NOSPC);
+    ack_index = find_method_tx(tm, index, USIPY_SIP_METHOD_ACK);
+    assert(ack_index != USIPY_SIP_TM_TX_INDEX_NONE);
+    assert(usipy_sip_tm_get_transaction(tm, ack_index)->common.outbound.next_send_at_ms ==
+      USIPY_SIP_TM_TIME_NONE);
+    /* A retransmitted 200 can finish preparation after slots become free. */
+    ASSERT_CALL_EQ(usipy_sip_tm_drop_transaction(tm, filler1), USIPY_SIP_TM_OK);
+    ASSERT_CALL_EQ(usipy_sip_tm_drop_transaction(tm, filler2), USIPY_SIP_TM_OK);
+    invite_handle_step(&carg, &hin, &hout, response, 2);
+    bye_index = find_method_tx(tm, index, USIPY_SIP_METHOD_BYE);
+    assert(bye_index < ack_index);
+    invite_run_step(&sarg, &rin, &rout, 2);
+    assert(sarg.nsent == 2 && sarg.tx_indexes[1] == ack_index);
+    assert(rout.next_run_at_ms == 2);
+    invite_run_step(&sarg, &rin, &rout, 2);
+    assert(sarg.nsent == 3 && sarg.tx_indexes[2] == bye_index);
+    /* Once ACK is sent, BYE retries no longer depend on the INVITE slot. */
+    ASSERT_CALL_EQ(usipy_sip_tm_drop_transaction(tm, index), USIPY_SIP_TM_OK);
+    invite_run_step(&sarg, &rin, &rout, 12);
+    assert(sarg.nsent == 4 && sarg.tx_indexes[3] == bye_index);
+    assert(carg.nresponses == 0 && carg.ntimeouts == 0);
+    usipy_sip_msg_dtor(response);
+    usipy_sip_msg_dtor(request);
+    usipy_sip_tm_dtor(tm);
+    close(sock);
+}
+
+static void
+test_abandon_cancel_no_slot(int deadline)
+{
+    const char *scenario = "CANCEL allocation failure must not starve later slots";
+    struct invite_cbarg carg = {.scenario = scenario};
+    struct invite_cbarg later = {.scenario = scenario};
+    struct invite_send_arg sarg = {.scenario = scenario};
+    struct usipy_sip_tm_run_in rin = {0};
+    struct usipy_sip_tm_run_out rout;
+    struct usipy_sip_tm_handle_incoming_in hin = {0};
+    struct usipy_sip_tm_handle_incoming_out hout;
+    const struct usipy_sip_tm_tx *txp;
+    struct usipy_msg *request, *trying;
+    struct usipy_sip_tm *tm;
+    size_t index, fillers[3];
+    int sock;
+
+    tm = invite_tm_ctor(&sock);
+    init_invite_tx_with(&(struct init_invite_tx_args){
+      .tm = tm,
+      .carg = &carg,
+      .tx_indexp = &index,
+      .timersp = &(struct usipy_sip_tm_timer_policy){
+        .t1_ms = 10,
+        .timer_b_ms = deadline ? 5 : 0,
+      },
+    });
+    rin.tm = tm;
+    rin.send_to = invite_send_to;
+    rin.send_to_arg = &sarg;
+    invite_run_step(&sarg, &rin, &rout, 0);
+    txp = usipy_sip_tm_get_transaction(tm, index);
+    request = dup_tx_request(txp);
+    trying = build_trying_response(request);
+    hin.tm = tm;
+    hin.peer = &txp->common.peer;
+    hin.local = &txp->common.local;
+    if (!deadline) {
+        invite_handle_step(&carg, &hin, &hout, trying, 1);
+    }
+    for (size_t i = 0; i < 3; i++) {
+        init_invite_tx_with(&(struct init_invite_tx_args){
+          .tm = tm,
+          .carg = &later,
+          .tx_indexp = &fillers[i],
+          .timersp = &(struct usipy_sip_tm_timer_policy){.t1_ms = 1, .timer_b_ms = 1},
+        });
+    }
+    invite_run_step(&sarg, &rin, &rout, 2);
+    invite_run_step(&sarg, &rin, &rout, deadline ? 5 : 1000);
+    if (deadline) {
+        /* A late provisional needs a CANCEL slot after Timer B gave up. */
+        invite_handle_step(&carg, &hin, &hout, trying, 6);
+    }
+    assert(txp->state == USIPY_SIP_TM_STATE_TERMINATED);
+    assert(carg.ntimeouts == 1 && later.ntimeouts == 3);
+    assert(carg.timeout_ids[0] == (deadline ? USIPY_SIP_TM_TIMEOUT_PR :
+      USIPY_SIP_TM_TIMEOUT_FR));
+    for (size_t i = 0; i < 3; i++) {
+        assert((usipy_sip_tm_get_transaction(tm, fillers[i])->common.flags &
+          USIPY_SIP_TM_F_ABANDONED) != 0);
+    }
+    /* Finished automatic abandonment is an ordinary unsupported cancel. */
+    ASSERT_CALL_EQ(usipy_sip_tm_cancel(tm, index), USIPY_SIP_TM_ERR_UNSUPPORTED);
+    invite_run_step(&sarg, &rin, &rout, 2000);
+    assert(carg.ntimeouts == 1 && later.ntimeouts == 3);
+    usipy_sip_msg_dtor(trying);
+    usipy_sip_msg_dtor(request);
+    usipy_sip_tm_dtor(tm);
+    close(sock);
+}
+
+static void
+test_invite_runtime_after_retry(void)
+{
+    const char *scenario = "INVITE deadline survives request rebuilds";
+    struct invite_cbarg carg = {.scenario = scenario};
+    struct invite_send_arg sarg = {.scenario = scenario};
+    struct usipy_sip_tm_run_in rin = {0};
+    struct usipy_sip_tm_run_out rout;
+    struct usipy_sip_tm_handle_incoming_in hin = {0};
+    struct usipy_sip_tm_handle_incoming_out hout;
+    const struct usipy_str tag = USIPY_2STR(";tag=auth");
+    const struct usipy_sip_tm_tx *txp;
+    struct usipy_sip_tm *tm;
+    struct usipy_msg *request, *response;
+    size_t index;
+    int sock;
+
+    tm = invite_tm_ctor(&sock);
+    init_invite_tx_with(&(struct init_invite_tx_args){
+      .tm = tm,
+      .carg = &carg,
+      .tx_indexp = &index,
+      .timersp = &(struct usipy_sip_tm_timer_policy){
+        .t1_ms = 10,
+        .timer_b_ms = 5,
+      },
+    });
+    rin.tm = tm;
+    rin.send_to = invite_send_to;
+    rin.send_to_arg = &sarg;
+    invite_run_step(&sarg, &rin, &rout, 0);
+    txp = usipy_sip_tm_get_transaction(tm, index);
+    request = dup_tx_request(txp);
+    response = build_basic_response(request, &usipy_sip_res_unauth, &tag);
+    hin.tm = tm;
+    hin.peer = &txp->common.peer;
+    hin.local = &txp->common.local;
+    invite_handle_step(&carg, &hin, &hout, response, 1);
+    invite_run_step(&sarg, &rin, &rout, 1);
+    /* Authentication retries rebuild the request using the same scratch. */
+    ASSERT_CALL_EQ(usipy_sip_tm_next_transaction(tm, index, NULL, NULL, 0),
+      USIPY_SIP_TM_OK);
+    invite_run_step(&sarg, &rin, &rout, 2);
+    assert(txp->common.id.cseq == 2);
+    invite_run_step(&sarg, &rin, &rout, 5);
+    assert(carg.ntimeouts == 0);
+    invite_run_step(&sarg, &rin, &rout, 7);
+    assert(carg.ntimeouts == 1);
+    assert(carg.timeout_ids[0] == USIPY_SIP_TM_TIMEOUT_PR);
+    assert((txp->common.flags & USIPY_SIP_TM_F_ABANDONED) != 0);
+    invite_run_step(&sarg, &rin, &rout, 12);
+    assert(sarg.nsent == 4); /* The abandoned INVITE still retransmits. */
+    invite_run_step(&sarg, &rin, &rout, 647);
+    assert(txp->state == USIPY_SIP_TM_STATE_TERMINATED);
+    assert(carg.ntimeouts == 1);
+    usipy_sip_msg_dtor(response);
+    usipy_sip_msg_dtor(request);
     usipy_sip_tm_dtor(tm);
     close(sock);
 }
@@ -2692,6 +3178,8 @@ main(void)
     test_gen_auth_hf();
     test_register_expires_helpers();
     test_invite_pr_timeout();
+    test_invite_runtime_after_retry();
+    test_invite_timer_b_policy();
     test_invite_fr_timeout_single_100();
     test_invite_fr_timeout_repeated_100();
     test_invite_ack_support();
@@ -2700,6 +3188,19 @@ main(void)
     test_uas_dialog_end_bye();
     test_uas_invite_2xx_ack();
     test_invite_cancel_pending();
+    test_cancel_unsent_invite();
+    test_abandon_cancel_no_slot(0);
+    test_abandon_cancel_no_slot(1);
+    test_abandoned_invite_slot_pressure();
+    test_abandoned_invite_guard(0);
+    test_abandoned_invite_guard(1);
+    for (int deadline = 0; deadline < 2; deadline++) {
+        for (int provisional = 0; provisional < 2; provisional++) {
+            for (int success = 0; success < 2; success++) {
+                test_abandoned_invite(deadline, provisional, success);
+            }
+        }
+    }
     test_invite_fr_timeout_auto_cancel();
     test_uas_options_retransmit();
     test_uas_invite_error_ack();

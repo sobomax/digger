@@ -13,8 +13,8 @@
 #include "usipy_misc.h"
 #include "usipy_sip_udp_task.h"
 #include "public/usipy_msg_heap.h"
-#include "public/usipy_sip_sline.h"
 #include "public/usipy_sip_msg.h"
+#include "public/usipy_sip_sline.h"
 #include "usipy_sip_req.h"
 #include "usipy_sip_res.h"
 #include "usipy_sip_tid.h"
@@ -163,7 +163,7 @@ usipy_sip_udp_task(void *pvParameters)
                     }
                 }
                 USIPY_LOGI(cfp->log_tag, "usipy_sip_msg_ctor_fromwire() = %p: took %u %s",
-                  msg, opd, ods.dunit);
+                  (void *)msg, opd, ods.dunit);
                 if (msg == NULL) {
                     continue;
                 }
@@ -217,7 +217,7 @@ usipy_sip_udp_task(void *pvParameters)
                     res = usipy_sip_res_ctor_fromreq(msg, &notb);
                     opd = timer_opend(&ods);
                     USIPY_LOGI(cfp->log_tag, "usipy_sip_res_ctor_fromreq() = %p: "
-                      "took %u %s", res, opd, ods.dunit);
+                      "took %u %s", (void *)res, opd, ods.dunit);
                     if (res != NULL) {
                         usipy_sip_msg_dtor(res);
                     }

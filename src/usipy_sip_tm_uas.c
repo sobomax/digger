@@ -60,6 +60,19 @@ usipy_sip_tm_timer_h_ms(const struct usipy_sip_tm_timer_policy *tp)
     return (tp->t1_ms * 64u);
 }
 
+/* How long an accepted INVITE waits for the ACK of its 2xx (RFC 6026) */
+static uint32_t
+usipy_sip_tm_timer_l_ms(const struct usipy_sip_tm_timer_policy *tp)
+{
+    USIPY_DASSERT(tp != NULL);
+    USIPY_DASSERT(tp->timer_l_ms != 0 || tp->t1_ms != 0);
+
+    if (tp->timer_l_ms != 0) {
+        return (tp->timer_l_ms);
+    }
+    return (tp->t1_ms * 64u);
+}
+
 static uint32_t
 usipy_sip_tm_timer_i_ms(const struct usipy_sip_tm_timer_policy *tp)
 {
@@ -134,7 +147,8 @@ usipy_sip_tm_uas_ack_matches_tx(const struct usipy_sip_tid *tidp,
     if (tidp->cseq->method->cantype != USIPY_SIP_METHOD_ACK ||
       tp->pub.role != USIPY_SIP_TM_ROLE_UAS ||
       tp->pub.common.id.method_type != USIPY_SIP_METHOD_INVITE ||
-      tp->pub.state != USIPY_SIP_TM_STATE_COMPLETED ||
+      (tp->pub.state != USIPY_SIP_TM_STATE_COMPLETED &&
+       tp->pub.state != USIPY_SIP_TM_STATE_ACCEPTED) ||
       tp->cache.uas.ack_hash == 0) {
         return (0);
     }
@@ -860,6 +874,7 @@ usipy_sip_tm_uas_cancel_matches_tx(const struct usipy_sip_tid *tidp,
       tp->pub.common.id.method_type != USIPY_SIP_METHOD_INVITE ||
       tidp->hash != tp->cache.uas.cancel_hash ||
       tp->pub.state == USIPY_SIP_TM_STATE_COMPLETED ||
+      tp->pub.state == USIPY_SIP_TM_STATE_ACCEPTED ||
       tp->pub.state == USIPY_SIP_TM_STATE_CONFIRMED ||
       tp->pub.state == USIPY_SIP_TM_STATE_TERMINATED) {
         return (0);
@@ -900,16 +915,12 @@ int
 usipy_sip_tm_new_uas_tr(struct usipy_sip_tm *tm,
   const struct usipy_sip_tm_new_uas_tr_params *tpp, size_t *indexp)
 {
-    static const struct usipy_sip_tm_timer_policy default_timers =
-      USIPY_SIP_TM_TIMER_POLICY_RFC3261;
     static const struct usipy_sip_tm_uas_callbacks empty_callbacks;
-    const struct usipy_sip_tm_timer_policy *timersp;
     const struct usipy_sip_tm_addr *peerp;
     const struct usipy_sip_tm_addr *localp;
     const struct usipy_sip_tm_uas_callbacks *callbacksp;
     struct usipy_sip_tid tid;
     struct usipy_sip_tm_txi *tp;
-    struct usipy_sip_tm_timer_policy timers;
     uint8_t method_type;
     size_t tx_index;
 
@@ -922,7 +933,6 @@ usipy_sip_tm_new_uas_tr(struct usipy_sip_tm *tm,
     USIPY_DASSERT(tpp->local != NULL);
 
     *indexp = USIPY_SIP_TM_TX_INDEX_NONE;
-    timersp = tpp->timers != NULL ? tpp->timers : &default_timers;
     peerp = tpp->peer;
     localp = tpp->local;
     callbacksp = tpp->callbacks != NULL ? tpp->callbacks : &empty_callbacks;
@@ -976,8 +986,7 @@ usipy_sip_tm_new_uas_tr(struct usipy_sip_tm *tm,
     tp->outbound.pub.raw = USIPY_STR_NULL;
     tp->outbound.pub.next_send_at_ms = USIPY_SIP_TM_TIME_NONE;
     tp->pub.common.outbound = tp->outbound.pub;
-    timers = timersp->t1_ms != 0 ? *timersp : default_timers;
-    tp->pub.common.timers = timers;
+    usipy_sip_tm_timer_policy_resolve(&tp->pub.common.timers, tpp->timers);
     tp->pub.common.id.hash = tid.hash;
     tp->pub.common.id.branch = tp->cache.branch;
     tp->pub.common.id.call_id = tp->cache.call_id;
@@ -1042,7 +1051,10 @@ usipy_sip_tm_send_uas_response(struct usipy_sip_tm *tm, size_t index,
     if (slp->code < 200) {
         tp->pub.common.timer.type = USIPY_SIP_TM_TIMER_NONE;
     } else if (tp->cache.method_type == USIPY_SIP_METHOD_INVITE && slp->code < 300) {
-        tp->pub.common.timer.type = USIPY_SIP_TM_TIMER_NONE;
+        tp->pub.state = USIPY_SIP_TM_STATE_ACCEPTED;
+        tp->pub.common.timer.type = USIPY_SIP_TM_TIMER_L;
+        tp->pub.common.timer.value_ms = usipy_sip_tm_timer_l_ms(&tp->pub.common.timers);
+        tp->pub.common.timer.due_at_ms = USIPY_SIP_TM_TIME_NONE;
         tp->cache.uas.ack_hash = usipy_sip_dialog_tid_hash(&tp->pub.common.id.call_id,
           &tp->pub.common.id.from_tag, &tp->cache.to_tag, tp->pub.common.id.cseq,
           USIPY_SIP_METHOD_ACK);
@@ -1127,26 +1139,45 @@ usipy_sip_tm_uas_run(struct usipy_sip_tm_txi *tp, size_t index,
 
     if (tp->pub.common.timer.type != USIPY_SIP_TM_TIMER_NONE &&
       tp->pub.common.timer.due_at_ms <= inp->now_ms) {
-        if (tp->pub.common.timer.type == USIPY_SIP_TM_TIMER_H) {
+        const enum usipy_sip_tm_timer_kind timer = tp->pub.common.timer.type;
+
+        /* Callbacks may re-enter the timer pump. Retire this timer first. */
+        usipy_sip_tm_uas_mark_terminated(tp);
+        if (timer == USIPY_SIP_TM_TIMER_H) {
             if (tp->uas_callbacks.no_ack != NULL) {
-                tp->uas_callbacks.no_ack(tp->uas_callbacks.arg, index, &tp->pub);
+                (void)tp->uas_callbacks.no_ack(tp->uas_callbacks.arg, index,
+                  &tp->pub);
             }
             if (outp != NULL) {
                 outp->ntimeouts += 1;
             }
+        } else if (timer == USIPY_SIP_TM_TIMER_L &&
+          tp->uas_owner.ops != NULL) {
+            const int timed_out =
+              tp->uas_owner.ops->timeout(tp->uas_owner.arg);
+
+            if (outp != NULL) {
+                outp->ntimeouts += timed_out;
+            }
         }
-        usipy_sip_tm_uas_mark_terminated(tp);
-    }
-    if (tp->outbound.pub.next_send_at_ms != USIPY_SIP_TM_TIME_NONE) {
-        usipy_sip_tm_uas_run_out_consider(outp, tp->outbound.pub.next_send_at_ms);
-    }
-    if (tp->pub.common.timer.type != USIPY_SIP_TM_TIMER_NONE) {
-        usipy_sip_tm_uas_run_out_consider(outp, tp->pub.common.timer.due_at_ms);
+        return (USIPY_SIP_TM_OK);
     }
     if (tp->pub.state == USIPY_SIP_TM_STATE_TERMINATED ||
       tp->outbound.pub.next_send_at_ms == USIPY_SIP_TM_TIME_NONE ||
       tp->outbound.pub.next_send_at_ms > inp->now_ms) {
+        if (outp != NULL) {
+            usipy_sip_tm_uas_run_out_consider(outp, tp->outbound.pub.next_send_at_ms);
+            if (tp->pub.common.timer.type != USIPY_SIP_TM_TIMER_NONE) {
+                usipy_sip_tm_uas_run_out_consider(outp, tp->pub.common.timer.due_at_ms);
+            }
+        }
         return (USIPY_SIP_TM_OK);
+    }
+    /* Timer L runs from the first try at sending the 2xx, whether it gets
+     * sent or not: a call it can't be sent for is ended all the same. */
+    if (tp->pub.state == USIPY_SIP_TM_STATE_ACCEPTED &&
+      tp->pub.common.timer.due_at_ms == USIPY_SIP_TM_TIME_NONE) {
+        tp->pub.common.timer.due_at_ms = inp->now_ms + tp->pub.common.timer.value_ms;
     }
     send_rval = inp->send_to(inp->send_to_arg, index, &tp->pub, &tp->outbound.pub);
     if (send_rval != 0) {
@@ -1162,7 +1193,15 @@ usipy_sip_tm_uas_run(struct usipy_sip_tm_txi *tp, size_t index,
     tp->pub.common.retransmit_count += 1;
     tp->outbound.pub.next_send_at_ms = USIPY_SIP_TM_TIME_NONE;
     tp->pub.common.outbound = tp->outbound.pub;
-    if (tp->pub.role_data.uas.last_status_code >= 200 &&
+    if (tp->pub.state == USIPY_SIP_TM_STATE_ACCEPTED) {
+        if (tp->uas_owner.ops != NULL) {
+            tp->uas_owner.ops->sent(tp->uas_owner.arg, inp->now_ms);
+        }
+        if (outp != NULL) {
+            usipy_sip_tm_uas_run_out_consider(outp, tp->outbound.pub.next_send_at_ms);
+            usipy_sip_tm_uas_run_out_consider(outp, tp->pub.common.timer.due_at_ms);
+        }
+    } else if (tp->pub.role_data.uas.last_status_code >= 200 &&
       usipy_sip_tm_uas_is_invite_non2xx_final(tp)) {
         usipy_sip_tm_uas_post_send_invite_final(tp, inp, outp);
     } else if (tp->pub.role_data.uas.last_status_code >= 200) {
@@ -1191,6 +1230,9 @@ usipy_sip_tm_handle_incoming_request(const struct usipy_sip_tm_handle_incoming_i
 
         if (tp->pub.role_data.uas.last_status_code >= 200 &&
           tp->pub.role_data.uas.last_status_code < 300) {
+            if (tp->uas_owner.ops != NULL) {
+                tp->uas_owner.ops->acked(tp->uas_owner.arg);
+            }
             if (outp != NULL) {
                 outp->error = USIPY_SIP_TM_OK;
                 outp->consumed = 1;
@@ -1214,6 +1256,7 @@ usipy_sip_tm_handle_incoming_request(const struct usipy_sip_tm_handle_incoming_i
 
         tp->pub.role_data.uas.request_retransmits += 1;
         if (tp->pub.state != USIPY_SIP_TM_STATE_CONFIRMED &&
+          tp->pub.state != USIPY_SIP_TM_STATE_ACCEPTED &&
           tp->outbound.pub.raw.l != 0) {
             tp->outbound.pub.next_send_at_ms = inp->now_ms;
             tp->pub.common.outbound = tp->outbound.pub;
@@ -1245,4 +1288,103 @@ usipy_sip_tm_handle_incoming_request(const struct usipy_sip_tm_handle_incoming_i
         outp->transaction_index = tx_index;
     }
     return (USIPY_SIP_TM_OK);
+}
+
+/* An active UAS transaction, of the owner with arg owner_arg if not NULL */
+static struct usipy_sip_tm_txi *
+usipy_sip_tm_uas_lookup(const struct usipy_sip_tm *tm, size_t index,
+  const void *owner_arg)
+{
+    struct usipy_sip_tm_txi *tp;
+
+    if (index >= tm->max_transactions) {
+        return (NULL);
+    }
+    tp = &tm->transactions[index];
+    if (!tp->active || tp->pub.role != USIPY_SIP_TM_ROLE_UAS) {
+        return (NULL);
+    }
+    if (owner_arg != NULL && tp->uas_owner.arg != owner_arg) {
+        return (NULL);
+    }
+    return (tp);
+}
+
+int
+usipy_sip_tm_uas_get_callbacks(const struct usipy_sip_tm *tm, size_t index,
+  struct usipy_sip_tm_uas_callbacks *cbp)
+{
+    const struct usipy_sip_tm_txi *tp;
+
+    USIPY_DASSERT(tm != NULL);
+    USIPY_DASSERT(cbp != NULL);
+    tp = usipy_sip_tm_uas_lookup(tm, index, NULL);
+    if (tp == NULL) {
+        return (USIPY_SIP_TM_ERR_NOT_FOUND);
+    }
+    *cbp = tp->uas_callbacks;
+    return (USIPY_SIP_TM_OK);
+}
+
+int
+usipy_sip_tm_uas_set_owner(struct usipy_sip_tm *tm, size_t index,
+  const struct usipy_sip_tm_uas_owner *ownerp, void *arg)
+{
+    struct usipy_sip_tm_txi *tp;
+
+    USIPY_DASSERT(tm != NULL);
+    USIPY_DASSERT(ownerp != NULL && arg != NULL);
+    tp = usipy_sip_tm_uas_lookup(tm, index, NULL);
+    if (tp == NULL) {
+        return (USIPY_SIP_TM_ERR_NOT_FOUND);
+    }
+    tp->uas_owner.ops = ownerp;
+    tp->uas_owner.arg = arg;
+    return (USIPY_SIP_TM_OK);
+}
+
+int
+usipy_sip_tm_uas_clear_owner(struct usipy_sip_tm *tm, size_t index,
+  const void *arg)
+{
+    struct usipy_sip_tm_txi *tp;
+
+    USIPY_DASSERT(tm != NULL);
+    USIPY_DASSERT(arg != NULL);
+    tp = usipy_sip_tm_uas_lookup(tm, index, arg);
+    if (tp == NULL) {
+        return (USIPY_SIP_TM_ERR_NOT_FOUND);
+    }
+    memset(&tp->uas_owner, '\0', sizeof(tp->uas_owner));
+    return (USIPY_SIP_TM_OK);
+}
+
+/* When to send the response again, USIPY_SIP_TM_TIME_NONE for never */
+int
+usipy_sip_tm_uas_send_at(struct usipy_sip_tm *tm, size_t index,
+  const void *arg, uint64_t at_ms)
+{
+    struct usipy_sip_tm_txi *tp;
+
+    USIPY_DASSERT(tm != NULL);
+    USIPY_DASSERT(arg != NULL);
+    tp = usipy_sip_tm_uas_lookup(tm, index, arg);
+    if (tp == NULL) {
+        return (USIPY_SIP_TM_ERR_NOT_FOUND);
+    }
+    tp->outbound.pub.next_send_at_ms = at_ms;
+    tp->pub.common.outbound = tp->outbound.pub;
+    return (USIPY_SIP_TM_OK);
+}
+
+const struct usipy_sip_tm_tx *
+usipy_sip_tm_uas_owned_tx(const struct usipy_sip_tm *tm, size_t index,
+  const void *arg)
+{
+    const struct usipy_sip_tm_txi *tp;
+
+    USIPY_DASSERT(tm != NULL);
+    USIPY_DASSERT(arg != NULL);
+    tp = usipy_sip_tm_uas_lookup(tm, index, arg);
+    return (tp != NULL ? &tp->pub : NULL);
 }
