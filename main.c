@@ -69,6 +69,9 @@ static bool title_escape_exits_program(void);
 
 int16_t getlevch(int16_t x,int16_t y,int16_t l)
 {
+  /* No level, as player 2 has none in a one player game: nothing there */
+  if (l<1)
+    return ' ';
   /* An eDRF has the maps as they were played, this included */
   if ((l==3 || l==4) && !dgstate.levfflag && dgstate.diggers==2 && y==9 &&
       (x==6 || x==8) && !edrf_playing && !edrf_feeding)
