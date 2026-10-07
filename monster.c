@@ -17,7 +17,7 @@
 #include "scores.h"
 #include "record.h"
 #include "game.h"
-#include "netsim_debug.h"
+#include "state_hash.h"
 
 static struct monster
 {
@@ -121,43 +121,45 @@ void domonsters(struct digger_draw_api *ddap)
     }
 }
 
-uint32_t
-monster_debug_hash_append(uint32_t h)
+void
+monster_debug_hash_append(struct state_hash *shp)
 {
   int i;
   struct obj_position pos;
+  bool flag;
 
-  h = debug_hash_mix(h, (uint32_t)(uint16_t)nextmonster);
-  h = debug_hash_mix(h, (uint32_t)(uint16_t)totalmonsters);
-  h = debug_hash_mix(h, (uint32_t)(uint16_t)maxmononscr);
-  h = debug_hash_mix(h, (uint32_t)(uint16_t)nextmontime);
-  h = debug_hash_mix(h, (uint32_t)(uint16_t)mongaptime);
-  h = debug_hash_mix(h, (uint32_t)(uint16_t)chase);
-  h = debug_hash_mix(h, unbonusflag ? 1U : 0U);
+  STATE_HASH_VAR(shp, nextmonster);
+  STATE_HASH_VAR(shp, totalmonsters);
+  STATE_HASH_VAR(shp, maxmononscr);
+  STATE_HASH_VAR(shp, nextmontime);
+  STATE_HASH_VAR(shp, mongaptime);
+  STATE_HASH_VAR(shp, chase);
+  STATE_HASH_VAR(shp, unbonusflag);
   for (i = 0; i < MONSTERS; i++) {
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].h);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].v);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].xr);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].yr);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].dir);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].t);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].hnt);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].death);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].bag);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].dtime);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].stime);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)mondat[i].chase);
-    h = debug_hash_mix(h, mondat[i].flag ? 1U : 0U);
+    STATE_HASH_VAR(shp, mondat[i].h);
+    STATE_HASH_VAR(shp, mondat[i].v);
+    STATE_HASH_VAR(shp, mondat[i].xr);
+    STATE_HASH_VAR(shp, mondat[i].yr);
+    STATE_HASH_VAR(shp, mondat[i].dir);
+    STATE_HASH_VAR(shp, mondat[i].t);
+    STATE_HASH_VAR(shp, mondat[i].hnt);
+    STATE_HASH_VAR(shp, mondat[i].death);
+    STATE_HASH_VAR(shp, mondat[i].bag);
+    STATE_HASH_VAR(shp, mondat[i].dtime);
+    STATE_HASH_VAR(shp, mondat[i].stime);
+    STATE_HASH_VAR(shp, mondat[i].chase);
+    STATE_HASH_VAR(shp, mondat[i].flag);
     if (mondat[i].mop != NULL) {
       CALL_METHOD(mondat[i].mop, getpos, &pos);
-      h = debug_hash_mix(h, (uint32_t)(uint16_t)pos.x);
-      h = debug_hash_mix(h, (uint32_t)(uint16_t)pos.y);
-      h = debug_hash_mix(h, (uint32_t)(uint16_t)pos.dir);
-      h = debug_hash_mix(h, CALL_METHOD(mondat[i].mop, isalive) ? 1U : 0U);
-      h = debug_hash_mix(h, ISNOB(mondat[i].mop) ? 1U : 0U);
+      STATE_HASH_VAR(shp, pos.x);
+      STATE_HASH_VAR(shp, pos.y);
+      STATE_HASH_VAR(shp, pos.dir);
+      flag = CALL_METHOD(mondat[i].mop, isalive);
+      STATE_HASH_VAR(shp, flag);
+      flag = ISNOB(mondat[i].mop);
+      STATE_HASH_VAR(shp, flag);
     }
   }
-  return (h);
 }
 
 static void

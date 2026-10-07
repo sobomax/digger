@@ -41,7 +41,7 @@
 #include "game.h"
 #include "input.h"
 #include "main.h"
-#include "netsim_debug.h"
+#include "state_hash.h"
 #include "record.h"
 #include "scores.h"
 
@@ -678,7 +678,7 @@ edrf_roundend(void)
   uint32_t h;
 
   /* The tick it ends on too, that it be the same */
-  h = debug_hash_mix(game_state_hash(), ticks);
+  h = game_state_hash_tick(ticks);
   putstate('E', h);
   verify(&ply_rend, "end of round", h);
 }

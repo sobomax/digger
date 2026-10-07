@@ -210,6 +210,8 @@ SET( DIGGER_SOURCE
      netsim_sip_sdp.c
      netsim_platform.c
      netsim_debug.c
+     state_hash.c
+     microsippy/src/external/mackron_md5/md5.c
 )
 
 IF ( EMSCRIPTEN )
@@ -320,7 +322,6 @@ IF ((UNIX OR WIN32) AND NOT EMSCRIPTEN)
     microsippy/src/usipy_sip_tm_utils.c
     microsippy/src/usipy_sip_dialog.c
     microsippy/src/usipy_platform.c
-    microsippy/src/external/mackron_md5/md5.c
     microsippy/platforms/posix/usipy_tm_uac.c
     ${DIGGER_SIP_PLATFORM_SOURCE}
   )
