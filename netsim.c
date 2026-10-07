@@ -2149,7 +2149,7 @@ static void *
 netsim_thread(void *arg)
 {
   struct thread_ctx *ctxp;
-  struct netsim_thread_state ts = {};
+  struct netsim_thread_state ts = {0};
   enum thread_step_result step;
   bool thread_stop;
 
@@ -2528,7 +2528,7 @@ bool
 netsim_start_session(bool initiated_locally)
 {
   struct netsim_in_ev inev;
-  struct netsim_out_ev outev = {};
+  struct netsim_out_ev outev = {0};
   bool ack_queued = false;
   bool got_event;
 
@@ -2618,7 +2618,7 @@ fail:
 void
 netsim_stop_session(bool send_exit)
 {
-  struct netsim_out_ev outev = {};
+  struct netsim_out_ev outev = {0};
 
   if (!g_session.running || !netsim_is_started())
     return;
@@ -2635,7 +2635,7 @@ netsim_stop_session(bool send_exit)
 void
 netsim_shutdown(void)
 {
-  struct netsim_out_ev outev = {};
+  struct netsim_out_ev outev = {0};
 
   if (!g_session.running)
     return;
@@ -2657,7 +2657,7 @@ bool
 netsim_sync_frame(uint32_t frame, uint8_t local_bits, bool local_freeze,
   uint8_t *remote_bits, bool *remote_freeze, int *remote_lead_ms)
 {
-  struct netsim_out_ev outev = {};
+  struct netsim_out_ev outev = {0};
   struct netsim_in_ev inev;
 
   if (!netsim_is_started())

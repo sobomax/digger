@@ -28,7 +28,7 @@ void *
 netsim_rx_thread(void *arg)
 {
   struct netsim_rx_ctx *rxp;
-  struct netsim_out_ev outev = {};
+  struct netsim_out_ev outev = {0};
   netsim_sockaddr_t peer_addr;
   uint32_t drop_every;
   uint32_t recv_count;
