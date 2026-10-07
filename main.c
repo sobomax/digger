@@ -1219,7 +1219,7 @@ static void inir(void)
   }
   dgstate.gtime=(int)GetINIInt(INI_GAME_SETTINGS,"GauntletTime",120,ININAME);
   if (dgstate.ftime == 0) {
-      dgstate.ftime=GetINIIntDoc(INI_GAME_SETTINGS,"Speed",80000l,ININAME,
+      dgstate.ftime=GetINIIntDoc(INI_GAME_SETTINGS,"Speed",DEFAULT_FTIME,ININAME,
         "number of microseconds in one frame, eq of 12.5Hz");
   }
   dgstate.gauntlet=GetINIBool(INI_GAME_SETTINGS,"GauntletMode",false,ININAME);

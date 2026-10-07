@@ -52,6 +52,9 @@
 #define MHEIGHT 10
 #define MSIZE MWIDTH*MHEIGHT
 
+/* Microseconds in one frame (game tick) at the default speed, 12.5Hz */
+#define DEFAULT_FTIME 80000l
+
 #define MAX_REC_BUFFER 262144l
            /* I reckon this is enough for about 36 hours of continuous play. */
 

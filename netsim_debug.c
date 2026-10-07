@@ -67,6 +67,11 @@ game_state_hash(void)
   h = debug_hash_mix(h, (uint32_t)dgstate.randv);
   h = debug_hash_mix(h, (uint32_t)gettscore(0));
   h = debug_hash_mix(h, (uint32_t)gettscore(1));
+  /* Only there, to leave the hashes of other games as they were */
+  if (dgstate.gauntlet) {
+    h = debug_hash_mix(h, dgstate.cgtime);
+    h = debug_hash_mix(h, (uint32_t)dgstate.timeout);
+  }
   return (h);
 }
 
