@@ -51,6 +51,7 @@ static int16_t klen=0;
 
 static int Handler(void *uptr, SDL_Event *event)
 {
+	(void)uptr;
 	if(event->type == SDL_KEYDOWN) {
 		if (klen == KBLEN) {
                         /* Buffer is full, drop some pieces */

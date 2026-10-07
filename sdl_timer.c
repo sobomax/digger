@@ -103,18 +103,24 @@ void s0setspkrt2(void)
 
 void s0settimer0(uint16_t t0v)
 {
+  (void)t0v;
 }
 
 void s0settimer2(uint16_t t0v, bool mode)
 {
+  (void)t0v;
+  (void)mode;
 }
 
 void s0timer0(uint16_t t0v)
 {
+  (void)t0v;
 }
 
 void s0timer2(uint16_t t0v, bool mode)
 {
+  (void)t0v;
+  (void)mode;
 }
 
 void s0soundkillglob(void)
