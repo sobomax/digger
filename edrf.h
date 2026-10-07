@@ -38,6 +38,7 @@ void edrf_roundend(void);
 void edrf_gameend(void);
 void edrf_playopen(FILE *fp);
 void edrf_stopplay(void);
+void edrf_takeover(void);
 bool edrf_netfeed_open(const char *name);
 void edrf_feedslot(int slot);
 uint8_t edrf_feedpeek(void);

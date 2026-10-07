@@ -113,11 +113,11 @@ void checkkeyb(void)
         if (akeypressed==keycodes[i][j])
           k=i;
     switch (k) {
-      case DKEY_CHT: /* Cheat! */
-        if (!dgstate.gauntlet) {
-          playing=false;
+      case DKEY_CHT: /* Cheat! Take over a playback, see playtakeover() */
+        if (playing)
+          playtakeover();
+        else if (!dgstate.gauntlet)
           drfvalid=false;
-        }
         break;
       case DKEY_SUP: /* Increase speed */
         if (dgstate.ftime>10000l)
