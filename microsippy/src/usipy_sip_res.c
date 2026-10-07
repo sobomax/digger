@@ -7,12 +7,12 @@
 #include "usipy_types.h"
 #include "public/usipy_platform.h"
 #include "public/usipy_str.h"
+#include "public/usipy_sip_msg.h"
 #include "public/usipy_sip_sline.h"
 #include "public/usipy_msg_heap.h"
 #include "usipy_msg_heap_rb.h"
 #include "usipy_msg_heap_inl.h"
 #include "usipy_append_priv.h"
-#include "public/usipy_sip_msg.h"
 #include "usipy_sip_hdr.h"
 #include "public/usipy_sip_hdr_types.h"
 #include "usipy_sip_hdr_db.h"
@@ -279,7 +279,7 @@ usipy_sip_res_build_fromreq_tagged_sz(void *arg, char *buf, size_t len)
     slout->status.reason_phrase.l = slp->reason_phrase.l;
     APPEND_MEM(USIPY_CRLF, USIPY_CRLF_LEN);
 
-    for (int i = 0; i < reqp->nhdrs; i++) {
+    for (unsigned int i = 0; i < reqp->nhdrs; i++) {
         const struct usipy_sip_hdr *shp = &reqp->hdrs[i];
 
         if (USIPY_HF_ISMSET(copyfirst, shp->hf_type->cantype)) {
@@ -391,7 +391,7 @@ usipy_sip_res_build_fromreq_tagged(struct usipy_msg_heap *hp,
   const struct usipy_msg *reqp, const struct usipy_sip_status *slp,
   const struct usipy_str *tagp)
 {
-    struct usipy_msg_heap_cnt cnt = {};
+    struct usipy_msg_heap_cnt cnt = {0};
     struct usipy_msg *rp;
     const size_t tlen = usipy_sip_res_alloc_size_build(reqp, tagp);
 

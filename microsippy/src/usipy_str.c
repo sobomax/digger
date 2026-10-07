@@ -1,3 +1,4 @@
+#include <limits.h>
 #include <string.h>
 
 #include "public/usipy_str.h"
@@ -95,14 +96,16 @@ int
 usipy_str_atoui_range(const struct usipy_str *x, unsigned int *res,
   unsigned int min, unsigned int max)
 {
-    int r = 0;
+    unsigned int r = 0, d;
     const char *cp;
 
     for (cp = x->s.ro; cp < (x->s.ro + x->l); cp++) {
         if (*cp > '9' || *cp < '0')
             return -1;
-        r *= 10;
-        r += (unsigned char)(*cp - '0');
+        d = (unsigned char)(*cp - '0');
+        if (r > (UINT_MAX - d) / 10)
+            return -1; /* Too big for an unsigned int */
+        r = r * 10 + d;
     }
     if (r < min || (max >= min && r > max)) {
         return -1;

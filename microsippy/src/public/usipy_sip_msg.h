@@ -4,7 +4,6 @@
 
 #include "usipy_str.h"
 #include "usipy_msg_heap.h"
-#include "usipy_sip_sline.h"
 
 struct usipy_sip_hdr;
 struct usipy_sip_tid;
@@ -24,6 +23,9 @@ enum usipy_sip_msg_kind {
   USIPY_SIP_MSG_REQ = 0,
   USIPY_SIP_MSG_RES = 1
 };
+
+/* After the enum, which it uses: include this one before it */
+#include "usipy_sip_sline.h"
 
 struct usipy_msg {
    struct usipy_str onwire;
