@@ -497,6 +497,8 @@ int mainprog(void)
           getenv("DIGGER_NETSIM_REPLAY"));
         exit(2);
       }
+      if (edrf_stopped)
+        exit(3); /* Not as far as the recording goes */
       exit(0);
     }
     input_reset_network();
@@ -913,17 +915,23 @@ static void parsecmd(int argc,char *argv[])
         if (gotname && gotgame)
           recsavedrf();
         finish();
+        if (playbad) {
+          fprintf(stderr, "Cannot play back %s\n", word+i);
+          exit(1);
+        }
         if (edrf_failed) {
           fprintf(stderr, "eDRF: playback of %s FAILED\n", word+i);
           exit(2);
         }
-	if (getenv("DIGGER_CI_RUN") != NULL) {
+        /* Not played to the end (an eDRF isn't checked then either) */
+        if (edrf_stopped || (escape && !playend && !edrf_checked &&
+            !edrf_truncated))
+          exit(3);
+        if (edrf_truncated)
+          exit(4); /* Played as far as the recording goes */
+	if (getenv("DIGGER_CI_RUN") != NULL)
           game_dbg_info_emit();
-	  exit(0);
-	}
-        if (escape)
-          exit(0);
-        exit(1);
+        exit(0);
       }
       if (argch =='O' && !norepf) {
         arg=0;

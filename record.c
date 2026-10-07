@@ -18,6 +18,7 @@
 #include "edrf.h"
 
 static char huge *recb,huge *plb,huge *plp;
+bool playend=false,playbad=false;
 
 bool playing=false,savedrf=false,gotname=false,gotgame=false,drfvalid=true,
      kludge=false;
@@ -76,9 +77,12 @@ void openplay(char *name)
 #endif
   playname=name;
   if (playf==NULL) {
+    playbad=true;
     escape=true;
     return;
   }
+  playend=false;
+  playbad=false;
   dgstate.gauntlet=false;
   dgstate.startlev=1;
   dgstate.nplayers=1;
@@ -202,6 +206,7 @@ out_0:
   if (playf != NULL) {
     fclose(playf);
   }
+  playbad = true;
   escape = true;
 }
 
@@ -265,6 +270,7 @@ void playgetdir(int16_t *dir,bool *fire)
   }
   else {
     if (*plp=='E' || *plp=='e') {
+      playend=true; /* Recorded to end with Escape */
       escape=true;
       return;
     }
