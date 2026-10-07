@@ -1,7 +1,11 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
+#include <stddef.h>
+#include <string.h>
+
 #include "def.h"
+#include "hardware.h"
 
 static const uint8_t vgazero480[]={
   0x00,0x00,0x00,0x00,
@@ -5915,6 +5919,67 @@ static const uint8_t vgaexp3bmask[]={
   0x00,0x00,0x00,0x00,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0x00,0x00,0x00,0x00,
   0x00,0x00,0x00,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0x00,0x00,0x00};
 
+/*
+ * Recoloured copies of the monster sprites, used for the monster controlled
+ * by the second player in the asymmetric two-player mode. Same shapes (and
+ * masks) as the originals, the colours are remapped by vgamakepossessed().
+ */
+static uint8_t vgapnobbin1[sizeof(vganobbin1)];
+static uint8_t vgapnobbin2[sizeof(vganobbin2)];
+static uint8_t vgapnobbin3[sizeof(vganobbin3)];
+static uint8_t vgapnobbind[sizeof(vganobbind)];
+static uint8_t vgaprhobbin1[sizeof(vgarhobbin1)];
+static uint8_t vgaprhobbin2[sizeof(vgarhobbin2)];
+static uint8_t vgaprhobbin3[sizeof(vgarhobbin3)];
+static uint8_t vgaprhobbind[sizeof(vgarhobbind)];
+static uint8_t vgaplhobbin1[sizeof(vgalhobbin1)];
+static uint8_t vgaplhobbin2[sizeof(vgalhobbin2)];
+static uint8_t vgaplhobbin3[sizeof(vgalhobbin3)];
+static uint8_t vgaplhobbind[sizeof(vgalhobbind)];
+
+/* Life icon for the monster player: the recoloured nobbin squeezed from 15 to
+   12 rows by dropping every 5th scanline (32 bytes per scanline). */
+#define VGAMONLIFE_ROWS 24
+static uint8_t vgamonlife[32*VGAMONLIFE_ROWS];
+static uint8_t vgamonlifemask[32*VGAMONLIFE_ROWS];
+
+void vgamakepossessed(void)
+{
+  /* Green body becomes magenta, everything else stays as is. */
+  static const uint8_t remap[16]={0,1,5,3,4,5,6,7,8,9,13,11,12,13,14,15};
+  static const struct {
+    uint8_t *dst;
+    const uint8_t *src;
+    size_t len;
+  } spr[]={
+  {vgapnobbin1, vganobbin1, sizeof(vganobbin1)},
+  {vgapnobbin2, vganobbin2, sizeof(vganobbin2)},
+  {vgapnobbin3, vganobbin3, sizeof(vganobbin3)},
+  {vgapnobbind, vganobbind, sizeof(vganobbind)},
+  {vgaprhobbin1, vgarhobbin1, sizeof(vgarhobbin1)},
+  {vgaprhobbin2, vgarhobbin2, sizeof(vgarhobbin2)},
+  {vgaprhobbin3, vgarhobbin3, sizeof(vgarhobbin3)},
+  {vgaprhobbind, vgarhobbind, sizeof(vgarhobbind)},
+  {vgaplhobbin1, vgalhobbin1, sizeof(vgalhobbin1)},
+  {vgaplhobbin2, vgalhobbin2, sizeof(vgalhobbin2)},
+  {vgaplhobbin3, vgalhobbin3, sizeof(vgalhobbin3)},
+  {vgaplhobbind, vgalhobbind, sizeof(vgalhobbind)},
+  };
+  size_t i,j;
+
+  for (i=0;i<sizeof(spr)/sizeof(spr[0]);i++)
+    for (j=0;j<spr[i].len;j++)
+      spr[i].dst[j]=(spr[i].src[j]<16) ? remap[spr[i].src[j]] : spr[i].src[j];
+
+  for (i=0,j=0;j<VGAMONLIFE_ROWS;i++) {
+    if (i%5==4)
+      continue;
+    memcpy(&vgamonlife[j*32],&vgapnobbin1[i*32],32);
+    memcpy(&vgamonlifemask[j*32],&vganobbin1mask[i*32],32);
+    j++;
+  }
+}
+
 const uint8_t *vgatable[]={
   vgazero480,   vgaediggermask,    /* 0 */
   vgardigger1,  vgardigger1mask,
@@ -6046,4 +6111,18 @@ const uint8_t *vgatable[]={
   vgafire3b,    vgafire3bmask,
   vgaexp1b,     vgaexp1bmask,
   vgaexp2b,     vgaexp2bmask,
-  vgaexp3b,     vgaexp3bmask};
+  vgaexp3b,     vgaexp3bmask,
+
+  vgapnobbin1,   vganobbin1mask, /* 120 */
+  vgapnobbin2,   vganobbin2mask,
+  vgapnobbin3,   vganobbin3mask,
+  vgapnobbind,   vganobbindmask,
+  vgaprhobbin1,  vgarhobbin1mask,
+  vgaprhobbin2,  vgarhobbin2mask, /* 125 */
+  vgaprhobbin3,  vgarhobbin3mask,
+  vgaprhobbind,  vgarhobbindmask,
+  vgaplhobbin1,  vgalhobbin1mask,
+  vgaplhobbin2,  vgalhobbin2mask,
+  vgaplhobbin3,  vgalhobbin3mask, /* 130 */
+  vgaplhobbind,  vgalhobbindmask,
+  vgamonlife,    vgamonlifemask};

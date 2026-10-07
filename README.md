@@ -33,6 +33,27 @@ Digger to run directly in your browser.
 
 [![WebAssembly](https://digger-build-artefacts.s3.amazonaws.com/digger_wasm.png)](https://digger-build-artefacts.s3.amazonaws.com/digger.html)
 
+# Two-Player Modes
+
+Besides the classic alternating and simultaneous two-player games, there are
+modes where one player plays for the monsters (pick them on the title screen
+with `N`, or from the command line):
+
+- **Vs monster** (`/VM`): player 1 is Digger, player 2 takes over the monsters
+  as they come out (drawn in magenta) and has 3 lives of their own. The monster
+  player scores for catching Digger, emeralds, gold (also as a Hobbin eating a
+  bag) and the bonus, and can even steal the bonus to become a Hobbin for a
+  while. When Digger runs out of lives, the monster player wins.
+- **Vs monster, alternating** (`/VMA`): the players swap roles every time
+  Digger dies, sharing one set of lives per player for both roles; whoever
+  runs out of lives last wins.
+- **Haunted** (`/2H`): a simultaneous game in which a player who runs out of
+  lives comes back to haunt the other as a monster, with 7 lives for it. Each
+  haunted monster lost earns Digger 8250 points; getting the 7th one wins the
+  game outright, otherwise the bigger score wins.
+
+See `digger.txt` for the complete rules.
+
 # Network Play
 
 Two-player network play is enabled with the `/N:` option. There are two

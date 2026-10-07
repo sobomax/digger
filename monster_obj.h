@@ -53,7 +53,9 @@ struct monster_obj {
 };
 
 struct monster_obj *monster_obj_ctor(uint16_t m_id,
- bool nobf, int16_t dir, int16_t x, int16_t y);
+ bool nobf, bool possessed, int16_t dir, int16_t x, int16_t y);
+
+void monster_obj_setpossessed(struct monster_obj *, bool possessed);
 
 #define MON_NOBBIN true 
 #define MON_HOBBIN false

@@ -93,7 +93,7 @@ void openplay(char *name)
   char buf[80];
   int c,x,y,n,origgtime=dgstate.gtime;
   bool ext;
-  bool origg=dgstate.gauntlet;
+  bool origg=dgstate.gauntlet,origmp=dgstate.monplayer,orighn=dgstate.haunted;
   int16_t origstartlev=dgstate.startlev,orignplayers=dgstate.nplayers,origdiggers=dgstate.diggers;
 #ifdef INTDRF
   info=fopen("DRFINFO.TXT","wt");
@@ -109,6 +109,8 @@ void openplay(char *name)
   playbad=false;
   playerrno=0;
   dgstate.gauntlet=false;
+  dgstate.monplayer=false;
+  dgstate.haunted=false;
   dgstate.startlev=1;
   dgstate.nplayers=1;
   dgstate.diggers=1;
@@ -158,6 +160,14 @@ void openplay(char *name)
           x++;
       }
     }
+  if (buf[x]=='V') { /* Second player controls a monster */
+    dgstate.monplayer=true;
+    x++;
+  }
+  if (buf[x]=='H') { /* Out of lives players haunt as monsters */
+    dgstate.haunted=true;
+    x++;
+  }
   if (buf[x]=='U') /* Unlimited lives are ignored on playback. */
     x++;
   if (buf[x]=='I')
@@ -221,6 +231,8 @@ play:
   if (plb!=(char huge *)NULL)
     farfree(plb);
   dgstate.gauntlet=origg;
+  dgstate.monplayer=origmp;
+  dgstate.haunted=orighn;
   dgstate.gtime=origgtime;
   kludge=false;
   dgstate.startlev=origstartlev;
@@ -413,6 +425,10 @@ void recinit(void)
       mprintf("G%i",dgstate.gtime);
     else
       mprintf("%i",dgstate.nplayers);
+  if (dgstate.monplayer)
+    mprintf("V");
+  if (dgstate.haunted)
+    mprintf("H");
 /*  if (unlimlives)
     mprintf("U"); */
   if (dgstate.startlev>1)

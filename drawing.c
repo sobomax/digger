@@ -17,6 +17,7 @@
 #include "digger.h"
 #include "sound.h"
 #include "game.h"
+#include "monster.h"
 
 static int16_t field1[MSIZE],field2[MSIZE];
 int16_t field[MSIZE];
@@ -30,6 +31,7 @@ static uint16_t bitmasks[12]={0xfffe,0xfffd,0xfffb,0xfff7,0xffef,0xffdf,0xffbf,0
 static int16_t digspr[DIGGERS],digspd[DIGGERS],firespr[FIREBALLS];
 
 static void drawlife(int16_t t,int16_t x,int16_t y);
+static void drawmonlife(bool f,int16_t x,int16_t y);
 static void createdbfspr(void);
 static void initdbfspr(void);
 static void drawbackg(int16_t l);
@@ -215,6 +217,14 @@ static void drawlife(int16_t t,int16_t x,int16_t y)
   drawmiscspr(x,y,t+110,4,12);
 }
 
+/* Monster player's life: a small nobbin (sprite 132), or an empty slot */
+static void drawmonlife(bool f,int16_t x,int16_t y)
+{
+  drawmiscspr(x,y,112,4,12);
+  if (f)
+    drawmiscspr(x,y,132,4,12);
+}
+
 void drawemerald(int16_t x,int16_t y)
 {
   initmiscspr(x,y,4,10);
@@ -361,6 +371,7 @@ void drawdigger(int n,int16_t t,int16_t x,int16_t y,bool f)
 void drawlives(struct digger_draw_api *ddap)
 {
   int16_t l,n,g;
+  bool mon;
   char buf[10];
   if (dgstate.gauntlet) {
     g=(int16_t)(dgstate.cgtime/1193181l);
@@ -368,43 +379,85 @@ void drawlives(struct digger_draw_api *ddap)
     outtext(ddap, buf,124,0,3);
     return;
   }
+  /* In the alternate monster mode the player who is currently the monster
+     gets nobbin icons instead of digger ones */
+  mon=dgstate.monplayer && dgstate.nplayers==2 && dgstate.curplayer!=0;
   n=getlives(0)-1;
+  /* Haunted: a player who is out of lives shows their haunted ones */
+  if (dgstate.haunted && getlives(0)==0) {
+    mon=true;
+    n=getmonlives()-1;
+  }
   erasetext(ddap, 5, 96,0,2);
   if (n>4) {
-    drawlife(0,80,0);
+    if (mon)
+      drawmonlife(true,80,0);
+    else
+      drawlife(0,80,0);
     sprintf(buf,"X%i",n);
     outtext(ddap, buf,100,0,2);
   }
   else
     for (l=1;l<5;l++) {
-      drawlife(n>0 ? 0 : 2,l*20+60,0);
+      if (mon)
+        drawmonlife(n>0,l*20+60,0);
+      else
+        drawlife(n>0 ? 0 : 2,l*20+60,0);
       n--;
     }
   if (dgstate.nplayers==2) {
+    mon=dgstate.monplayer && dgstate.curplayer!=1;
     erasetext(ddap, 5, 164,0,2);
     n=getlives(1)-1;
     if (n>4) {
       sprintf(buf,"%iX",n);
       outtext(ddap, buf,220-strlen(buf)*CHR_W,0,2);
-      drawlife(1,224,0);
+      if (mon)
+        drawmonlife(true,224,0);
+      else
+        drawlife(1,224,0);
     }
     else
       for (l=1;l<5;l++) {
-        drawlife(n>0 ? 1 : 2,244-l*20,0);
+        if (mon)
+          drawmonlife(n>0,244-l*20,0);
+        else
+          drawlife(n>0 ? 1 : 2,244-l*20,0);
+        n--;
+      }
+  }
+  if (dgstate.monplayer && dgstate.nplayers==1) {
+    erasetext(ddap, 5, 164,0,2);
+    n=getmonlives()-1;
+    if (n>4) {
+      sprintf(buf,"%iX",n);
+      outtext(ddap, buf,220-strlen(buf)*CHR_W,0,2);
+      drawmonlife(true,224,0);
+    }
+    else
+      for (l=1;l<5;l++) {
+        drawmonlife(n>0,244-l*20,0);
         n--;
       }
   }
   if (dgstate.diggers==2) {
+    mon=dgstate.haunted && getlives(1)==0;
     erasetext(ddap, 5, 164,0,1);
-    n=getlives(1)-1;
+    n=mon ? getmonlives()-1 : getlives(1)-1;
     if (n>4) {
       sprintf(buf,"%iX",n);
       outtext(ddap, buf,220-strlen(buf)*CHR_W,0,1);
-      drawlife(3,224,0);
+      if (mon)
+        drawmonlife(true,224,0);
+      else
+        drawlife(3,224,0);
     }
     else
       for (l=1;l<5;l++) {
-        drawlife(n>0 ? 3 : 2,244-l*20,0);
+        if (mon)
+          drawmonlife(n>0,244-l*20,0);
+        else
+          drawlife(n>0 ? 3 : 2,244-l*20,0);
         n--;
       }
   }

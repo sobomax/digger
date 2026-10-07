@@ -32,6 +32,7 @@ void cgawrite(int16_t x,int16_t y,int16_t ch,int16_t c);
 void cgatitle(void);
 
 void vgainit(void);
+void vgamakepossessed(void);
 void vgaclear(void);
 void vgapal(int16_t pal);
 void vgainten(int16_t inten);

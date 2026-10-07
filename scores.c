@@ -17,6 +17,7 @@
 #include "digger.h"
 #include "record.h"
 #include "game.h"
+#include "monster.h"
 #include "netsim.h"
 #include "netsim_game.h"
 #include "edrf_feed.h"
@@ -41,11 +42,29 @@ static char hsbuf[36];
 
 static char scorebuf[512];
 
+/*
+ * Score tables of the modes that the original 512-byte block has no room for
+ * live after it in the score file, each tagged with its mode: "DSX1", then
+ * any number of <tag><table> records, the table being in the same 111 byte
+ * format as the ones in the block. Records with unknown tags are kept as they
+ * are. Level files only have the block, so there these modes fall back to
+ * its tables.
+ */
+#define SCORETBL_LEN 111
+#define SCOREX_MAGIC "DSX1"
+#define SCOREX_MAX 16
+static struct {
+  char tag;
+  char tbl[SCORETBL_LEN];
+} scorex[SCOREX_MAX];
+static int nscorex=0;
+
 uint16_t bonusscore=20000;
 
 static void readscores(void);
 static void writescores(void);
 static void savescores(void);
+static char *scoretable(void);
 static void getinitials(struct digger_draw_api *);
 static void flashywait(struct digger_draw_api *, int16_t n);
 static int16_t getinitial(struct digger_draw_api *, int16_t x,int16_t y);
@@ -94,6 +113,7 @@ readscores(void)
   FILE *in;
 
   scorebuf[0]=0;
+  nscorex=0;
   if (!dgstate.levfflag) {
 #if defined(__EMSCRIPTEN__)
     static bool restored = false;
@@ -115,6 +135,17 @@ readscores(void)
   }
   if (fread(scorebuf, 512, 1, in) <= 0) {
     scorebuf[0]=0;
+    goto out;
+  }
+  if (!dgstate.levfflag) {
+    char magic[sizeof(SCOREX_MAGIC)-1];
+
+    if (fread(magic, sizeof(magic), 1, in) == 1 &&
+        memcmp(magic, SCOREX_MAGIC, sizeof(magic)) == 0)
+      while (nscorex<SCOREX_MAX &&
+             fread(&scorex[nscorex].tag, 1, 1, in) == 1 &&
+             fread(scorex[nscorex].tbl, SCORETBL_LEN, 1, in) == 1)
+        nscorex++;
   }
 out:
   fclose(in);
@@ -126,7 +157,18 @@ writescores(void)
   FILE *out;
   if (!dgstate.levfflag) {
     if ((out=fopen(SFNAME,"wb"))!=NULL) {
+      int i;
+
       fwrite(scorebuf,512,1,out);
+      if (nscorex>0)
+        fwrite(SCOREX_MAGIC,sizeof(SCOREX_MAGIC)-1,1,out);
+      for (i=0;i<nscorex;i++) {
+        /* Nothing to keep in a table that was only ever looked at */
+        if (scorex[i].tbl[0]!='s')
+          continue;
+        fwrite(&scorex[i].tag,1,1,out);
+        fwrite(scorex[i].tbl,SCORETBL_LEN,1,out);
+      }
       fclose(out);
 #if defined(__EMSCRIPTEN__)
       ems_store_save(SFNAME);
@@ -146,17 +188,56 @@ void initscores(struct digger_draw_api *ddap)
   int i;
   for (i=0;i<dgstate.diggers;i++)
     addscore(ddap, i,0);
+  if (dgstate.monplayer)
+    addscore(ddap, 1,0);
+}
+
+/* The tag of the current mode's own table, 0 for one in the 512-byte block */
+static char
+scoretag(void)
+{
+  if (dgstate.levfflag)
+    return (0);
+  if (dgstate.monplayer)
+    return (dgstate.nplayers==2 ? 'A' : 'V');
+  if (dgstate.haunted)
+    return ('H');
+  return (0);
+}
+
+/* The current mode's high score table */
+static char *
+scoretable(void)
+{
+  char tag;
+  int i,p=0;
+
+  tag=scoretag();
+  if (tag!=0) {
+    for (i=0;i<nscorex;i++)
+      if (scorex[i].tag==tag)
+        return (scorex[i].tbl);
+    if (nscorex<SCOREX_MAX) {
+      scorex[nscorex].tag=tag;
+      memset(scorex[nscorex].tbl,0,SCORETBL_LEN);
+      return (scorex[nscorex++].tbl);
+    }
+  }
+  if (dgstate.gauntlet)
+    p=111;
+  if (dgstate.diggers==2)
+    p+=222;
+  return (scorebuf+p);
 }
 
 void loadscores(void)
 {
   int16_t p=0,i,x;
+  char *tbl;
+
   readscores();
-  if (dgstate.gauntlet)
-    p=111;
-  if (dgstate.diggers==2)
-    p+=222;
-  if (scorebuf[p++]!='s')
+  tbl=scoretable();
+  if (tbl[p++]!='s')
     for (i=0;i<11;i++) {
       scorehigh[i+1]=0;
       strcpy(scoreinit[i],"...");
@@ -164,10 +245,10 @@ void loadscores(void)
   else
     for (i=1;i<11;i++) {
       for (x=0;x<3;x++)
-        scoreinit[i][x]=scorebuf[p++];
+        scoreinit[i][x]=tbl[p++];
       p+=2;
       for (x=0;x<6;x++)
-        highbuf[x]=scorebuf[p++];
+        highbuf[x]=tbl[p++];
       scorehigh[i+1]=atol(highbuf);
     }
 }
@@ -194,7 +275,7 @@ void writecurscore(struct digger_draw_api *ddap, int col)
 void drawscores(struct digger_draw_api *ddap)
 {
   writenum(ddap, scdat[0].score,0,0,6,3);
-  if (dgstate.nplayers==2 || dgstate.diggers==2) {
+  if (dgstate.nplayers==2 || dgstate.diggers==2 || dgstate.monplayer) {
     if (scdat[1].score<100000l)
       writenum(ddap, scdat[1].score,236,0,6,3);
     else
@@ -217,7 +298,14 @@ void addscore(struct digger_draw_api *ddap, int n,int16_t score)
     else
       writenum(ddap, scdat[n].score,248,0,6,1);
   if (scdat[n].score>=scdat[n].nextbs+n) { /* +n to reproduce original bug */
-    if (getlives(n)<5 || dgstate.unlimlives) {
+    if (dgstate.monplayer && dgstate.nplayers==1 && n==1) {
+      /* Monster player earns lives just like Digger */
+      if (getmonlives()<5 || dgstate.unlimlives) {
+        addmonlife();
+        drawlives(ddap);
+      }
+    }
+    else if (getlives(n)<5 || dgstate.unlimlives) {
       if (dgstate.gauntlet)
         dgstate.cgtime+=17897715l; /* 15 second time bonus instead of the life */
       else
@@ -263,6 +351,9 @@ void endofgame(struct digger_draw_api *ddap)
   } else {
     start = dgstate.curplayer;
     end = dgstate.curplayer + dgstate.diggers;
+    /* Vs monster: the monster player's score counts as well */
+    if (dgstate.monplayer && dgstate.nplayers==1)
+      end = 2;
   }
   for (i=start;i<end;i++) {
     scoret=scdat[i].score;
@@ -282,7 +373,9 @@ void endofgame(struct digger_draw_api *ddap)
       initflag=true;
     }
   }
-  if (!initflag && !dgstate.gauntlet) {
+  /* Vs monster modes have announced the winner instead */
+  if (!initflag && !dgstate.gauntlet && !dgstate.monplayer &&
+      !dgstate.haunted) {
     cleartopline();
     outtext(ddap, "GAME OVER",104,0,3);
     for (i=0;i<50 && !escape;i++)
@@ -344,12 +437,11 @@ void showtable(struct digger_draw_api *ddap)
 static void
 savescores(void)
 {
-  int16_t i,p=0,j;
-  if (dgstate.gauntlet)
-    p=111;
-  if (dgstate.diggers==2)
-    p+=222;
-  strcpy(scorebuf+p,"s");
+  int16_t i,j;
+  char *tbl;
+
+  tbl=scoretable();
+  tbl[0]='s';
   for (i=1;i<11;i++) {
     strcpy(hsbuf,"");
     strcat(hsbuf,scoreinit[i]);
@@ -357,7 +449,7 @@ savescores(void)
     numtostring(highbuf,scorehigh[i+1]);
     strcat(hsbuf,highbuf);
     for (j=0;j<11;j++)
-      scorebuf[p+j+i*11-10]=hsbuf[j];
+      tbl[j+i*11-10]=hsbuf[j];
   }
   writescores();
 }

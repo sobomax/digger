@@ -46,6 +46,7 @@ struct monster_obj_private
 {
   uint16_t m_id;
   bool nobf;
+  bool possessed;
   bool alive;
   bool zombie;
   struct obj_position pos;
@@ -60,6 +61,9 @@ struct monster_obj_full
 };
 
 static void monster_obj_updspr(struct monster_obj_private *);
+
+/* Player-controlled monster uses recoloured copies of sprites 69..80 */
+#define POSSESSED_SPR_OFFSET (120 - 69)
 
 #if defined(DIGGER_DEBUG)
 static bool
@@ -107,30 +111,33 @@ monster_obj_updspr(struct monster_obj_private *mop)
 {
   int16_t sprid;
 
+  int16_t sproff;
+
   sprid = FIRSTMONSTER + mop->m_id;
+  sproff = mop->possessed ? POSSESSED_SPR_OFFSET : 0;
 
   if (mop->alive) {
     if (mop->nobf) {
-      initspr(sprid, mop->monspr + 69, 4, 15, 0, 0);
+      initspr(sprid, mop->monspr + 69 + sproff, 4, 15, 0, 0);
     } else {
       switch (mop->pos.dir) {
       case DIR_RIGHT:
-        initspr(sprid, mop->monspr + 73, 4, 15, 0, 0);
+        initspr(sprid, mop->monspr + 73 + sproff, 4, 15, 0, 0);
         break;
       case DIR_LEFT:
-        initspr(sprid, mop->monspr + 77, 4, 15, 0, 0);
+        initspr(sprid, mop->monspr + 77 + sproff, 4, 15, 0, 0);
       }
     }
   } else if (mop->zombie) {
     if (mop->nobf) {
-      initspr(sprid, 72, 4, 15, 0, 0);
+      initspr(sprid, 72 + sproff, 4, 15, 0, 0);
     } else {
       switch(mop->pos.dir) {
       case DIR_RIGHT:
-        initspr(sprid, 76, 4, 15, 0, 0);
+        initspr(sprid, 76 + sproff, 4, 15, 0, 0);
         break;
       case DIR_LEFT:
-        initspr(sprid, 80, 4, 14, 0, 0);
+        initspr(sprid, 80 + sproff, 4, 14, 0, 0);
       }
     }
   }
@@ -258,6 +265,14 @@ monster_obj_isnobbin(struct monster_obj *self)
   return (self->priv->nobf);
 }
 
+/* Switch between the player-controlled and the normal colours */
+void
+monster_obj_setpossessed(struct monster_obj *self, bool possessed)
+{
+
+  self->priv->possessed = possessed;
+}
+
 int
 monster_obj_dtor(struct monster_obj *self)
 {
@@ -267,7 +282,8 @@ monster_obj_dtor(struct monster_obj *self)
 }
 
 struct monster_obj *
-monster_obj_ctor(uint16_t m_id, bool nobf, int16_t dir, int16_t x, int16_t y)
+monster_obj_ctor(uint16_t m_id, bool nobf, bool possessed, int16_t dir,
+  int16_t x, int16_t y)
 {
   struct monster_obj_full *mofp;
   struct monster_obj_private *mp;
@@ -281,6 +297,7 @@ monster_obj_ctor(uint16_t m_id, bool nobf, int16_t dir, int16_t x, int16_t y)
   mp = &(mofp->priv);
   mpub = &(mofp->pub);
   mp->nobf = nobf;
+  mp->possessed = possessed;
   mp->pos.dir = dir;
   mp->pos.x = x;
   mp->pos.y = y;

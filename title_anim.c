@@ -267,7 +267,7 @@ title_anim_apply_action(struct title_anim *self, struct digger_draw_api *ddap,
       mop = title_anim_get_monster(self, ap->obj_id);
       if (mop != NULL)
         break;
-      mop = monster_obj_ctor((uint16_t)ap->obj_id, ap->dy != 0, ap->dx,
+      mop = monster_obj_ctor((uint16_t)ap->obj_id, ap->dy != 0, false, ap->dx,
         ap->x, ap->y);
       if (mop == NULL)
         break;

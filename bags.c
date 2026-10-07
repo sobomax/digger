@@ -25,7 +25,7 @@ static int16_t pushcount=0,goldtime=0;
 static void updatebag(struct digger_draw_api *, int16_t bag);
 static void baghitground(int16_t bag);
 static bool pushbag(struct digger_draw_api *, int16_t bag,int16_t dir);
-static void removebag(int16_t bn);
+static bool removebag(int16_t bn);
 static void getgold(struct digger_draw_api *, int16_t bag);
 
 void initbags(void)
@@ -356,6 +356,8 @@ pushbag(struct digger_draw_api *ddap, int16_t bag,int16_t dir)
           drawgold(bag,0,ox,oy);
           incpenalty();
           push=false;
+          if (clfirst[2]!=-1 && monsbagstopped(ddap,clfirst,clcoll))
+            removebag(bag); /* Eaten */
         }
     }
     if (push)
@@ -398,13 +400,15 @@ bool pushudbags(struct digger_draw_api *ddap, int *clfirst,int *clcoll)
   return push;
 }
 
-static void
+static bool
 removebag(int16_t bag)
 {
   if (bagdat[bag].exist) {
     bagdat[bag].exist=false;
     erasespr(bag+FIRSTBAG);
+    return true;
   }
+  return false;
 }
 
 bool bagexist(int bag)
@@ -424,13 +428,17 @@ int16_t getbagdir(int16_t bag)
   return -1;
 }
 
-void removebags(int *clfirst,int *clcoll)
+/* Returns how many of them there were */
+int16_t removebags(int *clfirst,int *clcoll)
 {
   int next=clfirst[1];
+  int16_t n=0;
   while (next!=-1) {
-    removebag(next-FIRSTBAG);
+    if (removebag(next-FIRSTBAG))
+      n++;
     next=clcoll[next];
   }
+  return n;
 }
 
 int16_t getnmovingbags(void)

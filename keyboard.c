@@ -26,6 +26,36 @@ const char *keynames[NKEYS]={"Right","Up","Left","Down","Fire",
 
 #define FINDKEY_EX(i) {if (prockey(i) == -1) return;}
 
+/* Is the key just assigned to action kn also used by any of actions
+   [from, to)? */
+static bool
+keytaken(int kn, int from, int to)
+{
+  int j,k,l;
+
+  for (j=from;j<to;j++) {
+    if (j==kn)
+      continue;
+    if (keycodes[kn][0]==keycodes[j][0] && keycodes[kn][0]!=0)
+      return (true);
+    for (k=2;k<5;k++)
+      for (l=2;l<5;l++)
+        if (keycodes[kn][k]==keycodes[j][l] && keycodes[kn][k]!=-2)
+          return (true);
+  }
+  return (false);
+}
+
+/* Ask for player 2 keys in every local two-player mode (in NetSim each side
+   plays with its own player 1 keys). */
+static bool
+twoplayerkeys(void)
+{
+
+  return (!dgstate.netsim && (dgstate.nplayers==2 || dgstate.diggers==2 ||
+    dgstate.monplayer));
+}
+
 static int prockey(int kn)
 {
   int16_t key;
@@ -49,7 +79,7 @@ void redefkeyb(struct digger_draw_api *ddap, bool allf)
   outtext(ddap, "PRESS NEW KEY FOR",0,y,3);
   y+=CHR_H;
 
-  if (dgstate.diggers==2) {
+  if (twoplayerkeys()) {
     outtext(ddap, "PLAYER 1:",0,y,3);
     y+=CHR_H;
   }
@@ -62,6 +92,12 @@ void redefkeyb(struct digger_draw_api *ddap, bool allf)
     FINDKEY_EX(i);
     outtext(ddap, keynames[i],0,y,1); /* Green once got */
     y+=CHR_H;
+    /* Player 2 keys stay as they are, so they can't be reused either */
+    if (!twoplayerkeys() && keytaken(i, 5, 10)) {
+      i--;
+      y-=CHR_H;
+      continue;
+    }
     for (j=0;j<i;j++) { /* Note: only check keys just pressed (I hate it when
                            this is done wrong, and it often is.) */
       if (keycodes[i][0]==keycodes[j][0] && keycodes[i][0]!=0) {
@@ -81,7 +117,7 @@ void redefkeyb(struct digger_draw_api *ddap, bool allf)
     }
   }
 
-  if (dgstate.diggers==2) {
+  if (twoplayerkeys()) {
     outtext(ddap, "PLAYER 2:",0,y,3);
     y+=CHR_H;
     for (i=5;i<10;i++) {
