@@ -213,6 +213,7 @@ SET( DIGGER_SOURCE
      netsim_sip_sdp.c
      netsim_platform.c
      netsim_debug.c
+     netsim_game.c
      state_hash.c
      ${MSRC}/external/mackron_md5/md5.c
 )
