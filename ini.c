@@ -135,7 +135,7 @@ void GetINIString(const char *section,const char*key,const char*def,char*dest,
    * figure out what is really attempted here
    */
   if (dest != def)
-    strcpy(dest,def);
+    snprintf(dest,destsize,"%s",def);
   fp=fopen(filename,"rb");
   if (fp==NULL)
     return;
@@ -158,7 +158,7 @@ void GetINIString(const char *section,const char*key,const char*def,char*dest,
         }
         sgets(s1,s1);
         if (strnicmp(s1,s3,strlen(s3))==0) {
-          strcpy(dest,s1+strlen(s3));
+          snprintf(dest,destsize,"%s",s1+strlen(s3));
           goto out_0;
         }
       } while (s1[0]!=0 && !feof(fp) && !ferror(fp));
