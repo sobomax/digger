@@ -101,11 +101,11 @@ static void fill_audio(void *udata, uint8_t *stream, int len)
 		wave_device_available = true;
 	sud = (struct sudata *)udata;
         SDL_memset(stream, sud->obtained.silence, len);
-	if (len > sud->bsize) {
+	if ((unsigned int)len > sud->bsize) {
                 digger_log_printf("fill_audio: OUCH, len > bsize!\n");
 		len = sud->bsize;
         }
-	for (i = 0; i < len / sizeof(int16_t); i++) {
+	for (i = 0; i < len / (int)sizeof(int16_t); i++) {
 #if !defined(NO_SND_FILTER)
 		sample = getsample();
 		sample = bqd_apply(sud->hp_fltr, (sample - 127.0) * 128.0);
