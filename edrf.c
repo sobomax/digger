@@ -400,14 +400,13 @@ readrec(void)
       plyeof = true;
       break;
     }
-    l = strlen(line);
-    if (line[l - 1] != '\n') {
+    if (line[strlen(line) - 1] != '\n') {
       /* Cut short by the program having been stopped while recording */
       plyeof = true;
       break;
     }
-    while (l > 0 && (line[l - 1] == '\n' || line[l - 1] == '\r'))
-      line[--l] = '\0';
+    l = strcspn(line, "\r\n");
+    line[l] = '\0';
     /* A row of a map being read, which an empty line is, all of its
        spaces gone */
     if (lev_rows >= 0) {
