@@ -20,7 +20,9 @@
 
 extern bool edrf_playing;	/* Playing back an eDRF (playing is set too) */
 extern bool edrf_failed;	/* The playback diverged from the recording */
+extern bool edrf_stopped;	/* The playback was stopped before its end */
 extern bool edrf_truncated;	/* The recording ends before its game does */
+extern bool edrf_checked;	/* The playback got to the end, as recorded */
 extern bool edrf_feeding;	/* Feeding a recording to a NetSim game */
 
 void edrf_recreset(void);

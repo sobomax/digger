@@ -50,7 +50,9 @@
 
 bool edrf_playing=false;
 bool edrf_failed=false;
+bool edrf_stopped=false;
 bool edrf_truncated=false;
+bool edrf_checked=false;
 bool edrf_feeding=false;
 static int feedslot=-1;
 
@@ -687,9 +689,15 @@ edrf_gameend(void)
   }
   if (!reading() || edrf_failed)
     return;
-  /* Stopped before the end: nothing to check it against */
-  if (!edrf_exhausted())
+  /* Stopped (e.g. with F10, or by the NetSim peer gone) before the end:
+     nothing to check it against */
+  if (!edrf_exhausted()) {
+    fprintf(stderr, "eDRF: %s stopped on tick %u, before the end of the "
+      "recording\n", edrf_playing ? "playback" : "NetSim replay",
+      (unsigned)rec_endtick);
+    edrf_stopped = true;
     return;
+  }
   if (!ply_hasend) {
     fprintf(stderr, "eDRF: the recording ends on tick %u, before its game "
       "does\n", (unsigned)rec_endtick);
@@ -701,7 +709,9 @@ edrf_gameend(void)
       "(expected %u/%08X, got %u/%08X)\n", (unsigned)ply_endtick,
       (unsigned)ply_endhash, (unsigned)rec_endtick, (unsigned)rec_endhash);
     edrf_failed = true;
+    return;
   }
+  edrf_checked = true;
 }
 
 /* Play back the eDRF body that follows the header in fp, which is read as
@@ -726,7 +736,9 @@ edrf_playopen(FILE *fp)
   plyfp = fp;
   plyeof = ply_hasend = false;
   edrf_failed = false;
+  edrf_stopped = false;
   edrf_truncated = false;
+  edrf_checked = false;
 }
 
 void
