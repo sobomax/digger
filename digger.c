@@ -22,7 +22,7 @@
 #include "game.h"
 #include "edrf.h"
 #include "netsim.h"
-#include "netsim_debug.h"
+#include "state_hash.h"
 #include "record.h"
 
 static struct digger
@@ -151,51 +151,49 @@ resetframe(void)
   frame = 0;
 }
 
-uint32_t
-digger_debug_hash_append(uint32_t h)
+void
+digger_debug_hash_append(struct state_hash *shp)
 {
   int i;
 
-  h = debug_hash_mix(h, (uint32_t)(uint16_t)startbonustimeleft);
-  h = debug_hash_mix(h, (uint32_t)(uint16_t)bonustimeleft);
-  h = debug_hash_mix(h, (uint32_t)(uint16_t)emmask);
-  h = debug_hash_mix(h, bonusvisible ? 1U : 0U);
-  h = debug_hash_mix(h, bonusmode ? 1U : 0U);
-  h = debug_hash_mix(h, digvisible ? 1U : 0U);
-  for (i = 0; i < MSIZE; i++)
-    h = debug_hash_mix(h, (uint32_t)(uint8_t)emfield[i]);
+  STATE_HASH_VAR(shp, startbonustimeleft);
+  STATE_HASH_VAR(shp, bonustimeleft);
+  STATE_HASH_VAR(shp, emmask);
+  STATE_HASH_VAR(shp, bonusvisible);
+  STATE_HASH_VAR(shp, bonusmode);
+  STATE_HASH_VAR(shp, digvisible);
+  STATE_HASH_ARR(shp, emfield, MSIZE);
   for (i = 0; i < DIGGERS; i++) {
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].h);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].v);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].rx);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].ry);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].mdir);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].bagtime);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].rechargetime);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].deathstage);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].deathbag);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].deathani);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].deathtime);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].emocttime);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].emn);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].msc);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].lives);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].ivt);
-    h = debug_hash_mix(h, digdat[i].notfiring ? 1U : 0U);
-    h = debug_hash_mix(h, digdat[i].firepressed ? 1U : 0U);
-    h = debug_hash_mix(h, digdat[i].dead ? 1U : 0U);
-    h = debug_hash_mix(h, digdat[i].levdone ? 1U : 0U);
-    h = debug_hash_mix(h, digdat[i].invin ? 1U : 0U);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].dob.x);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].dob.y);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].dob.dir);
-    h = debug_hash_mix(h, digdat[i].dob.alive ? 1U : 0U);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].bob.x);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].bob.y);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].bob.dir);
-    h = debug_hash_mix(h, (uint32_t)(uint16_t)digdat[i].bob.expsn);
+    STATE_HASH_VAR(shp, digdat[i].h);
+    STATE_HASH_VAR(shp, digdat[i].v);
+    STATE_HASH_VAR(shp, digdat[i].rx);
+    STATE_HASH_VAR(shp, digdat[i].ry);
+    STATE_HASH_VAR(shp, digdat[i].mdir);
+    STATE_HASH_VAR(shp, digdat[i].bagtime);
+    STATE_HASH_VAR(shp, digdat[i].rechargetime);
+    STATE_HASH_VAR(shp, digdat[i].deathstage);
+    STATE_HASH_VAR(shp, digdat[i].deathbag);
+    STATE_HASH_VAR(shp, digdat[i].deathani);
+    STATE_HASH_VAR(shp, digdat[i].deathtime);
+    STATE_HASH_VAR(shp, digdat[i].emocttime);
+    STATE_HASH_VAR(shp, digdat[i].emn);
+    STATE_HASH_VAR(shp, digdat[i].msc);
+    STATE_HASH_VAR(shp, digdat[i].lives);
+    STATE_HASH_VAR(shp, digdat[i].ivt);
+    STATE_HASH_VAR(shp, digdat[i].notfiring);
+    STATE_HASH_VAR(shp, digdat[i].firepressed);
+    STATE_HASH_VAR(shp, digdat[i].dead);
+    STATE_HASH_VAR(shp, digdat[i].levdone);
+    STATE_HASH_VAR(shp, digdat[i].invin);
+    STATE_HASH_VAR(shp, digdat[i].dob.x);
+    STATE_HASH_VAR(shp, digdat[i].dob.y);
+    STATE_HASH_VAR(shp, digdat[i].dob.dir);
+    STATE_HASH_VAR(shp, digdat[i].dob.alive);
+    STATE_HASH_VAR(shp, digdat[i].bob.x);
+    STATE_HASH_VAR(shp, digdat[i].bob.y);
+    STATE_HASH_VAR(shp, digdat[i].bob.dir);
+    STATE_HASH_VAR(shp, digdat[i].bob.expsn);
   }
-  return (h);
 }
 
 void newframe(void)
