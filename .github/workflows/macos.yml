@@ -33,6 +33,7 @@ jobs:
         run: |
           cmake -S . -B build-macos \
             -DCMAKE_BUILD_TYPE=Release \
+            -DDIGGER_INSTRUMENTATION=ON \
             -DCMAKE_INSTALL_PREFIX=/usr/local
 
       - name: Build

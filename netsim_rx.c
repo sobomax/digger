@@ -1,3 +1,4 @@
+#include "netsim_instrument.h"
 #include "netsim_rx.h"
 
 #include <errno.h>
@@ -5,43 +6,28 @@
 
 #include "digger_log.h"
 
-static uint32_t
-netsim_rx_drop_every_env(void)
-{
-  const char *envp;
-  char *endp;
-  unsigned long v;
-
-  envp = getenv("DIGGER_NETSIM_RX_DROP_EVERY");
-  if (envp == NULL || envp[0] == '\0')
-    return (0);
-  v = strtoul(envp, &endp, 10);
-  if (endp == envp || *endp != '\0' || v == 0 || v > UINT32_MAX) {
-    digger_log_printf(
-      "netsim-rx: ignoring invalid DIGGER_NETSIM_RX_DROP_EVERY=%s\n", envp);
-    return (0);
-  }
-  return ((uint32_t)v);
-}
-
 void *
 netsim_rx_thread(void *arg)
 {
   struct netsim_rx_ctx *rxp;
   struct netsim_out_ev outev = {0};
   netsim_sockaddr_t peer_addr;
+#ifdef DIGGER_INSTRUMENTATION
   uint32_t drop_every;
   uint32_t recv_count;
+#endif
   uint8_t *buf;
   int rlen, err;
 
   rxp = (struct netsim_rx_ctx *)arg;
+#ifdef DIGGER_INSTRUMENTATION
   drop_every = netsim_rx_drop_every_env();
   recv_count = 0;
   if (drop_every != 0) {
     digger_log_printf("netsim-rx: synthetic loss enabled, dropping every %uth packet\n",
       (unsigned int)drop_every);
   }
+#endif
   while (!atomic_load_explicit(&rxp->stop_requested, memory_order_relaxed)) {
     buf = malloc(NETSIM_RX_BUFSIZE);
     if (buf == NULL) {
@@ -61,6 +47,7 @@ netsim_rx_thread(void *arg)
       queue_out_put(rxp->outq, &outev);
       return (NULL);
     }
+#ifdef DIGGER_INSTRUMENTATION
     recv_count++;
     if (drop_every != 0 && recv_count % drop_every == 0) {
       digger_log_printf("netsim-rx: synthetic drop packet=%u len=%d\n",
@@ -68,6 +55,7 @@ netsim_rx_thread(void *arg)
       free(buf);
       continue;
     }
+#endif
     outev.type = NETSIM_INT_RX_PACKET;
     outev.recv_ns = netsim_monotonic_ns();
     outev.pkt_len = (size_t)rlen;

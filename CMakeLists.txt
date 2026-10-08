@@ -7,6 +7,15 @@ SET( CMAKE_C_STANDARD 11 )
 SET( CMAKE_C_STANDARD_REQUIRED ON )
 SET( CMAKE_C_EXTENSIONS ON )
 
+# Debug builds include the NetSim test hooks by default. Release test builds
+# opt in explicitly; a supplied cache value overrides the default.
+SET( DIGGER_INSTRUMENTATION_DEFAULT OFF )
+IF ( CMAKE_BUILD_TYPE STREQUAL "Debug" )
+  SET( DIGGER_INSTRUMENTATION_DEFAULT ON )
+ENDIF ()
+OPTION( DIGGER_INSTRUMENTATION "Build NetSim test instrumentation"
+  ${DIGGER_INSTRUMENTATION_DEFAULT} )
+
 IF( NOT MSVC )
   SET( WARN_FLAGS "-Wall -Wformat=2" )
   IF( CMAKE_C_COMPILER_ID MATCHES "Clang" )
@@ -181,6 +190,7 @@ SET( DIGGER_SOURCE
      scores.c
      record.c
      edrf.c
+     edrf_feed.c
      sound.c
      sound_backend.c
      newsnd.c
@@ -212,6 +222,7 @@ SET( DIGGER_SOURCE
      netsim_sip_registrar.c
      netsim_sip_sdp.c
      netsim_platform.c
+     netsim_instrument.c
      netsim_debug.c
      netsim_game.c
      state_hash.c
@@ -257,6 +268,9 @@ IF ( EMSCRIPTEN )
 ENDIF ( EMSCRIPTEN )
 
 ADD_EXECUTABLE( digger ${DIGGER_SOURCE})
+IF ( DIGGER_INSTRUMENTATION )
+  TARGET_COMPILE_DEFINITIONS(digger PRIVATE DIGGER_INSTRUMENTATION)
+ENDIF ()
 
 # Nothing in it is for anybody else to link to (-fvisibility=hidden)
 SET_TARGET_PROPERTIES( digger PROPERTIES C_VISIBILITY_PRESET hidden )

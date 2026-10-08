@@ -23,7 +23,6 @@ extern bool edrf_failed;	/* The playback diverged from the recording */
 extern bool edrf_stopped;	/* The playback was stopped before its end */
 extern bool edrf_truncated;	/* The recording ends before its game does */
 extern bool edrf_checked;	/* The playback got to the end, as recorded */
-extern bool edrf_feeding;	/* Feeding a recording to a NetSim game */
 
 void edrf_recreset(void);
 void edrf_recopen(FILE *fp);
@@ -41,8 +40,9 @@ void edrf_gameend(void);
 void edrf_playopen(FILE *fp);
 void edrf_stopplay(void);
 void edrf_takeover(void);
-bool edrf_netfeed_open(const char *name);
-void edrf_feedslot(int slot);
-uint8_t edrf_feedpeek(void);
+#ifdef DIGGER_INSTRUMENTATION
+/* Non-consuming reader access for the NetSim feeder. */
+uint8_t edrf_peekinput(int slot);
+#endif
 
 #endif

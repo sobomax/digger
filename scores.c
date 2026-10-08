@@ -19,7 +19,7 @@
 #include "game.h"
 #include "netsim.h"
 #include "netsim_game.h"
-#include "edrf.h"
+#include "edrf_feed.h"
 #if defined(__EMSCRIPTEN__)
 #include "ems_store.h"
 #endif

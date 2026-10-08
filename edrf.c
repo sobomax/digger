@@ -33,7 +33,6 @@
  * was being made) plays back as far as it goes.
  */
 
-#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -42,6 +41,7 @@
 
 #include "def.h"
 #include "edrf.h"
+#include "edrf_feed.h"
 #include "game.h"
 #include "input.h"
 #include "main.h"
@@ -60,8 +60,6 @@ bool edrf_failed=false;
 bool edrf_stopped=false;
 bool edrf_truncated=false;
 bool edrf_checked=false;
-bool edrf_feeding=false;
-static int feedslot=-1;
 
 /* A queue: pushed at the end, popped from the front */
 struct vec {
@@ -515,24 +513,16 @@ takein(int slot)
 uint8_t
 edrf_input(int slot, uint8_t bits)
 {
-  uint32_t x;
 
   if (slot < 0 || slot >= EDRF_SLOTS)
     return (bits);
   slotread[slot] = true;
   if (edrf_playing)
     bits = (uint8_t)takein(slot);
-  else if (edrf_feeding) {
-    /* Both players' controls, as they came out of the network, have to be
-       the recorded ones */
-    x = takein(slot);
-    if (x != (bits & 0x1f) && !edrf_failed) {
-      fprintf(stderr, "eDRF: player %d controls %02X on tick %u, recorded "
-        "%02X\n", slot + 1, (unsigned)(bits & 0x1f),
-        (unsigned)dgstate.ticks + 1, (unsigned)x);
-      edrf_failed = true;
-    }
-  }
+#ifdef DIGGER_INSTRUMENTATION
+  else if (edrf_feeding)
+    edrf_feed_checkinput(slot, bits, takein(slot));
+#endif
   else if (playing)
     bits = 0;
   vec_push(&rec_in[slot], bits & 0x1f);
@@ -586,7 +576,11 @@ edrf_quitting(void)
 
   if (!edrf_exhausted())
     return (false);
-  return (!edrf_feeding || ply_quit < 0 || ply_quit == feedslot);
+#ifdef DIGGER_INSTRUMENTATION
+  return (edrf_feed_quitting(ply_quit));
+#else
+  return (true);
+#endif
 }
 
 /* The game is being quit (escape): say who quit it, if anybody did */
@@ -813,67 +807,16 @@ edrf_stopplay(void)
   }
 }
 
-/*
- * Replaying a two Digger recording over NetSim: the recording's header sets
- * the game up, then each peer sends its own player's recorded controls
- * (edrf_feedpeek()) instead of the keyboard's, and checks both players'
- * controls as received (edrf_input()) and the state checkpoints against the
- * recording. Fails with errno set if it can't be read, 0 if it isn't one.
- */
-bool
-edrf_netfeed_open(const char *name)
-{
-  char line[512];
-  FILE *fp;
-
-  fp = fopen(name, "r");
-  if (fp == NULL)
-    return (false);
-#define GETLINE() (fgets(line, sizeof(line), fp) != NULL && \
-  (line[strcspn(line, "\r\n")] = '\0', true))
-  if (!GETLINE() || strcmp(line, EDRF_MAGIC) != 0)
-    goto out;
-  if (!GETLINE())
-    goto out;
-  kludge = atol(line + 7) <= 19981125l;
-  /* Only two Digger games make sense over NetSim */
-  if (!GETLINE() || strncmp(line, "M2", 2) != 0 ||
-      (line[2] != '\0' && line[2] != 'I'))
-    goto out;
-  dgstate.diggers = 2;
-  dgstate.nplayers = 1;
-  dgstate.gauntlet = false;
-  dgstate.startlev = line[2] == 'I' ? atoi(line + 3) : 1;
-  if (!GETLINE())
-    goto out;
-  bonusscore = atoi(line);
-#undef GETLINE
-  edrf_playopen(fp);
-  edrf_feeding = true;
-  feedslot = -1;
-  return (true);
-out:
-  fclose(fp);
-  errno = 0; /* Not one to replay, see main() */
-  return (false);
-}
-
-/* The NetSim session decided which player this peer is */
-void
-edrf_feedslot(int slot)
-{
-
-  feedslot = slot;
-}
-
-/* This peer's next recorded controls, sent until the game reads them */
+#ifdef DIGGER_INSTRUMENTATION
+/* Inspect the next controls without consuming them, for the NetSim feeder. */
 uint8_t
-edrf_feedpeek(void)
+edrf_peekinput(int slot)
 {
   const struct vec *vp;
 
-  if (feedslot < 0 || feedslot >= EDRF_SLOTS)
+  if (slot < 0 || slot >= EDRF_SLOTS)
     return (0);
-  vp = &ply_in[feedslot];
+  vp = &ply_in[slot];
   return (fill(vp) ? (uint8_t)vp->v[vp->pos] : 0);
 }
+#endif

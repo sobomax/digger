@@ -29,7 +29,7 @@
 #define NETSIM_RETRY_MIN_MS 10
 /* How long a frame may go without the peer's ack before the
    session is given up on, unless DIGGER_NETSIM_SYNC_TIMEOUT (ms) says
-   otherwise */
+   otherwise in an instrumented build */
 #define NETSIM_SYNC_TIMEOUT_MS 1000
 /* How long the answering side first waits to resend its frame while the
    caller is yet to be heard from, see thread_slow_start() */
@@ -1216,6 +1216,7 @@ pending_unschedule(struct pending_tx *ptx)
 static uint64_t
 netsim_sync_timeout_ns(void)
 {
+#ifdef DIGGER_INSTRUMENTATION
   static uint64_t timeout_ns;
   const char *envp;
   char *ep;
@@ -1232,6 +1233,9 @@ netsim_sync_timeout_ns(void)
   }
   timeout_ns = (uint64_t)ms * 1000000ULL;
   return (timeout_ns);
+#else
+  return ((uint64_t)NETSIM_SYNC_TIMEOUT_MS * 1000000ULL);
+#endif
 }
 
 /* The peer hasn't acked it for as long as the sync timeout; never for a
@@ -2963,13 +2967,15 @@ netsim_session_active(void)
   return (netsim_is_started());
 }
 
-/* Whether an answer of ours went without ACK (testing) */
+#ifdef DIGGER_INSTRUMENTATION
+/* Whether an answer of ours went without ACK (testing). */
 bool
 netsim_no_ack_seen(void)
 {
 
   return (netsim_sip_no_ack_seen());
 }
+#endif
 
 bool
 netsim_peer_exited(void)

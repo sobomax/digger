@@ -105,3 +105,33 @@ source code has been contributed by different people and licensed under the
 terms of several licenses including Public Domain, Beer-Ware, 2-clause BSD
 and GNU General Public License version 2. Please refer to a specific source
 file as well as source code history to find out more.
+
+# NetSim Test Instrumentation
+
+`DIGGER_INSTRUMENTATION` enables NetSim replay tests and fault injection. It
+is off by default for production builds and on for Debug builds. Set
+`-DDIGGER_INSTRUMENTATION=ON` with CMake or `DIGGER_INSTRUMENTATION=ON` with
+GNU make to enable it in a production test build (`OFF` disables it).
+Clean before changing the option with make; CMake stores it in its cache.
+The test build scripts explicitly enable it in both configurations.
+Requesting `DIGGER_NETSIM_REPLAY` without instrumentation reports an error
+and exits immediately.
+
+The option controls these environment variables and their supporting code:
+
+- `DIGGER_NETSIM_REPLAY`, `DIGGER_NETSIM_REPLAY_START`: feed a two-player
+  eDRF recording over the network and optionally start the session.
+- `DIGGER_NETSIM_RX_DROP_EVERY`, `DIGGER_NETSIM_TX_DROP_EVERY`: synthetic
+  packet loss.
+- `DIGGER_NETSIM_SIP_DROP_2XX`, `DIGGER_NETSIM_SIP_NO_ACK`,
+  `DIGGER_NETSIM_MUTE_AFTER_ACK`: simulate lost SIP answers, missing ACKs,
+  or a vanished peer.
+- `DIGGER_NETSIM_EXPECT_NO_ACK`: assert that a SIP answer went without ACK.
+- `DIGGER_NETSIM_SIP_TIMER_L`, `DIGGER_NETSIM_SYNC_TIMEOUT`: override test
+  timeouts; production uses the normal built-in values.
+- `DIGGER_NETSIM_TRACE`: emit per-frame game-state comparison hashes.
+
+`DIGGER_NETSIM_DEBUG` remains available in production for diagnosing network
+sessions. `DIGGER_NETSIM_PROTO_DEBUG` keeps its existing `DIGGER_DEBUG`
+guard. Normal recording and local playback remain available without
+instrumentation.

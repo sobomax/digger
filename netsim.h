@@ -37,8 +37,10 @@ bool netsim_sync_frame(uint32_t frame, uint8_t local_bits, bool local_freeze,
 int netsim_local_player(void);
 uint64_t netsim_session_nonce(void);
 bool netsim_session_active(void);
-bool netsim_peer_exited(void);
+#ifdef DIGGER_INSTRUMENTATION
 bool netsim_no_ack_seen(void);
+#endif
+bool netsim_peer_exited(void);
 bool netsim_pump_title_events(void);
 bool netsim_remote_start_requested(void);
 enum netsim_title_status netsim_title_status_get(void);

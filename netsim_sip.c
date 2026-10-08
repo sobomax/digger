@@ -1,10 +1,13 @@
 /* Digger Reloaded
    Copyright (c) Maksym Sobolyev <sobomax@sippysoft.com> */
 
+#include "netsim_instrument.h"
 #include "netsim_sip_internal.h"
 
 #include <assert.h>
+#ifdef DIGGER_INSTRUMENTATION
 #include <stdatomic.h>
+#endif
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -116,8 +119,10 @@ static void outgoing_timeout(void *, size_t, const struct usipy_sip_tm_tx *,
   enum usipy_sip_tm_uac_timeout_id);
 static int invite_no_ack(void *, size_t, const struct usipy_sip_tm_tx *);
 
+#ifdef DIGGER_INSTRUMENTATION
 /* A 2xx of ours went without ACK, see netsim_sip_no_ack_seen() */
 static atomic_bool g_no_ack_seen;
+#endif
 static void incoming_request(void *, const struct usipy_sip_tm_handle_incoming_in *,
   const struct usipy_msg *);
 static void ua_emit(void *, const struct usipy_sip_ua_emit *);
@@ -358,6 +363,7 @@ tm_addr_cleanup(struct usipy_sip_tm_addr *addrp)
   memset(addrp, '\0', sizeof(*addrp));
 }
 
+#ifdef DIGGER_INSTRUMENTATION
 /* Testing: an answer (2xx) of ours to an INVITE, not sent the first so many
    (DIGGER_NETSIM_SIP_DROP_2XX) times, as if lost */
 static bool
@@ -391,6 +397,7 @@ drop_invite_2xx(const struct usipy_str *rawp)
   }
   return (false);
 }
+#endif
 
 static int
 socket_send_to(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
@@ -426,6 +433,7 @@ socket_send_to(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
       (unsigned int)outp->target.port);
     return (-1);
   }
+#ifdef DIGGER_INSTRUMENTATION
   /* Testing: a side that never ACKs an answered INVITE */
   if (getenv("DIGGER_NETSIM_SIP_NO_ACK") != NULL && outp->raw.l > 4 &&
       memcmp(outp->raw.s.ro, "ACK ", 4) == 0) {
@@ -438,13 +446,16 @@ socket_send_to(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
       outp->raw.s.ro);
     return (0);
   }
+#endif
   sent = netsim_socket_sendto(sp->sock, outp->raw.s.ro, outp->raw.l, &target);
+#ifdef DIGGER_INSTRUMENTATION
   /* Testing: a side gone (no media, no BYE either) once it has ACKed the
      answer to its INVITE */
   if (sent == (int)outp->raw.l &&
       getenv("DIGGER_NETSIM_MUTE_AFTER_ACK") != NULL && outp->raw.l > 4 &&
       memcmp(outp->raw.s.ro, "ACK ", 4) == 0)
     netsim_tx_mute();
+#endif
   if (sent == (int)outp->raw.l) {
     sip_log("sent %lu bytes (%.*s) to %.*s:%u", (unsigned long)outp->raw.l,
       sl, outp->raw.s.ro, (int)outp->target.host.l, outp->target.host.s.ro,
@@ -893,7 +904,9 @@ invite_no_ack(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp)
       scode, (unsigned int)txp->common.id.cseq, (unsigned long)tx_index);
     return (0);
   }
+#ifdef DIGGER_INSTRUMENTATION
   atomic_store(&g_no_ack_seen, true);
+#endif
   /* The call is up for all that, as long as the peer's game frames come:
      no reason to end it, but for a missing ACK */
   if (sp != NULL && sp->live != NULL && sp->live(sp->live_arg)) {
@@ -1351,15 +1364,18 @@ bool
 netsim_sip_handle_packet(struct netsim_sip *sp, const void *buf, size_t len,
   const netsim_sockaddr_t *peerp, const netsim_sockaddr_t *localp)
 {
+#ifdef DIGGER_INSTRUMENTATION
   static int timer_l_ms = -1;
+  const char *envp;
+#endif
   struct usipy_sip_tm_timer_policy timers = {0}; /* RFC 3261's */
   struct usipy_sip_tm_addr peer;
   struct usipy_sip_tm_addr local;
   struct usipy_sip_tm_handle_incoming_in hin = {0};
   struct usipy_sip_tm_handle_incoming_out hout;
-  const char *envp;
   int rval;
 
+#ifdef DIGGER_INSTRUMENTATION
   /* Testing: how long (ms) a 2xx of ours waits for its ACK, other than
      NETSIM_SIP_TIMER_L_MS */
   if (timer_l_ms < 0) {
@@ -1369,6 +1385,9 @@ netsim_sip_handle_packet(struct netsim_sip *sp, const void *buf, size_t len,
       timer_l_ms = (int)NETSIM_SIP_TIMER_L_MS;
   }
   timers.timer_l_ms = (uint32_t)timer_l_ms;
+#else
+  timers.timer_l_ms = NETSIM_SIP_TIMER_L_MS;
+#endif
 
   if (!sockaddr_to_tm_addr(peerp, &peer) || !sockaddr_to_tm_addr(localp, &local))
     return (false);
@@ -1455,6 +1474,7 @@ netsim_sip_answer_pending_remote(struct netsim_sip *sp, char *errbuf,
   return (answer_incoming_invite(sp, errbuf, errbuf_len));
 }
 
+#ifdef DIGGER_INSTRUMENTATION
 /* Whether a 2xx of ours has gone without ACK (testing, see
    DIGGER_NETSIM_EXPECT_NO_ACK) */
 bool
@@ -1463,6 +1483,7 @@ netsim_sip_no_ack_seen(void)
 
   return (atomic_load(&g_no_ack_seen));
 }
+#endif
 
 /* How to tell whether the session is live, for a call whose 2xx goes
    without ACK: kept if it is, ended if not */
@@ -1640,12 +1661,14 @@ netsim_sip_set_liveness(struct netsim_sip *sp, bool (*live)(void *),
   (void)arg;
 }
 
+#ifdef DIGGER_INSTRUMENTATION
 bool
 netsim_sip_no_ack_seen(void)
 {
 
   return (false);
 }
+#endif
 
 bool
 netsim_sip_packet_looks_like(const void *buf, size_t len)

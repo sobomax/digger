@@ -1,7 +1,11 @@
 /* Digger Remastered
    Copyright (c) Maksym Sobolyev <sobomax@sippysoft.com> */
 
+#include "netsim_debug.h"
+
 #include <stdlib.h>
+
+#ifdef DIGGER_INSTRUMENTATION
 #include <stdio.h>
 
 #include "def.h"
@@ -12,7 +16,6 @@
 #include "game.h"
 #include "netsim.h"
 #include "digger_log.h"
-#include "netsim_debug.h"
 #include "state_hash.h"
 
 static bool netsim_trace_ready = false;
@@ -42,3 +45,4 @@ netsim_trace_state(const char *phase, bool levdone, bool alldead, int penalty)
     (unsigned int)mon_hash, (unsigned int)bag_hash, levdone ? 1 : 0,
     alldead ? 1 : 0, dgstate.timeout ? 1 : 0, dgstate.curplayer, penalty);
 }
+#endif

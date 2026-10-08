@@ -94,7 +94,9 @@ bool netsim_sip_answer_pending_remote(struct netsim_sip *sp, char *errbuf,
 void netsim_sip_hangup(struct netsim_sip *sp, const char *why);
 void netsim_sip_set_liveness(struct netsim_sip *sp, bool (*live)(void *),
   void *arg);
+#ifdef DIGGER_INSTRUMENTATION
 bool netsim_sip_no_ack_seen(void);
+#endif
 bool netsim_sip_packet_looks_like(const void *buf, size_t len);
 bool netsim_sip_registration_ready(const struct netsim_sip *sp);
 

@@ -35,6 +35,7 @@ static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.
 #include "netsim_friends.h"
 #include "title_anim.h"
 #include "edrf.h"
+#include "edrf_feed.h"
 #if defined(__EMSCRIPTEN__)
 #include "ems_kbd.h"
 #include "ems_store.h"
@@ -165,8 +166,10 @@ void game(void)
 
       if (playing)
         dgstate.randv=playgetrand();
+#ifdef DIGGER_INSTRUMENTATION
       else if (edrf_feeding)
         dgstate.randv=edrf_getrand(); /* Replaying a recording over NetSim */
+#endif
       else
         dgstate.randv=roundseed(sbase,round++);
 #ifdef INTDRF
@@ -400,6 +403,7 @@ int mainprog(void)
   enum netsim_title_status cur_netsim_status;
   bool title_up_pressed, title_down_pressed;
 
+#ifdef DIGGER_INSTRUMENTATION
   /* Testing: replay a recording over NetSim, see edrf_netfeed_open() */
   if (getenv("DIGGER_NETSIM_REPLAY") != NULL) {
     const char *why=NULL;
@@ -414,6 +418,13 @@ int mainprog(void)
       exit(1);
     }
   }
+#else
+  if (getenv("DIGGER_NETSIM_REPLAY") != NULL) {
+    fprintf(stderr, "eDRF: NetSim replay requires a build with "
+      "DIGGER_INSTRUMENTATION enabled\n");
+    exit(1);
+  }
+#endif
   loadscores();
   escape=false;
   title_anim_init(&title_anim);
@@ -467,10 +478,12 @@ int mainprog(void)
         title_down_pressed = false;
       }
       started=teststart();
+#ifdef DIGGER_INSTRUMENTATION
       /* The replaying peer that starts the game does so on its own */
       if (!started && edrf_feeding &&
           getenv("DIGGER_NETSIM_REPLAY_START") != NULL)
         started=true;
+#endif
       if (!started && dgstate.netsim && netsim_remote_start_requested()) {
         started=true;
         started_by_remote=true;
@@ -524,10 +537,12 @@ int mainprog(void)
       outtext(ddap, "WAITING FOR PEER",68,0,3);
       ddap->gflush();
       if (!netsim_start_session(!started_by_remote)) {
+#ifdef DIGGER_INSTRUMENTATION
         if (edrf_feeding) {
           fprintf(stderr, "eDRF: NetSim replay: no session with the peer\n");
           exit(3);
         }
+#endif
         soundstop();
         soundddie();
         for (t=0;t<15 && !escape;t++)
@@ -536,7 +551,9 @@ int mainprog(void)
       }
       input_enable_network_mode();
       input_set_network_controls(1-netsim_local_player(), 0);
+#ifdef DIGGER_INSTRUMENTATION
       edrf_feedslot(netsim_local_player());
+#endif
     }
     recinit();
     soundwakeup();
@@ -546,6 +563,7 @@ int mainprog(void)
     if (netsim_quit_synced() || edrf_feeding || !escape)
       netsim_drain_frames();
     netsim_end_game_session(!escape);
+#ifdef DIGGER_INSTRUMENTATION
     /* Replayed a recording over NetSim: report how it went, and that's it */
     if (edrf_feeding) {
       game_dbg_info_emit();
@@ -567,6 +585,7 @@ int mainprog(void)
       }
       exit(0);
     }
+#endif
     input_reset_network();
     gotgame=true;
     if (gotname) {

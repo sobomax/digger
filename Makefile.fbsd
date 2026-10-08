@@ -2,17 +2,26 @@ PROG=		digger
 
 MK_PIE=		no
 
-COMMON_SRCS=	main.c digger.c drawing.c sprite.c scores.c record.c edrf.c sound.c \
+COMMON_SRCS=	main.c digger.c drawing.c sprite.c scores.c record.c edrf.c edrf_feed.c sound.c \
 		sound_backend.c newsnd.c ini.c input.c monster.c bags.c \
 		alpha.c vgagrafx.c cgagrafx.c title_gz.c title_anim.c \
 		digger_math.c monster_obj.c digger_obj.c bullet_obj.c \
 		keyboard.c soundgen.c spinlock.c game.c digger_log.c \
-		netsim.c netsim_rx.c netsim_platform.c netsim_debug.c netsim_game.c \
+		netsim_instrument.c netsim.c netsim_rx.c netsim_platform.c netsim_debug.c netsim_game.c \
 		state_hash.c microsippy/src/external/mackron_md5/md5.c
 
 SRCS=		${COMMON_SRCS}
 
 CFLAGS+=	-DFREEBSD -DDIGGER_DEBUG
+.if ${BUILD_TYPE:Udebug} == "production"
+DIGGER_INSTRUMENTATION?= OFF
+.else
+DIGGER_INSTRUMENTATION?= ON
+.endif
+.if ${DIGGER_INSTRUMENTATION:tu} == "ON" || ${DIGGER_INSTRUMENTATION} == "1" || \
+    ${DIGGER_INSTRUMENTATION:tu} == "YES" || ${DIGGER_INSTRUMENTATION:tu} == "TRUE"
+CFLAGS+=	-DDIGGER_INSTRUMENTATION
+.endif
 
 LDADD+=		-lz -lm -lpthread
 
