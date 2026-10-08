@@ -38,10 +38,15 @@ netsim_start_session(bool initiated_locally)
 }
 
 void
-netsim_stop_session(bool send_exit)
+netsim_stop_session(void)
+{
+}
+
+bool
+netsim_await_peer_hangup(void)
 {
 
-  (void)send_exit;
+  return (false);
 }
 
 void

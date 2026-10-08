@@ -28,7 +28,8 @@ bool netsim_friend_get(size_t index, char *namebuf, size_t namebuf_len,
   unsigned int *games_playedp);
 void netsim_friend_move(int delta);
 bool netsim_start_session(bool initiated_locally);
-void netsim_stop_session(bool send_exit);
+void netsim_stop_session(void);
+bool netsim_await_peer_hangup(void);
 void netsim_shutdown(void);
 bool netsim_sync_frame(uint32_t frame, uint8_t local_bits, bool local_freeze,
   uint8_t *remote_bits, bool *remote_freeze, int *remote_lead_ms,

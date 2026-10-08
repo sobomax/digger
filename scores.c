@@ -248,7 +248,7 @@ void endofgame(struct digger_draw_api *ddap)
   if (dgstate.netsim && netsim_session_active() && !netsim_peer_exited()) {
     /* Let the peer get our last frames before leaving */
     netsim_drain_frames();
-    netsim_stop_session(true);
+    netsim_end_game_session(true);
   }
   if (dgstate.gauntlet) {
     cleartopline();

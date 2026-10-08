@@ -545,8 +545,7 @@ int mainprog(void)
        to get to its end */
     if (netsim_quit_synced() || edrf_feeding || !escape)
       netsim_drain_frames();
-    if (dgstate.netsim)
-      netsim_stop_session(escape && !netsim_peer_exited());
+    netsim_end_game_session(!escape);
     /* Replayed a recording over NetSim: report how it went, and that's it */
     if (edrf_feeding) {
       game_dbg_info_emit();

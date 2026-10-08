@@ -19,6 +19,8 @@ static bool remote_pause_active = false;
 static bool quitsynced = false;
 /* The player who quit it then (-1 for none, the peer gone as well) */
 static int quitter = -1;
+/* And the other one too, on the same frame */
+static bool quit_both = false;
 /* netsim_drain_frames() is running: the game is over already */
 static bool draining = false;
 
@@ -97,6 +99,7 @@ netsim_game_frame(uint32_t frame, bool local_freeze, bool local_pause,
     escape = true;
     quitsynced = true;
     quitter = localquit ? local_player : remote_player;
+    quit_both = localquit && (remote_bits & NETSIM_CTRL_QUIT) != 0;
   }
   setremote(remote_freeze, remote_pause, remote_freezep, remote_pausep);
   return (true);
@@ -123,11 +126,35 @@ netsim_remote_pause_active(void)
 bool
 netsim_quit_synced(void)
 {
-  bool q = quitsynced;
 
+  return (quitsynced);
+}
+
+/*
+ * End the session of the game just over, both peers having left it on the
+ * same frame (quit, or played to its end, game_over): just one of them
+ * hangs up, the one that quit (player 1 if both did, or none), the other
+ * waiting for its BYE, hanging up itself only if it doesn't come. Any
+ * other way, it's hung up here.
+ */
+void
+netsim_end_game_session(bool game_over)
+{
+  bool here;
+
+  if (!dgstate.netsim)
+    return;
+  if (quitsynced)
+    here = quit_both ? netsim_local_player() == 0 :
+      quitter == netsim_local_player();
+  else
+    here = !game_over || netsim_local_player() == 0;
+  if (!here)
+    (void)netsim_await_peer_hangup();
+  netsim_stop_session();
   quitsynced = false;
   quitter = -1;
-  return (q);
+  quit_both = false;
 }
 
 /*

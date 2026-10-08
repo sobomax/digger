@@ -16,6 +16,7 @@ bool netsim_game_frame(uint32_t frame, bool local_freeze, bool local_pause,
   bool *remote_pausep);
 bool netsim_remote_pause_active(void);
 bool netsim_quit_synced(void);
+void netsim_end_game_session(bool game_over);
 int netsim_quitter(void);
 void netsim_drain_frames(void);
 bool netsim_draining(void);
