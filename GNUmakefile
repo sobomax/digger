@@ -1,5 +1,9 @@
 CC	?= gcc
 CFLAGS	+= -pipe
+DIGGER_WARNINGS_AS_ERRORS ?= OFF
+ifneq ($(filter 1 ON on YES yes TRUE true,$(DIGGER_WARNINGS_AS_ERRORS)),)
+CFLAGS += -Werror
+endif
 ifeq (${BUILD_TYPE},production)
 CFLAGS  += -O3
 DIGGER_INSTRUMENTATION ?= OFF
@@ -11,6 +15,13 @@ ifneq ($(filter 1 ON on YES yes TRUE true,$(DIGGER_INSTRUMENTATION)),)
 CFLAGS += -DDIGGER_INSTRUMENTATION
 endif
 RCFLAGS = -D_SDL -D_SDL_SOUND -std=gnu11 -Wall -DNO_SND_FILTER #-DNO_SND_EFFECTS
+# Clang warns about every libatomic operation on targets such as ARMv5.
+# Keep the diagnostic on targets where integer atomics are always lock-free.
+CLANG_ATOMICS_REQUIRE_LIBCALLS := $(shell printf '\#if defined(__clang__) && __CLANG_ATOMIC_INT_LOCK_FREE != 2\n1\n\#endif\n' | \
+  $(CC) -E -P - 2>/dev/null | tr -d '[:space:]')
+ifeq ($(CLANG_ATOMICS_REQUIRE_LIBCALLS),1)
+RCFLAGS += -Wno-atomic-alignment
+endif
 OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o edrf.o edrf_feed.o sound.o \
 		sound_backend.o \
 		newsnd.o ini.o input.o monster.o bags.o alpha.o vgagrafx.o \

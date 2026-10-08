@@ -31,9 +31,9 @@ jobs:
 
       - name: Configure
         run: |
+          . scripts/cmake_flags.sub
           cmake -S . -B build-macos \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DDIGGER_INSTRUMENTATION=ON \
+            ${CMAKE_FLAGS_release} ${CMAKE_FLAGS_TEST} \
             -DCMAKE_INSTALL_PREFIX=/usr/local
 
       - name: Build

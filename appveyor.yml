@@ -3,6 +3,7 @@ version: 1.0.{build}
 
 environment:
   MSYS2_ROOT: C:\msys64
+  DIGGER_WARNINGS_AS_ERRORS: "ON"
 
 build_script:
 - cmd: >-
