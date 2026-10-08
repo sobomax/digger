@@ -8,7 +8,7 @@ usipy_msg_heap_cnt_rollback(struct usipy_msg_heap *hp, const struct usipy_msg_he
     USIPY_DASSERT(cntp->lastalen == hp->alen);
     USIPY_DASSERT(cntp->alen <= hp->alen);
     hp->alen -= cntp->alen;
-    memset(hp->first + hp->alen, '\0', cntp->alen);
+    memset((char *)hp->first + hp->alen, '\0', cntp->alen);
 }
 
 /*
@@ -66,7 +66,7 @@ usipy_msg_heap_cnt_reclaim(struct usipy_msg_heap *hp, struct usipy_msg_heap_cnt 
     }
     rlen = cntp->alen - alen;
     hp->alen -= rlen;
-    memset(hp->first + hp->alen, '\0', rlen);
+    memset((char *)hp->first + hp->alen, '\0', rlen);
     cntp->alen = alen;
     USIPY_DCODE(cntp->lastalen = hp->alen);
 }
