@@ -24,8 +24,11 @@
 
 #define NETSIM_FRAME_WINDOW 32
 #define NETSIM_PEER_SEQ_WINDOW 4
-#define NETSIM_RETRY_LIMIT 100
-#define NETSIM_RETRY_MS 10
+#define NETSIM_RETRY_MIN_MS 10
+/* How long a frame (or the exit) may go without the peer's ack before the
+   session is given up on, unless DIGGER_NETSIM_SYNC_TIMEOUT (ms) says
+   otherwise */
+#define NETSIM_SYNC_TIMEOUT_MS 1000
 #define NETSIM_RTP_VERSION 2U
 #define NETSIM_RTP_PT 96U
 #define NETSIM_RTPROP_LPF_SHIFT 2
@@ -219,6 +222,7 @@ struct pending_tx {
   int retries;
   int send_count;
   uint64_t first_send_ns;
+  uint64_t first_try_ns; /* For the sync timeout, even if not sent */
   int peer_frame_base;
   int peer_frame_count;
   netsim_deadline_t next_tx;
@@ -1126,6 +1130,7 @@ set_pending(struct pending_tx *ptx, int type, uint32_t frame, uint8_t bits,
   ptx->retries = 0;
   ptx->send_count = 0;
   ptx->first_send_ns = 0;
+  ptx->first_try_ns = 0;
   ptx->peer_frame_base = 0;
   ptx->peer_frame_count = 0;
   ptx->next_tx = 0;
@@ -1160,6 +1165,37 @@ pending_unschedule(struct pending_tx *ptx)
   ptx->next_tx = UINT64_MAX;
 }
 
+/* The sync timeout, see NETSIM_SYNC_TIMEOUT_MS */
+static uint64_t
+netsim_sync_timeout_ns(void)
+{
+  static uint64_t timeout_ns;
+  const char *envp;
+  char *ep;
+  unsigned long ms;
+
+  if (timeout_ns != 0)
+    return (timeout_ns);
+  ms = NETSIM_SYNC_TIMEOUT_MS;
+  envp = getenv("DIGGER_NETSIM_SYNC_TIMEOUT");
+  if (envp != NULL && *envp != '\0') {
+    ms = strtoul(envp, &ep, 10);
+    if (*ep != '\0' || ms == 0)
+      ms = NETSIM_SYNC_TIMEOUT_MS;
+  }
+  timeout_ns = (uint64_t)ms * 1000000ULL;
+  return (timeout_ns);
+}
+
+/* The peer hasn't acked it for as long as the sync timeout */
+static bool
+pending_timed_out(const struct pending_tx *ptx)
+{
+
+  return (ptx->first_try_ns != 0 &&
+    netsim_monotonic_ns() - ptx->first_try_ns > netsim_sync_timeout_ns());
+}
+
 static bool
 send_pending_now(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
   uint32_t control_ssrc,
@@ -1168,6 +1204,8 @@ send_pending_now(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
 {
   uint32_t rtp_ssrc;
 
+  if (ptx->first_try_ns == 0)
+    ptx->first_try_ns = netsim_monotonic_ns();
   rtp_ssrc = pending_rtp_ssrc(control_ssrc, stream_ssrc, ptx->type);
   if (send_packet(sock, addrp, rtp_ssrc,
         pending_stream_ssrc(stream_ssrc, ptx->type), &ptx->pkt,
@@ -1200,6 +1238,8 @@ send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
     return (true);
   }
   retry_ms = thread_retry_ms(tsp);
+  if (ptx->first_try_ns == 0)
+    ptx->first_try_ns = netsim_monotonic_ns();
   rtp_ssrc = pending_rtp_ssrc(control_ssrc, stream_ssrc, ptx->type);
   if (send_packet(sock, addrp, rtp_ssrc,
         pending_stream_ssrc(stream_ssrc, ptx->type), &ptx->pkt,
@@ -1215,9 +1255,8 @@ send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
         ptx->retries);
     }
     if ((ptx->type == NETSIM_OUT_FRAME || ptx->type == NETSIM_OUT_EXIT) &&
-        !ptx->matched &&
-        ptx->retries > NETSIM_RETRY_LIMIT) {
-      netsim_log("retry limit exceeded for %s seq=%u frame=%u after send failure",
+        !ptx->matched && pending_timed_out(ptx)) {
+      netsim_log("sync timeout for %s seq=%u frame=%u after send failure",
         pending_name(ptx->type), (unsigned int)ptx->pkt.tx_seq,
         (unsigned int)ptx->pkt.frame);
       return (false);
@@ -1253,11 +1292,10 @@ send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
   }
 #endif
   if ((ptx->type == NETSIM_OUT_FRAME || ptx->type == NETSIM_OUT_EXIT) &&
-      !ptx->matched &&
-      ptx->retries > NETSIM_RETRY_LIMIT) {
-    netsim_log("retry limit exceeded for %s seq=%u frame=%u",
+      !ptx->matched && pending_timed_out(ptx)) {
+    netsim_log("sync timeout for %s seq=%u frame=%u after %d sends",
       pending_name(ptx->type), (unsigned int)ptx->pkt.tx_seq,
-      (unsigned int)ptx->pkt.frame);
+      (unsigned int)ptx->pkt.frame, ptx->retries);
     return (false);
   }
   if (ptx->type == NETSIM_OUT_FRAME && ptx->matched) {
@@ -1360,10 +1398,10 @@ thread_retry_ms(const struct netsim_thread_state *tsp)
   uint32_t retry_ms;
 
   if (!tsp->rtprop_lpf_valid || tsp->rtprop_lpf_us <= 0)
-    return (NETSIM_RETRY_MS);
+    return (NETSIM_RETRY_MIN_MS);
   retry_ms = (uint32_t)(tsp->rtprop_lpf_us + 999) / 1000;
-  if (retry_ms < NETSIM_RETRY_MS)
-    retry_ms = NETSIM_RETRY_MS;
+  if (retry_ms < NETSIM_RETRY_MIN_MS)
+    retry_ms = NETSIM_RETRY_MIN_MS;
   return ((int)retry_ms);
 }
 
