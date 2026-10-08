@@ -74,8 +74,33 @@ peer_log() {
     tr -d '\r' | grep -v '^GetINIString: ' > "${TMPD}/${1}.log" || true
 }
 
+# timeline: both peers' logs (see peer_log()) as one, in the order of their
+# times (the same clock for both, with DIGGER_LOG_T0=0), each line told by
+# whose it is; a line without a time goes with the one before it of its
+# peer, e.g.
+#    42.160:alice: foo bar
+#          :alice: no time, so after foo bar
+#    43.483:bob: barfoo
+timeline() {
+  tab=`printf '\t'`
+  for p in alice bob
+  do
+    test -f "${TMPD}/${p}.log" || peer_log "${p}"
+    awk -v peer="${p}" '
+      /^\[-?[0-9]+\.[0-9]+\] / {
+        ts = substr($1, 2, length($1) - 2)
+        sub(/^[^ ]* /, "")
+        printf("%s\t%s\t%d\t%s\t%s\n", ts, peer, NR, ts, $0)
+        next
+      }
+      { printf("%s\t%s\t%d\t\t%s\n", ts == "" ? 0 : ts, peer, NR, $0) }
+    ' "${TMPD}/${p}.log"
+  done | sort -t "${tab}" -k1,1n -k2,2 -k3,3n | \
+    awk -F "${tab}" '{ printf("%10s:%s: %s\n", $4, $2, $5) }'
+}
+
 # check_peer name expected player: exit status 0, the expected result, as
-# the player expected; what it had to say if not
+# the player expected; what it had to say if not (see test_result())
 check_peer() {
   rc=`cat "${TMPD}/${1}.rc"`
   got=`tr -d '\r' < "${TMPD}/${1}.out" | grep '^score=' || true`
@@ -90,7 +115,6 @@ check_peer() {
       "got \"${got}\", expected \"${2}\")"
     test -f "${TMPD}/${1}.timeout" && \
       echo "      stopped after ${NETSIM_TIMEOUT}s"
-    tail -n "${NETSIM_TAIL}" "${TMPD}/${1}.log" | sed 's|^|      |'
     return 1
   fi
 }
@@ -141,8 +165,9 @@ replay_test() {
   done
 }
 
-# test_result label ok: the test's outcome, the run's files kept if it
-# failed (see NETSIM_KEEP), and those of its peers gone
+# test_result label ok: the test's outcome, with the end of both peers'
+# logs in the order of their times if it failed (see timeline()), and the
+# run's files kept then (see NETSIM_KEEP); those of its peers gone
 test_result() {
   if [ "${2}" = "true" ]
   then
@@ -150,6 +175,8 @@ test_result() {
   else
     echo "${1}: FAIL"
     NFAILED=$((NFAILED + 1))
+    timeline > "${TMPD}/timeline.log"
+    tail -n $((NETSIM_TAIL * 2)) "${TMPD}/timeline.log" | sed 's|^|      |'
     if [ -n "${NETSIM_KEEP}" ]
     then
       keep="${NETSIM_KEEP}/`echo "${1}" | tr -c 'A-Za-z0-9._=-' _`"
@@ -158,6 +185,7 @@ test_result() {
       echo "      kept in ${keep}"
     fi
   fi
+  rm -f "${TMPD}/timeline.log"
   rm -rf "${TMPD}"/alice* "${TMPD}"/bob*
 }
 
@@ -176,6 +204,7 @@ vanish_test() {
     /N:bob@127.0.0.1:${PORT}-alice
   wait
   peer_log alice
+  peer_log bob
   rc=`cat "${TMPD}/alice.rc"`
   ok=true
   if [ "${rc}" -eq 0 ] || [ -f "${TMPD}/alice.timeout" ] ||
@@ -186,7 +215,6 @@ vanish_test() {
       "after the ACK)"
     test -f "${TMPD}/alice.timeout" && \
       echo "      stopped after ${NETSIM_TIMEOUT}s"
-    tail -n "${NETSIM_TAIL}" "${TMPD}/alice.log" | sed 's|^|      |'
     ok=false
   fi
   NETSIM_TIMEOUT=${watchdog}
