@@ -6,7 +6,8 @@
 # recorded controls of the other player, pass the recording's state
 # checkpoints and end the game the same way, also with packets being lost.
 # So does a game of one quit half way through (Q) by either player, or by
-# both on the same frame, which both have to leave on the same frame.
+# both on the same frame, which both have to leave on the same frame, and
+# one whose call is never ACKed, which goes on all the same.
 
 set -e
 
@@ -105,20 +106,22 @@ quit_rec() {
   )
 }
 
-# replay_test rec_alice rec_bob expected label: the recordings replayed over
-# NetSim, by alice (player 2, see check_peer()) and bob (player 1, as he
-# starts the game), with each loss
+# replay_test rec_alice rec_bob expected label [env_alice [env_bob
+# [losses]]]: the recordings replayed over NetSim, by alice (player 2, see
+# check_peer()) and bob (player 1, as he starts the game), each with its
+# own environment if given, with each loss (or those given)
 replay_test() {
-  for loss in ${LOSSES}
+  for loss in ${7:-${LOSSES}}
   do
     # Both peers' logs in the monotonic clock's time, which then go
     # together
     lenv="DIGGER_LOG_T0=0"
     test "${loss}" != none && lenv="${lenv} ${loss}"
-    run_peer alice "DIGGER_NETSIM_REPLAY=${1} ${lenv}" /N:alice-bob@:${PORT}
+    run_peer alice "DIGGER_NETSIM_REPLAY=${1} ${lenv} ${5}" \
+      /N:alice-bob@:${PORT}
     sleep 1
     run_peer bob "DIGGER_NETSIM_REPLAY=${2} DIGGER_NETSIM_REPLAY_START=1 \
-      ${lenv}" /N:bob@127.0.0.1:${PORT}-alice
+      ${lenv} ${6}" /N:bob@127.0.0.1:${PORT}-alice
     wait
     # Both of them, whichever fails
     ok=true
@@ -160,6 +163,12 @@ do
   replay_test "${q0}" "${q0}" "${expected}" "${name} quit by player 1"
   replay_test "${q1}" "${q1}" "${expected}" "${name} quit by player 2"
   replay_test "${q1}" "${q0}" "${expected}" "${name} quit by both players"
+  # Bob never ACKs alice's answer to his INVITE: once its (short) Timer L
+  # is up, alice keeps the call, as it's live, and has to have been told
+  replay_test "${PWD}/${rec}" "${PWD}/${rec}" \
+    "`cat "tests/results/${name%.edrf}.out"`" "${name} without ACK" \
+    "DIGGER_NETSIM_EXPECT_NO_ACK=1 DIGGER_NETSIM_SIP_TIMER_L=200" \
+    "DIGGER_NETSIM_SIP_NO_ACK=1" none
 done
 
 if [ "${NFAILED}" -ne 0 ]

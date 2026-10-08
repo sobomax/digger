@@ -4,6 +4,7 @@
 #include "netsim_sip_internal.h"
 
 #include <assert.h>
+#include <stdatomic.h>
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -110,6 +111,10 @@ static void outgoing_response(void *, size_t, const struct usipy_sip_tm_tx *,
   const struct usipy_msg *);
 static void outgoing_timeout(void *, size_t, const struct usipy_sip_tm_tx *,
   enum usipy_sip_tm_uac_timeout_id);
+static int invite_no_ack(void *, size_t, const struct usipy_sip_tm_tx *);
+
+/* A 2xx of ours went without ACK, see netsim_sip_no_ack_seen() */
+static atomic_bool g_no_ack_seen;
 static void incoming_request(void *, const struct usipy_sip_tm_handle_incoming_in *,
   const struct usipy_msg *);
 static void ua_emit(void *, const struct usipy_sip_ua_emit *);
@@ -384,6 +389,13 @@ socket_send_to(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
       (unsigned int)outp->target.port);
     return (-1);
   }
+  /* Testing: a side that never ACKs an answered INVITE */
+  if (getenv("DIGGER_NETSIM_SIP_NO_ACK") != NULL && outp->raw.l > 4 &&
+      memcmp(outp->raw.s.ro, "ACK ", 4) == 0) {
+    sip_log("not sending %.*s (DIGGER_NETSIM_SIP_NO_ACK)", sl,
+      outp->raw.s.ro);
+    return (0);
+  }
   sent = netsim_socket_sendto(sp->sock, outp->raw.s.ro, outp->raw.l, &target);
   if (sent == (int)outp->raw.l) {
     sip_log("sent %lu bytes (%.*s) to %.*s:%u", (unsigned long)outp->raw.l,
@@ -594,6 +606,10 @@ answer_incoming_invite(struct netsim_sip *sp, char *errbuf, size_t errbuf_len)
   crp->sdp = (struct usipy_str){.s.ro = crp->sdp_buf, .l = strlen(crp->sdp_buf)};
   ev.type = USIPY_SIP_UA_EVENT_CONNECT;
   ev.data.response.status = &usipy_sip_res_ok;
+  ev.data.response.callbacks = &(const struct usipy_sip_tm_uas_callbacks){
+    .arg = sp,
+    .no_ack = invite_no_ack,
+  };
   ev.data.response.content_type = &(const struct usipy_str)USIPY_2STR("application/sdp");
   ev.data.response.body = &crp->sdp;
   rval = usipy_sip_ua_on_event(sp->ua, &ev, &tx_index);
@@ -817,15 +833,30 @@ outgoing_timeout(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
   }
 }
 
-/* Our answer to the peer's INVITE never got its ACK (timer H, or L for a
-   2xx, whose call is then ended) */
+/* Our answer to the peer's INVITE never got its ACK. */
 static int
 invite_no_ack(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp)
 {
+  struct netsim_sip *sp = arg;
+  const unsigned int scode = txp->role_data.uas.last_status_code;
 
-  (void)arg;
-  sip_log("no ACK to the answer to INVITE cseq=%u tx=%lu (timer H)",
-    (unsigned int)txp->common.id.cseq, (unsigned long)tx_index);
+  if (scode < 200 || scode > 299) {
+    sip_log("no ACK to the answer %u to INVITE cseq=%u tx=%lu (timer H)",
+      scode, (unsigned int)txp->common.id.cseq, (unsigned long)tx_index);
+    return (0);
+  }
+  atomic_store(&g_no_ack_seen, true);
+  /* The call is up for all that, as long as the peer's game frames come:
+     no reason to end it, but for a missing ACK */
+  if (sp != NULL && sp->live != NULL && sp->live(sp->live_arg)) {
+    sip_log("WARNING: no ACK to the %u to INVITE cseq=%u tx=%lu, but the "
+      "session is live: keeping it", scode, (unsigned int)txp->common.id.cseq,
+      (unsigned long)tx_index);
+    return (1);
+  }
+  sip_log("no ACK to the %u to INVITE cseq=%u tx=%lu, and the session isn't "
+    "live: ending it", scode, (unsigned int)txp->common.id.cseq,
+    (unsigned long)tx_index);
   return (0);
 }
 
@@ -878,7 +909,8 @@ incoming_request(void *arg, const struct usipy_sip_tm_handle_incoming_in *hin,
   }
   if (sp->ua != NULL && usipy_sip_ua_matches_transaction(sp->ua, msg)) {
     const struct usipy_sip_tm_addr *localp = hin->local;
-    static const struct usipy_sip_tm_uas_callbacks uas_callbacks = {
+    const struct usipy_sip_tm_uas_callbacks uas_callbacks = {
+      .arg = sp,
       .no_ack = invite_no_ack,
     };
     struct usipy_sip_tm_new_uas_tr_params tp = {
@@ -935,6 +967,12 @@ incoming_request(void *arg, const struct usipy_sip_tm_handle_incoming_in *hin,
         usipy_sip_ua_on_transaction(sp->ua, tx_index, msg) != USIPY_SIP_TM_OK) {
       event_push(sp, NETSIM_SIP_EVENT_ERROR, NULL);
     }
+    return;
+  }
+  /* An ACK no transaction takes (e.g. of a 2xx past its Timer L): never
+     answered */
+  if (method_type == USIPY_SIP_METHOD_ACK) {
+    sip_log("stray ACK dropped");
     return;
   }
   if (method_type == USIPY_SIP_METHOD_BYE) {
@@ -1247,11 +1285,23 @@ bool
 netsim_sip_handle_packet(struct netsim_sip *sp, const void *buf, size_t len,
   const netsim_sockaddr_t *peerp, const netsim_sockaddr_t *localp)
 {
-  struct usipy_sip_tm_timer_policy timers = {0};
+  static int timer_l_ms = -1;
+  struct usipy_sip_tm_timer_policy timers = {0}; /* RFC 3261's */
   struct usipy_sip_tm_addr peer;
   struct usipy_sip_tm_addr local;
   struct usipy_sip_tm_handle_incoming_in hin = {0};
   struct usipy_sip_tm_handle_incoming_out hout;
+  const char *envp;
+
+  /* Testing: how long (ms) a 2xx of ours waits for its ACK, rather than
+     the 64*T1 of RFC 3261 */
+  if (timer_l_ms < 0) {
+    envp = getenv("DIGGER_NETSIM_SIP_TIMER_L");
+    timer_l_ms = envp != NULL ? atoi(envp) : 0;
+    if (timer_l_ms < 0)
+      timer_l_ms = 0;
+  }
+  timers.timer_l_ms = (uint32_t)timer_l_ms;
 
   if (!sockaddr_to_tm_addr(peerp, &peer) || !sockaddr_to_tm_addr(localp, &local))
     return (false);
@@ -1334,6 +1384,26 @@ netsim_sip_answer_pending_remote(struct netsim_sip *sp, char *errbuf,
     return (false);
   }
   return (answer_incoming_invite(sp, errbuf, errbuf_len));
+}
+
+/* Whether a 2xx of ours has gone without ACK (testing, see
+   DIGGER_NETSIM_EXPECT_NO_ACK) */
+bool
+netsim_sip_no_ack_seen(void)
+{
+
+  return (atomic_load(&g_no_ack_seen));
+}
+
+/* How to tell whether the session is live, for a call whose 2xx goes
+   without ACK: kept if it is, ended if not */
+void
+netsim_sip_set_liveness(struct netsim_sip *sp, bool (*live)(void *),
+  void *arg)
+{
+
+  sp->live = live;
+  sp->live_arg = arg;
 }
 
 void
@@ -1489,6 +1559,23 @@ netsim_sip_hangup(struct netsim_sip *sp, const char *why)
 
   (void)sp;
   (void)why;
+}
+
+void
+netsim_sip_set_liveness(struct netsim_sip *sp, bool (*live)(void *),
+  void *arg)
+{
+
+  (void)sp;
+  (void)live;
+  (void)arg;
+}
+
+bool
+netsim_sip_no_ack_seen(void)
+{
+
+  return (false);
 }
 
 bool

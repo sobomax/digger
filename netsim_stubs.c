@@ -87,6 +87,13 @@ netsim_session_active(void)
 }
 
 bool
+netsim_no_ack_seen(void)
+{
+
+  return (false);
+}
+
+bool
 netsim_peer_exited(void)
 {
 
