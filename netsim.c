@@ -2714,10 +2714,10 @@ netsim_start_session(bool initiated_locally)
     }
     if (netsim_has_start_ack()) {
       g_session.state = NETSIM_SESSION_STARTED;
+      /* Whom it's with, for its game to count once it's on, see
+         netsim_sync_frame() */
       if (initiated_locally && outev.peer_user.l != 0)
-        netsim_friend_touch(&outev.peer_user);
-      if (!initiated_locally && g_session.peer_user.l != 0)
-        netsim_friend_touch(&g_session.peer_user);
+        netsim_session_set_peer_user(&g_session, &outev.peer_user);
       netsim_log("session started local_player=%d session=0x%016llx",
         g_session.local_player + 1, (unsigned long long)g_session.session_nonce);
       return (true);
@@ -2830,6 +2830,12 @@ netsim_sync_frame(uint32_t frame, uint8_t local_bits, bool local_freeze,
       return (false);
     }
     if (inev.type == NETSIM_IN_FRAME && inev.frame == frame) {
+      /* A game played with the peer, now that it's on */
+      if (!g_session.frame_synced && g_session.peer_user.l != 0) {
+        netsim_friend_touch(&g_session.peer_user);
+        netsim_log("a game played with %.*s",
+          USIPY_SFMT(&g_session.peer_user));
+      }
       g_session.frame_synced = true;
       *remote_bits = inev.bits & ~NETSIM_CTRL_FREEZE;
       if (remote_freeze != NULL)
