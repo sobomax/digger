@@ -20,7 +20,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "digger.h"
 #include "digger_log.h"
+#include "game.h"
 
 #define NETSIM_FRAME_WINDOW 32
 #define NETSIM_PEER_SEQ_WINDOW 4
@@ -279,6 +281,8 @@ static struct netsim_session g_session = {.running = false,
   .state = NETSIM_SESSION_WAITING, .local_player = 0};
 static bool g_debug_ready = false, g_debug_enabled = false;
 static atomic_uint_fast64_t g_nonce_seq = 1;
+/* The frame last queued to send, for netsim_log() */
+static atomic_uint_fast32_t g_net_frame;
 static atomic_int g_title_status = ATOMIC_VAR_INIT(NETSIM_TITLE_OFF);
 static uint64_t g_begin_wait_retry_at_ms = 0;
 #if defined(DIGGER_DEBUG)
@@ -435,13 +439,26 @@ netsim_log(const char *fmt, ...)
   va_list ap;
   char buf[1024];
 
+  uint32_t net_frame, game_frame;
+
   netsim_debug_init();
   if (!g_debug_enabled)
     return;
   va_start(ap, fmt);
   vsnprintf(buf, sizeof(buf), fmt, ap);
   va_end(ap);
-  digger_log_printf("netsim: %s\n", buf);
+  /* Where the game is: the frame the NetSim thread has got to, and the
+     game's own if it's another one, and the game tick */
+  net_frame = (uint32_t)atomic_load_explicit(&g_net_frame,
+    memory_order_relaxed);
+  game_frame = getframe();
+  if (net_frame == game_frame)
+    digger_log_printf("netsim: %s (frame=%u tick=%u)\n", buf,
+      (unsigned int)net_frame, (unsigned int)dgstate.ticks);
+  else
+    digger_log_printf("netsim: %s (net frame=%u game frame=%u tick=%u)\n",
+      buf, (unsigned int)net_frame, (unsigned int)game_frame,
+      (unsigned int)dgstate.ticks);
 }
 
 static void
@@ -1134,6 +1151,7 @@ set_pending(struct pending_tx *ptx, int type, uint32_t frame, uint8_t bits,
   ptx->peer_frame_base = 0;
   ptx->peer_frame_count = 0;
   ptx->next_tx = 0;
+  atomic_store_explicit(&g_net_frame, frame, memory_order_relaxed);
   netsim_log("queue %s seq=%u frame=%u bits=0x%02x", pending_name(type),
     (unsigned int)ptx->pkt.tx_seq, (unsigned int)ptx->pkt.frame,
     (unsigned int)ptx->pkt.bits);
@@ -1521,7 +1539,7 @@ thread_fail_session(struct netsim_thread_state *tsp, struct thread_ctx *ctxp,
     thread_reset_session(tsp, ctxp->outq);
     return;
   }
-  netsim_sip_hangup(ctxp->sip);
+  netsim_sip_hangup(ctxp->sip, "session failed");
   thread_reset_session(tsp, ctxp->outq);
   (void)frame;
 }
@@ -1805,6 +1823,8 @@ thread_apply_sip_event(struct netsim_thread_state *tsp, struct thread_ctx *ctxp,
     case NETSIM_SIP_EVENT_DISCONNECTED:
       if (!thread_event_matches_session(tsp, evp))
         break;
+      netsim_log("session ended by SIP%s",
+        tsp->exiting ? ", exiting" : "");
       if (!tsp->exiting)
         push_exit(ctxp->inq);
       thread_reset_session(tsp, ctxp->outq);
@@ -1812,6 +1832,7 @@ thread_apply_sip_event(struct netsim_thread_state *tsp, struct thread_ctx *ctxp,
     case NETSIM_SIP_EVENT_ERROR:
       if (!thread_event_matches_session(tsp, evp))
         break;
+      netsim_log("session ended by a SIP error");
       push_error(ctxp->inq);
       thread_reset_session(tsp, ctxp->outq);
       break;
@@ -2090,7 +2111,7 @@ thread_handle_outgoing(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
       tsp->prev_tx_valid = false;
       clear_frame_slots(tsp->slots);
       clear_peer_seen_slots(tsp->peer_seen);
-      netsim_sip_hangup(ctxp->sip);
+      netsim_sip_hangup(ctxp->sip, "local exit");
       queue_out_clear_session(ctxp->outq);
       break;
 
@@ -2121,7 +2142,7 @@ thread_handle_outgoing(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
       tsp->pending_frame_valid = false;
       clear_frame_slots(tsp->slots);
       clear_peer_seen_slots(tsp->peer_seen);
-      netsim_sip_hangup(ctxp->sip);
+      netsim_sip_hangup(ctxp->sip, "stop requested");
       queue_out_clear_session(ctxp->outq);
       rval = THREAD_STEP_CONTINUE;
       break;
@@ -2135,7 +2156,7 @@ thread_handle_outgoing(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
       tsp->pending_frame_valid = false;
       clear_frame_slots(tsp->slots);
       clear_peer_seen_slots(tsp->peer_seen);
-      netsim_sip_hangup(ctxp->sip);
+      netsim_sip_hangup(ctxp->sip, "abort requested");
       thread_reset_session(tsp, ctxp->outq);
       rval = THREAD_STEP_CONTINUE;
       break;
