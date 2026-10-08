@@ -171,10 +171,28 @@ jobs:
           CACHE_SPEC="gha"; \
         fi
         echo "CACHE_SPEC=${CACHE_SPEC}" >> $GITHUB_ENV
+        # The ccache of the branch's last good build (master's for a PR) to
+        # start from, if there is one, see Export ccache
+        BRANCH_TAG="`echo ${GIT_BRANCH} | sed 's|/|_|g'`"
+        if [ "${DOCKER_RW}" = 'true' ]
+        then
+          CCACHE_IMAGE="${{ env.GHCR_REPO }}:${BRANCH_TAG}-${OS_TAG}-ccache"
+        else
+          CCACHE_IMAGE="${{ env.GHCR_REPO }}:master-${OS_TAG}-ccache"
+        fi
+        if docker manifest inspect "${CCACHE_IMAGE}" > /dev/null 2>&1
+        then
+          CCACHE_BIMAGE="${CCACHE_IMAGE}"
+        else
+          CCACHE_BIMAGE="scratch"
+        fi
+        echo "CCACHE_IMAGE=${CCACHE_IMAGE}" >> $GITHUB_ENV
+        echo "CCACHE_BIMAGE=${CCACHE_BIMAGE}" >> $GITHUB_ENV
 
     # All the platforms built before any of them is tested: the tests of
     # one going on while others still build were starved of CPU
     - name: Build Docker image
+      id: build_docker_image
       uses: docker/build-push-action@v7
       with:
         context: .
@@ -182,6 +200,7 @@ jobs:
         target: build
         build-args: |
           BASE_IMAGE=${{ env.BASE_IMAGE }}
+          CCACHE_IMAGE=${{ env.CCACHE_BIMAGE }}
         platforms: ${{ env.PLATFORMS }}
         push: false
         cache-from: ${{ env.CACHE_SPEC }}
@@ -196,7 +215,24 @@ jobs:
         target: test
         build-args: |
           BASE_IMAGE=${{ env.BASE_IMAGE }}
+          CCACHE_IMAGE=${{ env.CCACHE_BIMAGE }}
         platforms: ${{ env.PLATFORMS }}
         push: false
         cache-from: ${{ env.CACHE_SPEC }}
         cache-to: ${{ env.CACHE_SPEC }},mode=max
+
+    # Save ccache after a successful build, even if its tests fail
+    - name: Export ccache
+      if: ${{ always() && steps.build_docker_image.outcome == 'success' && env.DOCKER_RW == 'true' }}
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        file: ./docker/Dockerfile.build
+        target: ccache_export
+        build-args: |
+          BASE_IMAGE=${{ env.BASE_IMAGE }}
+          CCACHE_IMAGE=${{ env.CCACHE_BIMAGE }}
+        platforms: ${{ env.PLATFORMS }}
+        tags: ${{ env.CCACHE_IMAGE }}
+        push: true
+        cache-from: ${{ env.CACHE_SPEC }}
