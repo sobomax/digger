@@ -13,11 +13,19 @@ RUN --mount=type=bind,source=apt-get-requirement.txt,target=apt-get-requirement.
    xargs -a apt-get-requirement.txt apt-get -yq --no-install-recommends install
 
 ARG CC=clang
-ARG TEST_TYPES="quick netsim"
-# For the NetSim tests of the platforms built at once to keep apart
-ARG TARGETPLATFORM
+# The binaries kept in the image (the source mounted goes with the RUN)
 RUN --mount=type=bind,target=.,rw sh -x ./scripts/do-test-cmmn.sh && \
   sh -x ./scripts/do-test-cmake.sh && \
+  mkdir -p /build && mv debug production /build/
+
+# The tests, a stage of their own: CI builds all the platforms first
+# (--target build), and only then tests them, as the tests of a platform
+# going on while others were still building were starved of CPU
+FROM build AS test
+ARG TEST_TYPES="quick netsim"
+# For the NetSim tests of the platforms tested at once to keep apart
+ARG TARGETPLATFORM
+RUN --mount=type=bind,target=.,rw cp -R /build/debug /build/production . && \
   sh ./scripts/do-test-run.sh
 #FROM ${BASE_IMAGE} AS clean
 #COPY --from=build /usr/local/lib/libg722.* /usr/local/lib/

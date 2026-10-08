@@ -172,11 +172,28 @@ jobs:
         fi
         echo "CACHE_SPEC=${CACHE_SPEC}" >> $GITHUB_ENV
 
+    # All the platforms built before any of them is tested: the tests of
+    # one going on while others still build were starved of CPU
     - name: Build Docker image
       uses: docker/build-push-action@v7
       with:
         context: .
         file: ./docker/Dockerfile.build
+        target: build
+        build-args: |
+          BASE_IMAGE=${{ env.BASE_IMAGE }}
+        platforms: ${{ env.PLATFORMS }}
+        push: false
+        cache-from: ${{ env.CACHE_SPEC }}
+        cache-to: ${{ env.CACHE_SPEC }},mode=max
+
+    # The same builder, whose cache has them built already
+    - name: Test Docker image
+      uses: docker/build-push-action@v7
+      with:
+        context: .
+        file: ./docker/Dockerfile.build
+        target: test
         build-args: |
           BASE_IMAGE=${{ env.BASE_IMAGE }}
         platforms: ${{ env.PLATFORMS }}
