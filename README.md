@@ -135,3 +135,11 @@ The option controls these environment variables and their supporting code:
 sessions. `DIGGER_NETSIM_PROTO_DEBUG` keeps its existing `DIGGER_DEBUG`
 guard. Normal recording and local playback remain available without
 instrumentation.
+
+Debian builds produce two co-installable packages: `digger` has instrumentation
+disabled, while `digger-instrumentation` installs the test executable as
+`/usr/lib/digger/digger-instrumented`. The package test script runs local
+playback against the installed `digger` and NetSim tests against that separate
+executable. For other builds, `NETSIM_DIGGER_BIN` selects an instrumented
+executable for just the NetSim portion of `scripts/do-test-run.sh`; it defaults
+to `DIGGER_BIN` when unset.
