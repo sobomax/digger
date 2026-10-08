@@ -437,8 +437,7 @@ static void
 netsim_log(const char *fmt, ...)
 {
   va_list ap;
-  char buf[1024];
-
+  char buf[1024], ts[DIGGER_LOG_TSLEN];
   uint32_t net_frame, game_frame;
 
   netsim_debug_init();
@@ -452,12 +451,14 @@ netsim_log(const char *fmt, ...)
   net_frame = (uint32_t)atomic_load_explicit(&g_net_frame,
     memory_order_relaxed);
   game_frame = getframe();
+  digger_log_ts(ts, sizeof(ts));
   if (net_frame == game_frame)
-    digger_log_printf("netsim: %s (frame=%u tick=%u)\n", buf,
+    digger_log_printf("[%s] netsim: %s (frame=%u tick=%u)\n", ts, buf,
       (unsigned int)net_frame, (unsigned int)dgstate.ticks);
   else
-    digger_log_printf("netsim: %s (net frame=%u game frame=%u tick=%u)\n",
-      buf, (unsigned int)net_frame, (unsigned int)game_frame,
+    digger_log_printf(
+      "[%s] netsim: %s (net frame=%u game frame=%u tick=%u)\n", ts, buf,
+      (unsigned int)net_frame, (unsigned int)game_frame,
       (unsigned int)dgstate.ticks);
 }
 
@@ -465,12 +466,13 @@ static void
 netsim_err(const char *fmt, ...)
 {
   va_list ap;
-  char buf[1024];
+  char buf[1024], ts[DIGGER_LOG_TSLEN];
 
   va_start(ap, fmt);
   vsnprintf(buf, sizeof(buf), fmt, ap);
   va_end(ap);
-  digger_log_printf("netsim: %s\n", buf);
+  digger_log_printf("[%s] netsim: %s\n", digger_log_ts(ts, sizeof(ts)),
+    buf);
 }
 
 static bool

@@ -373,6 +373,7 @@ int main(int argc,char *argv[])
 {
   int rval;
 
+  digger_log_start(); /* Log times count from here */
 #if defined(__EMSCRIPTEN__)
   ems_store_restore(ININAME); /* Settings saved by a previous visit */
 #endif
