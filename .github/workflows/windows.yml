@@ -66,6 +66,7 @@ jobs:
 
       - name: Build
         run: |
+          DIGGER_INSTRUMENTATION=ON \
           SDL_VER=${{ env.SDL_VER }} ZLIB_VER=${{ env.ZLIB_VER }} \
             sh -x ./scripts/do-build-windows.sh
 

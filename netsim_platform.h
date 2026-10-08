@@ -94,7 +94,6 @@ bool netsim_socket_open_bound_udp(const char *local_host, const char *local_port
   netsim_socket_t *sockp, char *local_desc, size_t local_desc_len,
   char *errbuf, size_t errbuf_len);
 void netsim_socket_close(netsim_socket_t sock);
-void netsim_tx_mute(void);
 int netsim_socket_send(netsim_socket_t sock, const void *buf, size_t len);
 int netsim_socket_recv(netsim_socket_t sock, void *buf, size_t len);
 int netsim_socket_sendto(netsim_socket_t sock, const void *buf, size_t len,

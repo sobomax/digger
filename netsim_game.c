@@ -7,7 +7,7 @@
 
 #include "def.h"
 #include "digger.h"
-#include "edrf.h"
+#include "edrf_feed.h"
 #include "game.h"
 #include "input.h"
 #include "netsim.h"
@@ -74,8 +74,10 @@ netsim_game_frame(uint32_t frame, bool local_freeze, bool local_pause,
   local_player = netsim_local_player();
   remote_player = 1 - local_player;
   local_bits = input_snapshot_primary_controls();
+#ifdef DIGGER_INSTRUMENTATION
   if (edrf_feeding)
     local_bits = edrf_feedpeek(); /* Replaying a recording over NetSim */
+#endif
   if (local_pause ||
       (use_pause_latch && pausef && getlives(local_player) > 0))
     local_bits |= NETSIM_CTRL_PAUSE;

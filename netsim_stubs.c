@@ -93,12 +93,15 @@ netsim_session_active(void)
   return (false);
 }
 
+#ifdef DIGGER_INSTRUMENTATION
+/* Whether an answer of ours went without ACK (testing). */
 bool
 netsim_no_ack_seen(void)
 {
 
   return (false);
 }
+#endif
 
 bool
 netsim_peer_exited(void)

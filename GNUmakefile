@@ -2,18 +2,23 @@ CC	?= gcc
 CFLAGS	+= -pipe
 ifeq (${BUILD_TYPE},production)
 CFLAGS  += -O3
+DIGGER_INSTRUMENTATION ?= OFF
 else
 CFLAGS  += -O0 -g3 -DDIGGER_DEBUG
+DIGGER_INSTRUMENTATION ?= ON
+endif
+ifneq ($(filter 1 ON on YES yes TRUE true,$(DIGGER_INSTRUMENTATION)),)
+CFLAGS += -DDIGGER_INSTRUMENTATION
 endif
 RCFLAGS = -D_SDL -D_SDL_SOUND -std=gnu11 -Wall -DNO_SND_FILTER #-DNO_SND_EFFECTS
-OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o edrf.o sound.o \
+OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o edrf.o edrf_feed.o sound.o \
 		sound_backend.o \
 		newsnd.o ini.o input.o monster.o bags.o alpha.o vgagrafx.o \
 	title_gz.o icon.o sdl_kbd.o sdl_vid.o sdl_timer.o sdl_snd.o \
 	digger_math.o monster_obj.o digger_obj.o bullet_obj.o title_anim.o \
 	cgagrafx.o keyboard.o soundgen.o spinlock.o game.o digger_log.o \
 	netsim.o netsim_rx.o netsim_friends.o netsim_sip.o netsim_sip_registrar.o netsim_sip_sdp.o netsim_platform.o \
-	netsim_debug.o netsim_game.o state_hash.o $(MSRC)/external/mackron_md5/md5.o
+	netsim_instrument.o netsim_debug.o netsim_game.o state_hash.o $(MSRC)/external/mackron_md5/md5.o
 NETSIM_OBJ = netsim.o
 MSIP	= microsippy
 MSRC	= $(MSIP)/src

@@ -5,67 +5,16 @@
 #define _POSIX_C_SOURCE 200809L
 #endif
 
+#include "netsim_instrument.h"
 #include "def.h"
 #include "digger_log.h"
 #include "netsim_platform.h"
 
 #if NETSIM_PLATFORM_SUPPORTED
 
-#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
-/* Testing: nothing is sent any more, see netsim_tx_mute() */
-static atomic_bool g_tx_muted;
-
-/* Testing: send nothing from now on, as if gone */
-void
-netsim_tx_mute(void)
-{
-
-  if (!atomic_exchange(&g_tx_muted, true))
-    digger_log_printf("netsim: muted, nothing is sent from now on\n");
-}
-
-static bool
-netsim_tx_drop_check(size_t len)
-{
-  static bool ready = false;
-  static uint32_t drop_every = 0;
-  static uint32_t drop_count = 0;
-
-  if (!ready) {
-    const char *envp;
-    char *endp;
-    unsigned long v;
-
-    envp = getenv("DIGGER_NETSIM_TX_DROP_EVERY");
-    if (envp != NULL && envp[0] != '\0') {
-      v = strtoul(envp, &endp, 10);
-      if (endp == envp || *endp != '\0' || v == 0 || v > UINT32_MAX) {
-        digger_log_printf(
-          "netsim: ignoring invalid DIGGER_NETSIM_TX_DROP_EVERY=%s\n", envp);
-      } else {
-        drop_every = (uint32_t)v;
-        digger_log_printf(
-          "netsim: synthetic tx loss enabled, dropping every %uth packet\n",
-          (unsigned int)drop_every);
-      }
-    }
-    ready = true;
-  }
-  if (atomic_load(&g_tx_muted))
-    return (true);
-  if (drop_every == 0)
-    return (false);
-  drop_count++;
-  if (drop_count % drop_every != 0)
-    return (false);
-  digger_log_printf("netsim: synthetic tx drop packet=%u len=%u\n",
-    (unsigned int)drop_count, (unsigned int)len);
-  return (true);
-}
 
 #if defined(_WIN32)
 
@@ -495,8 +444,10 @@ int
 netsim_socket_send(netsim_socket_t sock, const void *buf, size_t len)
 {
 
+#ifdef DIGGER_INSTRUMENTATION
   if (netsim_tx_drop_check(len))
     return ((int)len);
+#endif
   return ((int)send((SOCKET)sock, (const char *)buf, (int)len, 0));
 }
 
@@ -512,8 +463,10 @@ netsim_socket_sendto(netsim_socket_t sock, const void *buf, size_t len,
   const netsim_sockaddr_t *addrp)
 {
 
+#ifdef DIGGER_INSTRUMENTATION
   if (netsim_tx_drop_check(len))
     return ((int)len);
+#endif
   return ((int)sendto((SOCKET)sock, (const char *)buf, (int)len, 0,
     (const struct sockaddr *)&addrp->ss, (int)addrp->len));
 }
@@ -1052,8 +1005,10 @@ int
 netsim_socket_send(netsim_socket_t sock, const void *buf, size_t len)
 {
 
+#ifdef DIGGER_INSTRUMENTATION
   if (netsim_tx_drop_check(len))
     return ((int)len);
+#endif
   return ((int)send((int)sock, buf, len, 0));
 }
 
@@ -1069,8 +1024,10 @@ netsim_socket_sendto(netsim_socket_t sock, const void *buf, size_t len,
   const netsim_sockaddr_t *addrp)
 {
 
+#ifdef DIGGER_INSTRUMENTATION
   if (netsim_tx_drop_check(len))
     return ((int)len);
+#endif
   return ((int)sendto((int)sock, buf, len, 0,
     (const struct sockaddr *)&addrp->ss, addrp->len));
 }
