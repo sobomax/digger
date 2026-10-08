@@ -42,6 +42,9 @@ static const struct usipy_sip_status netsim_sip_res_forbidden = {
 
 #define NETSIM_SIP_REGISTER_RETRY_MS 5000ULL
 #define NETSIM_SIP_INVITE_TIMER_B_MS 5000u
+/* How long an answer of ours waits for its ACK (Timer L), rather than the
+   64*T1 of RFC 3261: the other side's game won't wait for it that long */
+#define NETSIM_SIP_TIMER_L_MS 5000u
 
 static uint64_t
 netsim_sip_now_ms(void)
@@ -1293,13 +1296,13 @@ netsim_sip_handle_packet(struct netsim_sip *sp, const void *buf, size_t len,
   struct usipy_sip_tm_handle_incoming_out hout;
   const char *envp;
 
-  /* Testing: how long (ms) a 2xx of ours waits for its ACK, rather than
-     the 64*T1 of RFC 3261 */
+  /* Testing: how long (ms) a 2xx of ours waits for its ACK, other than
+     NETSIM_SIP_TIMER_L_MS */
   if (timer_l_ms < 0) {
     envp = getenv("DIGGER_NETSIM_SIP_TIMER_L");
-    timer_l_ms = envp != NULL ? atoi(envp) : 0;
-    if (timer_l_ms < 0)
-      timer_l_ms = 0;
+    timer_l_ms = envp != NULL ? atoi(envp) : (int)NETSIM_SIP_TIMER_L_MS;
+    if (timer_l_ms <= 0)
+      timer_l_ms = (int)NETSIM_SIP_TIMER_L_MS;
   }
   timers.timer_l_ms = (uint32_t)timer_l_ms;
 
