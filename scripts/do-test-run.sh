@@ -9,6 +9,8 @@ TEST_TYPES=${TEST_TYPES:-"quick short long xlong netsim"}
 TEST_TYPES=`echo "${TEST_TYPES}" | tr ',' ' '`
 NETSIM_TESTS=false
 DIGGER_BIN=${DIGGER_BIN:-}
+# Packages provide a separate instrumented executable for NetSim only.
+NETSIM_DIGGER_BIN=${NETSIM_DIGGER_BIN:-}
 
 # Run as many tests at once as there are CPUs
 MAXJOBS=${TEST_JOBS:-`getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4`}
@@ -140,7 +142,7 @@ fi
 # The two Digger recordings, replayed over NetSim on localhost
 if [ "${NETSIM_TESTS}" = "true" ]
 then
-  DIGGER_BIN="${DIGGER_BIN}" sh ./scripts/do-test-netsim.sh
+  DIGGER_BIN="${NETSIM_DIGGER_BIN:-${DIGGER_BIN}}" sh ./scripts/do-test-netsim.sh
 fi
 
 if [ ! -z "${CI_COVERAGE}" ]

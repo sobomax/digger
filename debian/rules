@@ -8,7 +8,27 @@ export DEB_CXXFLAGS_MAINT_APPEND = -gdwarf-4
 export DEB_LDFLAGS_MAINT_APPEND = -fuse-ld=lld -Wl,--build-id=sha1
 
 %:
-	dh $@ --buildsystem=cmake
+	dh $@ --buildsystem=cmake --builddirectory=build-debian-production
 
 override_dh_auto_configure:
-	dh_auto_configure -- -DCMAKE_BUILD_TYPE=RelWithDebInfo
+	dh_auto_configure --builddirectory=build-debian-production -- \
+		-DCMAKE_BUILD_TYPE=RelWithDebInfo -DDIGGER_INSTRUMENTATION=OFF
+	dh_auto_configure --builddirectory=build-debian-instrumentation -- \
+		-DCMAKE_BUILD_TYPE=RelWithDebInfo -DDIGGER_INSTRUMENTATION=ON
+
+override_dh_auto_build:
+	dh_auto_build --builddirectory=build-debian-production
+	dh_auto_build --builddirectory=build-debian-instrumentation
+
+override_dh_auto_test:
+	dh_auto_test --builddirectory=build-debian-production
+	dh_auto_test --builddirectory=build-debian-instrumentation
+
+override_dh_auto_install:
+	dh_auto_install --builddirectory=build-debian-production --destdir=debian/tmp
+	install -D -m 0755 build-debian-instrumentation/digger \
+		debian/tmp/usr/lib/digger/digger-instrumented
+
+override_dh_auto_clean:
+	dh_auto_clean --builddirectory=build-debian-production
+	dh_auto_clean --builddirectory=build-debian-instrumentation

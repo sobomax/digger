@@ -19,3 +19,12 @@ Depends: ${misc:Depends}, ${shlibs:Depends}
 Description: Digger Remastered arcade game
  Digger is a classic arcade game originally released for IBM PC compatibles.
  This package contains the SDL-based Digger Reloaded/Remastered executable.
+
+Package: digger-instrumentation
+Architecture: any
+Depends: ${misc:Depends}, ${shlibs:Depends}
+Description: Digger Remastered with NetSim test instrumentation
+ This package contains a separate executable with network replay, tracing,
+ and fault injection enabled for NetSim testing. It can be installed
+ alongside the regular digger package without changing the game executable.
+ The instrumented executable is /usr/lib/digger/digger-instrumented.

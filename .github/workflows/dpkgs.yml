@@ -18,4 +18,4 @@ jobs:
     with:
       apt_depends: clang cmake lld libx11-dev libsdl2-dev pkg-config zlib1g-dev
       submodules_recursive: true
-      test_dpkgs_script: ./scripts/do-test-run.sh
+      test_dpkgs_script: ./scripts/do-test-dpkgs.sh
