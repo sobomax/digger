@@ -122,12 +122,13 @@ static void
 sip_log(const char *fmt, ...)
 {
   va_list ap;
-  char buf[NETSIM_SIP_LOG_BUFSIZE];
+  char buf[NETSIM_SIP_LOG_BUFSIZE], ts[DIGGER_LOG_TSLEN];
 
   va_start(ap, fmt);
   vsnprintf(buf, sizeof(buf), fmt, ap);
   va_end(ap);
-  digger_log_printf("netsim-sip: %s\n", buf);
+  digger_log_printf("[%s] netsim-sip: %s\n", digger_log_ts(ts, sizeof(ts)),
+    buf);
 }
 
 static void
@@ -357,10 +358,16 @@ socket_send_to(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
   char hostbuf[NETSIM_SIP_HOST_BUFSIZE];
   char portbuf[NETSIM_SIP_PORT_BUFSIZE];
   char errbuf[NETSIM_SIP_ERR_BUFSIZE];
-  int sent;
+  const char *eol;
+  int sent, sl;
 
   (void)tx_index;
   (void)txp;
+  /* Its start line (up to its CR, SIP's lines ending in CR LF), to tell it
+     by in the log */
+  sl = outp->raw.l < 48 ? (int)outp->raw.l : 48;
+  if ((eol = memchr(outp->raw.s.ro, '\r', (size_t)sl)) != NULL)
+    sl = (int)(eol - outp->raw.s.ro);
   if (outp->target.host.l == 0 || outp->target.host.l >= sizeof(hostbuf)) {
     sip_log("send target host invalid len=%lu",
       (unsigned long)outp->target.host.l);
@@ -378,8 +385,8 @@ socket_send_to(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
   }
   sent = netsim_socket_sendto(sp->sock, outp->raw.s.ro, outp->raw.l, &target);
   if (sent == (int)outp->raw.l) {
-    sip_log("sent %lu bytes to %.*s:%u", (unsigned long)outp->raw.l,
-      (int)outp->target.host.l, outp->target.host.s.ro,
+    sip_log("sent %lu bytes (%.*s) to %.*s:%u", (unsigned long)outp->raw.l,
+      sl, outp->raw.s.ro, (int)outp->target.host.l, outp->target.host.s.ro,
       (unsigned int)outp->target.port);
   } else {
     sip_log("send failed to %.*s:%u sent=%d expected=%lu",
