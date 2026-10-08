@@ -35,6 +35,17 @@ setremote(bool freeze, bool pause, bool *remote_freezep, bool *remote_pausep)
     *remote_pausep = pause;
 }
 
+/* While waiting for the peer, see netsim_sync_frame(): the player quit (the
+   exit key), or closed the window (where checkkeyb() pumping the events
+   is all it takes) */
+static bool
+quit_requested(void)
+{
+
+  checkkeyb();
+  return (escape);
+}
+
 /*
  * The frame's controls (or a freeze, a pause, or quitting it: localquit)
  * to the peer, and the peer's back, see syncframe(). Returns false with
@@ -69,7 +80,7 @@ netsim_game_frame(uint32_t frame, bool local_freeze, bool local_pause,
   if (localquit)
     local_bits |= NETSIM_CTRL_QUIT;
   if (!netsim_sync_frame(frame, local_bits, local_freeze, &remote_bits,
-        &remote_freeze, &remote_lead_ms)) {
+        &remote_freeze, &remote_lead_ms, quit_requested)) {
     escape = true;
     input_set_network_controls(local_player, 0);
     input_set_network_controls(remote_player, 0);

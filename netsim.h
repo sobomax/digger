@@ -31,7 +31,8 @@ bool netsim_start_session(bool initiated_locally);
 void netsim_stop_session(bool send_exit);
 void netsim_shutdown(void);
 bool netsim_sync_frame(uint32_t frame, uint8_t local_bits, bool local_freeze,
-  uint8_t *remote_bits, bool *remote_freeze, int *remote_lead_ms);
+  uint8_t *remote_bits, bool *remote_freeze, int *remote_lead_ms,
+  bool (*quit_requested)(void));
 int netsim_local_player(void);
 uint64_t netsim_session_nonce(void);
 bool netsim_session_active(void);
