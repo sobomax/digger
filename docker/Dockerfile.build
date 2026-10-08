@@ -6,7 +6,7 @@ ARG CCACHE_IMAGE=scratch
 FROM ${BASE_IMAGE} AS deps
 LABEL maintainer="Maksym Sobolyev <sobomax@sippysoft.com>"
 
-ARG BUILD_PKGS="cmake make clang libc6-dev openssl ccache"
+ARG BUILD_PKGS="cmake make clang lld libc6-dev openssl ccache"
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends ${BUILD_PKGS}
 WORKDIR /src
@@ -22,6 +22,8 @@ COPY --from=deps /ccache/ /ccache/
 FROM deps AS build
 COPY --from=ccache /ccache /ccache
 ARG CC=clang
+# Use LLVM's linker for LTO, including platforms without LLVMgold.so.
+ENV LDFLAGS="-fuse-ld=lld"
 # Built through ccache, its cache for the platform's architecture alone,
 # a cached object told the same by the compiler's version (rather than the
 # size and time of its binary); the binaries kept in the image, as the
