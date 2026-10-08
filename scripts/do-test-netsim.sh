@@ -245,11 +245,17 @@ do
   replay_test "${q1}" "${q1}" "${expected}" "${name} quit by player 2"
   replay_test "${q1}" "${q0}" "${expected}" "${name} quit by both players"
   # Bob never ACKs alice's answer to his INVITE: once its (short) Timer L
-  # is up, alice keeps the call, as it's live, and has to have been told
-  replay_test "${PWD}/${rec}" "${PWD}/${rec}" \
-    "`cat "tests/results/${name%.edrf}.out"`" "${name} without ACK" \
-    "DIGGER_NETSIM_EXPECT_NO_ACK=1 DIGGER_NETSIM_SIP_TIMER_L=200" \
+  # is up, alice keeps the call, as it's live (bob's frames coming in by
+  # then, even on a slow, emulated machine), and has to have been told.
+  # The game quit by player 1 half way through, at a frame rate (/S:2, 4 ms
+  # a frame, some 4 s), for it to last longer than that Timer L (a short
+  # one played as fast as it can may be over sooner) but not that much.
+  speed=${NETSIM_SPEED}
+  test "${NETSIM_SPEED}" -gt 1 || NETSIM_SPEED=2
+  replay_test "${q0}" "${q0}" "${expected}" "${name} without ACK" \
+    "DIGGER_NETSIM_EXPECT_NO_ACK=1 DIGGER_NETSIM_SIP_TIMER_L=1500" \
     "DIGGER_NETSIM_SIP_NO_ACK=1" none
+  NETSIM_SPEED=${speed}
   # Alice's answer lost twice: bob only gets it 1.5 s (T1 + 2*T1) on, past
   # the sync timeout, which alice's frames are not to time out by meanwhile
   replay_test "${PWD}/${rec}" "${PWD}/${rec}" \
