@@ -27,7 +27,7 @@
 #define NETSIM_FRAME_WINDOW 32
 #define NETSIM_PEER_SEQ_WINDOW 4
 #define NETSIM_RETRY_MIN_MS 10
-/* How long a frame (or the exit) may go without the peer's ack before the
+/* How long a frame may go without the peer's ack before the
    session is given up on, unless DIGGER_NETSIM_SYNC_TIMEOUT (ms) says
    otherwise */
 #define NETSIM_SYNC_TIMEOUT_MS 1000
@@ -46,6 +46,9 @@
 /* How often the wait for the peer's first frame asks if the player quit,
    see netsim_sync_frame() */
 #define NETSIM_QUIT_POLL_MS 100
+/* How long the side not to hang up after a game waits for the other to,
+   see netsim_await_peer_hangup() */
+#define NETSIM_PEER_HANGUP_WAIT_MS 2000
 #define NETSIM_BEGIN_WAIT_RETRY_MS 10000
 #define NETSIM_PKT_FRAME 0U
 
@@ -528,8 +531,6 @@ pending_name(int type)
     return ("hello");
   if (type == NETSIM_OUT_FRAME)
     return ("frame");
-  if (type == NETSIM_OUT_EXIT)
-    return ("exit");
   if (type == NETSIM_OUT_STOP)
     return ("stop");
   if (type == NETSIM_INT_ABORT)
@@ -1334,7 +1335,7 @@ send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
         netsim_socket_strerror(err, errbuf, sizeof(errbuf)),
         ptx->retries);
     }
-    if ((ptx->type == NETSIM_OUT_FRAME || ptx->type == NETSIM_OUT_EXIT) &&
+    if (ptx->type == NETSIM_OUT_FRAME &&
         !ptx->matched && pending_timed_out(tsp, ptx)) {
       snprintf(why, whylen, "retransmit timeout: %s %u not acked in %llu ms "
         "(%d sends), sending failing: %s", pending_name(ptx->type),
@@ -1376,7 +1377,7 @@ send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
       (unsigned int)send_metap->unseen_frame);
   }
 #endif
-  if ((ptx->type == NETSIM_OUT_FRAME || ptx->type == NETSIM_OUT_EXIT) &&
+  if (ptx->type == NETSIM_OUT_FRAME &&
       !ptx->matched && pending_timed_out(tsp, ptx)) {
     snprintf(why, whylen, "retransmit timeout: %s %u not acked in %llu ms "
       "(%d sends)", pending_name(ptx->type), (unsigned int)ptx->pkt.frame,
@@ -1427,7 +1428,6 @@ struct netsim_thread_state {
   bool peer_frame_seen;
   bool media_source_valid;
   bool exiting;
-  bool acking_peer_exit;
   bool session_active;
   bool session_offer_local;
   bool game_start_notified;
@@ -1557,7 +1557,6 @@ thread_clear_session(struct netsim_thread_state *tsp)
   tsp->session_offer_local = false;
   tsp->session_active = false;
   tsp->exiting = false;
-  tsp->acking_peer_exit = false;
   tsp->game_start_notified = false;
   tsp->pending_frame_valid = false;
   tsp->pending_frame = 0;
@@ -2225,23 +2224,6 @@ thread_handle_outgoing(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
       }
       break;
 
-    case NETSIM_OUT_EXIT:
-      if (!tsp->session_active) {
-        netsim_log("drop stale %s frame=%u while session inactive",
-          pending_name(outev.type), (unsigned int)outev.frame);
-        break;
-      }
-      netsim_log("local exit queued");
-      tsp->exiting = true;
-      tsp->session_active = false;
-      tsp->tx.active = false;
-      tsp->prev_tx_valid = false;
-      clear_frame_slots(tsp->slots);
-      clear_peer_seen_slots(tsp->peer_seen);
-      netsim_sip_hangup(ctxp->sip, "local exit");
-      queue_out_clear_session(ctxp->outq);
-      break;
-
     case NETSIM_OUT_FRAME:
       if (!tsp->session_active) {
         netsim_log("drop stale %s frame=%u while session inactive",
@@ -2820,21 +2802,53 @@ fail:
   return (false);
 }
 
+/* Hang up the session, if it's still on (not ended by the peer, say) */
 void
-netsim_stop_session(bool send_exit)
+netsim_stop_session(void)
 {
   struct netsim_out_ev outev = {0};
 
   if (!g_session.running || !netsim_is_started())
     return;
-  netsim_log("stop_session send_exit=%d started=%d peer_exited=%d",
-    send_exit, netsim_is_started(),
-    netsim_is_peer_exited());
+  netsim_log("stop_session");
   outev.type = NETSIM_OUT_STOP;
   queue_out_put(&g_session.outq, &outev);
   queue_in_clear_session(&g_session.inq);
   netsim_reset_state(NETSIM_SESSION_WAITING);
   netsim_log("session stop queued");
+}
+
+/* Wait for the peer to hang up the session (see netsim_end_game_session()),
+   for so long at most: whether it did */
+bool
+netsim_await_peer_hangup(void)
+{
+  struct netsim_in_ev inev;
+  uint64_t end_ns, now_ns;
+
+  if (!g_session.running || !netsim_is_started())
+    return (netsim_is_peer_exited());
+  netsim_log("waiting for the peer to hang up");
+  end_ns = netsim_monotonic_ns() +
+    (uint64_t)NETSIM_PEER_HANGUP_WAIT_MS * 1000000ULL;
+  while ((now_ns = netsim_monotonic_ns()) < end_ns) {
+    if (!queue_in_timedget(&g_session.inq, &inev,
+        (int)((end_ns - now_ns + 999999ULL) / 1000000ULL)))
+      continue;
+    if (inev.type == NETSIM_IN_EXIT) {
+      netsim_log("the peer hung up");
+      g_session.state = NETSIM_SESSION_PEER_EXITED;
+      return (true);
+    }
+    if (inev.type == NETSIM_IN_ERROR) {
+      netsim_log("session error waiting for the peer to hang up: %s",
+        inev.why[0] != '\0' ? inev.why : "internal error");
+      g_session.state = NETSIM_SESSION_ERROR;
+      return (false);
+    }
+  }
+  netsim_log("the peer didn't hang up in %d ms", NETSIM_PEER_HANGUP_WAIT_MS);
+  return (false);
 }
 
 void
