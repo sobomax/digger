@@ -6,8 +6,10 @@
 # recorded controls of the other player, pass the recording's state
 # checkpoints and end the game the same way, also with packets being lost.
 # So does a game of one quit half way through (Q) by either player, or by
-# both on the same frame, which both have to leave on the same frame, and
-# one whose call is never ACKed, which goes on all the same.
+# both on the same frame, which both have to leave on the same frame, one
+# whose call is never ACKed, which goes on all the same, one whose answer
+# is lost twice, which only starts late, and one whose caller is gone
+# right after its ACK, which the answering side has to give up on.
 
 set -e
 
@@ -52,8 +54,11 @@ run_peer() {
       DIGGER_CI_RUN=1 DIGGER_NETSIM_DEBUG=1 ${peerenv} "${DIGGER_BIN}" \
       /Q /S:0 "$@" > "${TMPD}/${peer}.out" 2> "${TMPD}/${peer}.err" &
     pid=$!
+    # SIGTERM, then SIGKILL if that's not enough (as with SDL, which only
+    # queues it, for a main loop that may be blocked)
     ( sleep "${NETSIM_TIMEOUT}"; kill "${pid}" 2>/dev/null && \
-      touch "${TMPD}/${peer}.timeout" ) &
+      touch "${TMPD}/${peer}.timeout" && sleep 5 && \
+      kill -9 "${pid}" 2>/dev/null ) &
     wpid=$!
     rc=0
     wait "${pid}" || rc=$?
@@ -62,14 +67,19 @@ run_peer() {
   ) &
 }
 
+# peer_log name: the peer's log, as ${TMPD}/name.log: its stderr, and on
+# Windows its DIGGER.log
+peer_log() {
+  cat "${TMPD}/${1}.err" "${TMPD}/${1}"/DIGGER.log 2>/dev/null | \
+    tr -d '\r' | grep -v '^GetINIString: ' > "${TMPD}/${1}.log" || true
+}
+
 # check_peer name expected player: exit status 0, the expected result, as
 # the player expected; what it had to say if not
 check_peer() {
   rc=`cat "${TMPD}/${1}.rc"`
   got=`tr -d '\r' < "${TMPD}/${1}.out" | grep '^score=' || true`
-  # Its log: stderr, and on Windows its DIGGER.log
-  cat "${TMPD}/${1}.err" "${TMPD}/${1}"/DIGGER.log 2>/dev/null | \
-    tr -d '\r' | grep -v '^GetINIString: ' > "${TMPD}/${1}.log" || true
+  peer_log "${1}"
   # The player it was, as the session went (if NetSim's debug log has it)
   pl=`sed -n 's|.*session connected local_player=\([0-9]\).*|\1|p' \
     "${TMPD}/${1}.log" | head -1`
@@ -127,22 +137,60 @@ replay_test() {
     ok=true
     check_peer alice "${3}" 2 || ok=false
     check_peer bob "${3}" 1 || ok=false
-    if [ "${ok}" = "true" ]
-    then
-      echo "${4} (netsim, loss: ${loss}): PASS"
-    else
-      echo "${4} (netsim, loss: ${loss}): FAIL"
-      NFAILED=$((NFAILED + 1))
-      if [ -n "${NETSIM_KEEP}" ]
-      then
-        keep="${NETSIM_KEEP}/`echo "${4}-${loss}" | tr -c 'A-Za-z0-9._=-' _`"
-        mkdir -p "${keep}"
-        cp -R "${TMPD}"/* "${keep}/"
-        echo "      kept in ${keep}"
-      fi
-    fi
-    rm -rf "${TMPD}"/alice* "${TMPD}"/bob*
+    test_result "${4} (netsim, loss: ${loss})" "${ok}"
   done
+}
+
+# test_result label ok: the test's outcome, the run's files kept if it
+# failed (see NETSIM_KEEP), and those of its peers gone
+test_result() {
+  if [ "${2}" = "true" ]
+  then
+    echo "${1}: PASS"
+  else
+    echo "${1}: FAIL"
+    NFAILED=$((NFAILED + 1))
+    if [ -n "${NETSIM_KEEP}" ]
+    then
+      keep="${NETSIM_KEEP}/`echo "${1}" | tr -c 'A-Za-z0-9._=-' _`"
+      mkdir -p "${keep}"
+      cp -R "${TMPD}"/* "${keep}/"
+      echo "      kept in ${keep}"
+    fi
+  fi
+  rm -rf "${TMPD}"/alice* "${TMPD}"/bob*
+}
+
+# vanish_test rec label: bob ACKs alice's answer to his INVITE and is gone
+# then (no media, no BYE either): alice has to give up on the session by
+# the sync timeout from that ACK on (out of her slow start by it), rather
+# than wait for him for ever (a watchdog of its own for that)
+vanish_test() {
+  watchdog=${NETSIM_TIMEOUT}
+  NETSIM_TIMEOUT=30
+  run_peer alice "DIGGER_NETSIM_REPLAY=${1} DIGGER_LOG_T0=0" \
+    /N:alice-bob@:${PORT}
+  sleep 1
+  run_peer bob "DIGGER_NETSIM_REPLAY=${1} DIGGER_NETSIM_REPLAY_START=1 \
+    DIGGER_LOG_T0=0 DIGGER_NETSIM_MUTE_AFTER_ACK=1" \
+    /N:bob@127.0.0.1:${PORT}-alice
+  wait
+  peer_log alice
+  rc=`cat "${TMPD}/alice.rc"`
+  ok=true
+  if [ "${rc}" -eq 0 ] || [ -f "${TMPD}/alice.timeout" ] ||
+     ! grep -q 'slow start over.*, by ACK' "${TMPD}/alice.log" ||
+     ! grep -q 'sync timeout for frame' "${TMPD}/alice.log"
+  then
+    echo "    alice: FAIL (exit status ${rc}, to fail by the sync timeout" \
+      "after the ACK)"
+    test -f "${TMPD}/alice.timeout" && \
+      echo "      stopped after ${NETSIM_TIMEOUT}s"
+    tail -n "${NETSIM_TAIL}" "${TMPD}/alice.log" | sed 's|^|      |'
+    ok=false
+  fi
+  NETSIM_TIMEOUT=${watchdog}
+  test_result "${2} (netsim)" "${ok}"
 }
 
 NFAILED=0
@@ -169,6 +217,12 @@ do
     "`cat "tests/results/${name%.edrf}.out"`" "${name} without ACK" \
     "DIGGER_NETSIM_EXPECT_NO_ACK=1 DIGGER_NETSIM_SIP_TIMER_L=200" \
     "DIGGER_NETSIM_SIP_NO_ACK=1" none
+  # Alice's answer lost twice: bob only gets it 1.5 s (T1 + 2*T1) on, past
+  # the sync timeout, which alice's frames are not to time out by meanwhile
+  replay_test "${PWD}/${rec}" "${PWD}/${rec}" \
+    "`cat "tests/results/${name%.edrf}.out"`" "${name} answer lost twice" \
+    "DIGGER_NETSIM_SIP_DROP_2XX=2" "" none
+  vanish_test "${PWD}/${rec}" "${name} caller gone after its ACK"
 done
 
 if [ "${NFAILED}" -ne 0 ]

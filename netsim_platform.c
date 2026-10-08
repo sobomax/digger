@@ -11,9 +11,22 @@
 
 #if NETSIM_PLATFORM_SUPPORTED
 
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* Testing: nothing is sent any more, see netsim_tx_mute() */
+static atomic_bool g_tx_muted;
+
+/* Testing: send nothing from now on, as if gone */
+void
+netsim_tx_mute(void)
+{
+
+  if (!atomic_exchange(&g_tx_muted, true))
+    digger_log_printf("netsim: muted, nothing is sent from now on\n");
+}
 
 static bool
 netsim_tx_drop_check(size_t len)
@@ -42,6 +55,8 @@ netsim_tx_drop_check(size_t len)
     }
     ready = true;
   }
+  if (atomic_load(&g_tx_muted))
+    return (true);
   if (drop_every == 0)
     return (false);
   drop_count++;

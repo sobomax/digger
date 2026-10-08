@@ -54,7 +54,9 @@ enum netsim_sip_event_type {
   NETSIM_SIP_EVENT_REMOTE_START,
   NETSIM_SIP_EVENT_CONNECTED,
   NETSIM_SIP_EVENT_DISCONNECTED,
-  NETSIM_SIP_EVENT_ERROR
+  NETSIM_SIP_EVENT_ERROR,
+  /* The ACK to our answer: the caller has the call, media or not */
+  NETSIM_SIP_EVENT_ACKED
 };
 
 struct netsim_sip_event {

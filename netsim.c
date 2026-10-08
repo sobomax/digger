@@ -31,6 +31,9 @@
    session is given up on, unless DIGGER_NETSIM_SYNC_TIMEOUT (ms) says
    otherwise */
 #define NETSIM_SYNC_TIMEOUT_MS 1000
+/* How often the answering side resends its frame while the caller is yet
+   to be heard from, see thread_slow_start() */
+#define NETSIM_SLOW_START_RETRY_MS 100
 #define NETSIM_RTP_VERSION 2U
 #define NETSIM_RTP_PT 96U
 #define NETSIM_RTPROP_LPF_SHIFT 2
@@ -215,6 +218,7 @@ struct peer_seq_slot {
 
 struct netsim_thread_state;
 static int thread_retry_ms(const struct netsim_thread_state *tsp);
+static bool thread_slow_start(const struct netsim_thread_state *tsp);
 
 struct pending_tx {
   bool active;
@@ -1207,11 +1211,15 @@ netsim_sync_timeout_ns(void)
   return (timeout_ns);
 }
 
-/* The peer hasn't acked it for as long as the sync timeout */
+/* The peer hasn't acked it for as long as the sync timeout; never for a
+   frame in the slow start, see thread_slow_start() */
 static bool
-pending_timed_out(const struct pending_tx *ptx)
+pending_timed_out(const struct netsim_thread_state *tsp,
+  const struct pending_tx *ptx)
 {
 
+  if (ptx->type == NETSIM_OUT_FRAME && thread_slow_start(tsp))
+    return (false);
   return (ptx->first_try_ns != 0 &&
     netsim_monotonic_ns() - ptx->first_try_ns > netsim_sync_timeout_ns());
 }
@@ -1275,7 +1283,7 @@ send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
         ptx->retries);
     }
     if ((ptx->type == NETSIM_OUT_FRAME || ptx->type == NETSIM_OUT_EXIT) &&
-        !ptx->matched && pending_timed_out(ptx)) {
+        !ptx->matched && pending_timed_out(tsp, ptx)) {
       netsim_log("sync timeout for %s seq=%u frame=%u after send failure",
         pending_name(ptx->type), (unsigned int)ptx->pkt.tx_seq,
         (unsigned int)ptx->pkt.frame);
@@ -1312,7 +1320,7 @@ send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
   }
 #endif
   if ((ptx->type == NETSIM_OUT_FRAME || ptx->type == NETSIM_OUT_EXIT) &&
-      !ptx->matched && pending_timed_out(ptx)) {
+      !ptx->matched && pending_timed_out(tsp, ptx)) {
     netsim_log("sync timeout for %s seq=%u frame=%u after %d sends",
       pending_name(ptx->type), (unsigned int)ptx->pkt.tx_seq,
       (unsigned int)ptx->pkt.frame, ptx->retries);
@@ -1369,6 +1377,7 @@ struct netsim_thread_state {
   bool pending_frame_valid;
   bool prev_tx_valid;
   bool last_peer_recv_valid;
+  bool peer_acked;
   bool last_peer_timing_valid;
   bool rtprop_lpf_valid;
 };
@@ -1412,11 +1421,48 @@ thread_update_rtprop_lpf(struct netsim_thread_state *tsp, int32_t sample_us,
   *filtered_usp = tsp->rtprop_lpf_us;
 }
 
+/* The answering side, with the caller yet to be heard from: its frames
+   only come once our answer (200 OK) reaches it, which can take a few SIP
+   retransmissions, and so SIP is to give up on it, not the sync timeout.
+   Our frame goes out meanwhile, but no more often than this. It's over
+   with the caller's first packet, or its ACK to the answer, after which
+   no media is for the sync timeout to end the session over. */
+static bool
+thread_slow_start(const struct netsim_thread_state *tsp)
+{
+
+  return (tsp->session_active && !tsp->session_offer_local &&
+    !tsp->last_peer_recv_valid && !tsp->peer_acked);
+}
+
+/* Out of the slow start (by what): the sync timeout from now on, and the
+   frame resent at the usual rate, starting right away */
+static void
+thread_end_slow_start(struct netsim_thread_state *tsp, uint64_t now_ns,
+  const char *why)
+{
+
+  if (!thread_slow_start(tsp))
+    return;
+  /* Before our first frame, it's all from then on anyway */
+  if (!tsp->tx.active || tsp->tx.first_try_ns == 0) {
+    netsim_log("slow start over, by %s", why);
+    return;
+  }
+  netsim_log("slow start over after %llu ms, by %s",
+    (unsigned long long)((now_ns - tsp->tx.first_try_ns) / 1000000ULL), why);
+  tsp->tx.first_try_ns = now_ns;
+  if (tsp->tx.next_tx != 0 && tsp->tx.next_tx != UINT64_MAX)
+    tsp->tx.next_tx = netsim_deadline_after_ms(0);
+}
+
 static int
 thread_retry_ms(const struct netsim_thread_state *tsp)
 {
   uint32_t retry_ms;
 
+  if (thread_slow_start(tsp))
+    return (NETSIM_SLOW_START_RETRY_MS);
   if (!tsp->rtprop_lpf_valid || tsp->rtprop_lpf_us <= 0)
     return (NETSIM_RETRY_MIN_MS);
   retry_ms = (uint32_t)(tsp->rtprop_lpf_us + 999) / 1000;
@@ -1441,6 +1487,7 @@ thread_clear_session(struct netsim_thread_state *tsp)
   tsp->last_peer_ct_ms = 0;
   tsp->last_peer_tor_local_ms = 0;
   tsp->last_peer_recv_valid = false;
+  tsp->peer_acked = false;
   tsp->last_peer_timing_valid = false;
   memset(&tsp->media_target, '\0', sizeof(tsp->media_target));
   memset(&tsp->media_source, '\0', sizeof(tsp->media_source));
@@ -1822,6 +1869,12 @@ thread_apply_sip_event(struct netsim_thread_state *tsp, struct thread_ctx *ctxp,
         tsp->local_player + 1, (unsigned long long)tsp->session_nonce);
       push_start_ack(ctxp->inq);
       break;
+    case NETSIM_SIP_EVENT_ACKED:
+      if (!thread_event_matches_session(tsp, evp))
+        break;
+      thread_end_slow_start(tsp, netsim_monotonic_ns(), "ACK");
+      tsp->peer_acked = true;
+      break;
     case NETSIM_SIP_EVENT_DISCONNECTED:
       if (!thread_event_matches_session(tsp, evp))
         break;
@@ -1944,6 +1997,7 @@ thread_process_rx_packet(struct netsim_thread_state *tsp, struct thread_ctx *ctx
       ab_term_ms, ba_term_ms, rtprop_lpf_us, rtprop_lpf_us / 2, theta_ms);
 #endif
   }
+  thread_end_slow_start(tsp, recv_ns, "the caller's first packet");
   tsp->last_peer_ct_ms = (pkt.echo_local_tor_ms != 0) ?
     (uint32_t)(pkt.echo_local_tor_ms + pkt.hold_ms) : 0;
   tsp->last_peer_tor_local_ms = recv_ms;

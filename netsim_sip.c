@@ -358,6 +358,40 @@ tm_addr_cleanup(struct usipy_sip_tm_addr *addrp)
   memset(addrp, '\0', sizeof(*addrp));
 }
 
+/* Testing: an answer (2xx) of ours to an INVITE, not sent the first so many
+   (DIGGER_NETSIM_SIP_DROP_2XX) times, as if lost */
+static bool
+drop_invite_2xx(const struct usipy_str *rawp)
+{
+  static int ndrop = -1;
+  static const char cseq[] = "\r\nCSeq:";
+  const char *cp, *ep;
+  const char *envp;
+
+  if (ndrop < 0) {
+    envp = getenv("DIGGER_NETSIM_SIP_DROP_2XX");
+    ndrop = envp != NULL ? atoi(envp) : 0;
+    if (ndrop < 0)
+      ndrop = 0;
+  }
+  if (ndrop == 0 || rawp->l < 9 || memcmp(rawp->s.ro, "SIP/2.0 2", 9) != 0)
+    return (false);
+  /* The CSeq line, to be one with INVITE */
+  ep = rawp->s.ro + rawp->l;
+  for (cp = rawp->s.ro; cp + sizeof(cseq) - 1 <= ep; cp++) {
+    if (memcmp(cp, cseq, sizeof(cseq) - 1) != 0)
+      continue;
+    for (cp += sizeof(cseq) - 1; cp + 6 <= ep && *cp != '\r'; cp++) {
+      if (memcmp(cp, "INVITE", 6) == 0) {
+        ndrop--;
+        return (true);
+      }
+    }
+    break;
+  }
+  return (false);
+}
+
 static int
 socket_send_to(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
   const struct usipy_sip_tm_outbound *outp)
@@ -399,7 +433,18 @@ socket_send_to(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
       outp->raw.s.ro);
     return (0);
   }
+  if (drop_invite_2xx(&outp->raw)) {
+    sip_log("not sending %.*s (DIGGER_NETSIM_SIP_DROP_2XX)", sl,
+      outp->raw.s.ro);
+    return (0);
+  }
   sent = netsim_socket_sendto(sp->sock, outp->raw.s.ro, outp->raw.l, &target);
+  /* Testing: a side gone (no media, no BYE either) once it has ACKed the
+     answer to its INVITE */
+  if (sent == (int)outp->raw.l &&
+      getenv("DIGGER_NETSIM_MUTE_AFTER_ACK") != NULL && outp->raw.l > 4 &&
+      memcmp(outp->raw.s.ro, "ACK ", 4) == 0)
+    netsim_tx_mute();
   if (sent == (int)outp->raw.l) {
     sip_log("sent %lu bytes (%.*s) to %.*s:%u", (unsigned long)outp->raw.l,
       sl, outp->raw.s.ro, (int)outp->target.host.l, outp->target.host.s.ro,
@@ -1284,6 +1329,24 @@ netsim_sip_next_wakeup(const struct netsim_sip *sp, netsim_deadline_t fallback)
   return (deadline);
 }
 
+/* An ACK came for the transaction: if it's for our answer (2xx) to an
+   INVITE, say so for the session */
+static void
+note_acked(struct netsim_sip *sp, size_t tx_index)
+{
+  const struct usipy_sip_tm_tx *txp;
+  struct netsim_sip_session session;
+
+  txp = usipy_sip_tm_get_transaction(sp->tm, tx_index);
+  if (txp == NULL || txp->role != USIPY_SIP_TM_ROLE_UAS ||
+      txp->common.id.method_type != USIPY_SIP_METHOD_INVITE ||
+      txp->role_data.uas.last_status_code < 200 ||
+      txp->role_data.uas.last_status_code > 299)
+    return;
+  if (select_role_session(sp, USIPY_SIP_TM_ROLE_UAS, &session))
+    event_push(sp, NETSIM_SIP_EVENT_ACKED, &session);
+}
+
 bool
 netsim_sip_handle_packet(struct netsim_sip *sp, const void *buf, size_t len,
   const netsim_sockaddr_t *peerp, const netsim_sockaddr_t *localp)
@@ -1295,6 +1358,7 @@ netsim_sip_handle_packet(struct netsim_sip *sp, const void *buf, size_t len,
   struct usipy_sip_tm_handle_incoming_in hin = {0};
   struct usipy_sip_tm_handle_incoming_out hout;
   const char *envp;
+  int rval;
 
   /* Testing: how long (ms) a 2xx of ours waits for its ACK, other than
      NETSIM_SIP_TIMER_L_MS */
@@ -1315,13 +1379,15 @@ netsim_sip_handle_packet(struct netsim_sip *sp, const void *buf, size_t len,
   hin.local = &local;
   hin.buf = buf;
   hin.len = len;
-  if (usipy_sip_tm_handle_incoming(&hin, &hout) != USIPY_SIP_TM_OK &&
-      hout.error != USIPY_SIP_TM_ERR_NOT_FOUND) {
+  rval = usipy_sip_tm_handle_incoming(&hin, &hout);
+  if (rval != USIPY_SIP_TM_OK && hout.error != USIPY_SIP_TM_ERR_NOT_FOUND) {
     tm_addr_cleanup(&peer);
     tm_addr_cleanup(&local);
     event_push(sp, NETSIM_SIP_EVENT_ERROR, NULL);
     return (false);
   }
+  if (rval == USIPY_SIP_TM_OK && hout.event == USIPY_SIP_TM_EVENT_ACK_RX)
+    note_acked(sp, hout.transaction_index);
   tm_addr_cleanup(&peer);
   tm_addr_cleanup(&local);
   usipy_sip_tm_reap_terminated(sp->tm);
