@@ -40,6 +40,7 @@ static const struct usipy_sip_status netsim_sip_res_forbidden = {
 };
 
 #define NETSIM_SIP_REGISTER_RETRY_MS 5000ULL
+#define NETSIM_SIP_INVITE_TIMER_B_MS 5000u
 
 static uint64_t
 netsim_sip_now_ms(void)
@@ -725,6 +726,11 @@ start_pending_call(struct netsim_sip *sp)
         .arg = sp,
         .response = outgoing_response,
         .timeout = outgoing_timeout,
+      },
+      /* A peer that doesn't answer at all is soon given up on: 5s of no
+         response (Timer B), rather than RFC 3261's 32s */
+      .timers = &(const struct usipy_sip_tm_timer_policy){
+        .timer_b_ms = NETSIM_SIP_INVITE_TIMER_B_MS,
       },
     },
     .to_user = &sp->pending_call.target_user,
