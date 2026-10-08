@@ -89,7 +89,7 @@ bool netsim_sip_start_call(struct netsim_sip *sp,
   const struct netsim_sip_start_call_in *inp, char *errbuf, size_t errbuf_len);
 bool netsim_sip_answer_pending_remote(struct netsim_sip *sp, char *errbuf,
   size_t errbuf_len);
-void netsim_sip_hangup(struct netsim_sip *sp);
+void netsim_sip_hangup(struct netsim_sip *sp, const char *why);
 bool netsim_sip_packet_looks_like(const void *buf, size_t len);
 bool netsim_sip_registration_ready(const struct netsim_sip *sp);
 

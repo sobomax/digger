@@ -804,6 +804,18 @@ outgoing_timeout(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
   }
 }
 
+/* Our answer to the peer's INVITE never got its ACK (timer H, or L for a
+   2xx, whose call is then ended) */
+static int
+invite_no_ack(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp)
+{
+
+  (void)arg;
+  sip_log("no ACK to the answer to INVITE cseq=%u tx=%lu (timer H)",
+    (unsigned int)txp->common.id.cseq, (unsigned long)tx_index);
+  return (0);
+}
+
 static void
 incoming_request(void *arg, const struct usipy_sip_tm_handle_incoming_in *hin,
   const struct usipy_msg *msg)
@@ -853,11 +865,15 @@ incoming_request(void *arg, const struct usipy_sip_tm_handle_incoming_in *hin,
   }
   if (sp->ua != NULL && usipy_sip_ua_matches_transaction(sp->ua, msg)) {
     const struct usipy_sip_tm_addr *localp = hin->local;
+    static const struct usipy_sip_tm_uas_callbacks uas_callbacks = {
+      .no_ack = invite_no_ack,
+    };
     struct usipy_sip_tm_new_uas_tr_params tp = {
       .request = msg,
       .timers = hin->timers,
       .peer = hin->peer,
       .local = localp,
+      .callbacks = &uas_callbacks,
     };
     size_t tx_index;
 
@@ -1028,7 +1044,18 @@ ua_emit(void *arg, const struct usipy_sip_ua_emit *emitp)
       return;
 
     case USIPY_SIP_UA_EMIT_DISCONNECT:
-      sip_log("UA disconnected role=%d", (int)emitp->role);
+      /* What ended it: the peer's request (e.g. BYE), the final response
+         to our INVITE, or us (netsim_sip_hangup()) */
+      if (emitp->message == NULL)
+        sip_log("UA disconnected role=%d: hung up here", (int)emitp->role);
+      else if (emitp->message->kind == USIPY_SIP_MSG_RES)
+        sip_log("UA disconnected role=%d: INVITE answered %u",
+          (int)emitp->role,
+          (unsigned int)emitp->message->sline.parsed.sl.status.code);
+      else
+        sip_log("UA disconnected role=%d: %.*s from the peer",
+          (int)emitp->role,
+          USIPY_SFMT(&emitp->message->sline.parsed.rl.method->name));
       {
         struct netsim_sip_session session;
 
@@ -1297,7 +1324,7 @@ netsim_sip_answer_pending_remote(struct netsim_sip *sp, char *errbuf,
 }
 
 void
-netsim_sip_hangup(struct netsim_sip *sp)
+netsim_sip_hangup(struct netsim_sip *sp, const char *why)
 {
   struct usipy_sip_ua_event ev = {
     .type = USIPY_SIP_UA_EVENT_DISCONNECT,
@@ -1310,6 +1337,9 @@ netsim_sip_hangup(struct netsim_sip *sp)
     USIPY_SIP_UA_STATE_IDLE;
   need_ua_disconnect = (uastate != USIPY_SIP_UA_STATE_IDLE &&
     uastate != USIPY_SIP_UA_STATE_DISCONNECTED);
+  sip_log("hangup (%s) ua_state=%d call=%d pending=%d/%d", why, (int)uastate,
+    sp->current.valid ? 1 : 0, sp->pending_call.valid ? 1 : 0,
+    sp->pending_remote.valid ? 1 : 0);
   session_clear(&sp->disconnecting);
   if (sp->current.valid) {
     if (need_ua_disconnect) {
@@ -1441,10 +1471,11 @@ netsim_sip_start_call(struct netsim_sip *sp,
 }
 
 void
-netsim_sip_hangup(struct netsim_sip *sp)
+netsim_sip_hangup(struct netsim_sip *sp, const char *why)
 {
 
   (void)sp;
+  (void)why;
 }
 
 bool
