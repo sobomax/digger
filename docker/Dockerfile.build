@@ -48,6 +48,9 @@ FROM build AS test
 ARG TEST_TYPES="quick netsim"
 # For the NetSim tests of the platforms tested at once to keep apart
 ARG TARGETPLATFORM
+# Their peers at a frame rate (/S:2, 4 ms a frame) rather than as fast as
+# they can, the platforms' tests going on at once (see do-test-netsim.sh)
+ARG NETSIM_SPEED=2
 RUN --mount=type=bind,target=.,rw cp -R /build/debug /build/production . && \
   sh ./scripts/do-test-run.sh
 

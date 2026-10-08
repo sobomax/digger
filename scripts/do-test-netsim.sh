@@ -20,6 +20,10 @@ case "${DIGGER_BIN}" in
 *) DIGGER_BIN="${PWD}/${DIGGER_BIN}" ;;
 esac
 NETSIM_TIMEOUT=${NETSIM_TIMEOUT:-120}
+# The speed the peers play at (/S): 0 is as fast as they can, which on a
+# loaded machine (CI's, with other platforms' tests going at once under
+# QEMU) has them starved of CPU; at a frame rate they sleep in between
+NETSIM_SPEED=${NETSIM_SPEED:-0}
 # For a failure: the last lines to show of each peer's log (its stderr,
 # with the NetSim protocol's debug log in it), and a directory to keep
 # all of the run's files in
@@ -52,7 +56,8 @@ run_peer() {
     cd "${TMPD}/${peer}"
     env HOME="${TMPD}/${peer}" SDL_AUDIODRIVER=dummy SDL_VIDEODRIVER=dummy \
       DIGGER_CI_RUN=1 DIGGER_NETSIM_DEBUG=1 ${peerenv} "${DIGGER_BIN}" \
-      /Q /S:0 "$@" > "${TMPD}/${peer}.out" 2> "${TMPD}/${peer}.err" &
+      /Q /S:${NETSIM_SPEED} "$@" > "${TMPD}/${peer}.out" \
+      2> "${TMPD}/${peer}.err" &
     pid=$!
     # SIGTERM, then SIGKILL if that's not enough (as with SDL, which only
     # queues it, for a main loop that may be blocked)
