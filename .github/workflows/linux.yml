@@ -102,6 +102,87 @@ jobs:
         run: |
           make do-test-cmake
 
+  memory_sanitizers:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-26.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: GCC ASan
+            cc: gcc
+            cxx: g++
+            sanitizer: address
+            flags: -fsanitize=address -fno-omit-frame-pointer
+            ldflags: -fsanitize=address
+          - name: Clang ASan
+            cc: clang
+            cxx: clang++
+            sanitizer: address
+            flags: -fsanitize=address -fno-omit-frame-pointer
+            ldflags: -fsanitize=address
+          - name: Clang MSan
+            cc: clang
+            cxx: clang++
+            sanitizer: memory
+            flags: -fsanitize=memory -fsanitize-memory-track-origins=2 -fno-omit-frame-pointer -fPIE
+            ldflags: -fsanitize=memory -pie
+    env:
+      CC: ${{ matrix.cc }}
+      CXX: ${{ matrix.cxx }}
+      ASAN_OPTIONS: halt_on_error=1
+      MSAN_OPTIONS: halt_on_error=1:exit_code=86
+      TEST_TYPES: short,netsim
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: 'recursive'
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get -yq --no-install-recommends install \
+            build-essential clang llvm libclang-rt-dev cmake ninja-build curl libsdl2-dev zlib1g-dev
+
+      - name: Build MSan dependencies
+        if: matrix.sanitizer == 'memory'
+        run: |
+          sh scripts/build-msan-deps.sh "${RUNNER_TEMP}/msan" "${RUNNER_TEMP}/msan-build"
+          echo "${RUNNER_TEMP}/msan/bin" >> "${GITHUB_PATH}"
+
+      - name: Configure
+        env:
+          SANITIZER: ${{ matrix.sanitizer }}
+          SANITIZER_FLAGS: ${{ matrix.flags }}
+          SANITIZER_LDFLAGS: ${{ matrix.ldflags }}
+        run: |
+          set --
+          if [ "${SANITIZER}" = memory ]; then
+            # Select the instrumented archives explicitly; never fall back to
+            # the distro's SDL/zlib or link its display libraries.
+            set -- -DCMAKE_PREFIX_PATH="${RUNNER_TEMP}/msan" \
+              -DSDL2_LIBRARY_RELEASE="${RUNNER_TEMP}/msan/lib/libSDL2.a" \
+              -DSDL2main_LIBRARIES="${RUNNER_TEMP}/msan/lib/libSDL2main.a" \
+              -DSDL2_INCLUDE_DIR="${RUNNER_TEMP}/msan/include/SDL2" \
+              -DZLIB_LIBRARY="${RUNNER_TEMP}/msan/lib/libz.a" \
+              -DZLIB_INCLUDE_DIR="${RUNNER_TEMP}/msan/include" \
+              -DCMAKE_DISABLE_FIND_PACKAGE_X11=TRUE
+          fi
+          cmake -S . -B build-sanitizer -G Ninja \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo -DDIGGER_INSTRUMENTATION=ON \
+            -DCMAKE_C_FLAGS="${SANITIZER_FLAGS}" \
+            -DCMAKE_CXX_FLAGS="${SANITIZER_FLAGS}" \
+            -DCMAKE_EXE_LINKER_FLAGS="${SANITIZER_LDFLAGS}" "$@"
+
+      - name: Build
+        run: cmake --build build-sanitizer --parallel 2
+
+      - name: Test
+        env:
+          DIGGER_BIN: ./build-sanitizer/digger
+        run: sh scripts/do-test-run.sh
+
   submit_coverage:
     needs: build
     runs-on: ubuntu-latest
@@ -114,7 +195,7 @@ jobs:
         path-to-lcov: ./digger_lcov/digger.info
 
   build_in_docker:
-    needs: [build, ubsan]
+    needs: [build, ubsan, memory_sanitizers]
     runs-on: ubuntu-latest
     permissions:
       packages: write

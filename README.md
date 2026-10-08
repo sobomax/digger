@@ -143,3 +143,10 @@ playback against the installed `digger` and NetSim tests against that separate
 executable. For other builds, `NETSIM_DIGGER_BIN` selects an instrumented
 executable for just the NetSim portion of `scripts/do-test-run.sh`; it defaults
 to `DIGGER_BIN` when unset.
+
+# Sanitizer Tests
+
+Linux CI runs ASan with GCC and Clang, and MSan with Clang, over the `short`
+playback suite and NetSim tests. These builds enable `DIGGER_INSTRUMENTATION`,
+retain the normal LTO setting and frame pointers, and fail on sanitizer
+reports. MSan also tracks the origin of uninitialized values.
