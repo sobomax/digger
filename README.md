@@ -106,6 +106,27 @@ terms of several licenses including Public Domain, Beer-Ware, 2-clause BSD
 and GNU General Public License version 2. Please refer to a specific source
 file as well as source code history to find out more.
 
+# Warnings as Errors
+
+`DIGGER_WARNINGS_AS_ERRORS` treats compiler warnings as build failures using
+`-Werror` (or `/WX` with MSVC). It defaults to `OFF` for local builds. Enable
+it with `-DDIGGER_WARNINGS_AS_ERRORS=ON` in CMake or
+`DIGGER_WARNINGS_AS_ERRORS=ON` in GNU make. Clean before changing the option
+with make; CMake stores it in its cache.
+
+All CI builds of Digger enable this option, including Linux, Windows
+(GitHub Actions and AppVeyor), macOS, WebAssembly, Docker, Debian packages,
+and sanitizer builds. The test build scripts also enable it for both Debug
+and production builds; Debian package builds always enable it.
+
+`scripts/cmake_flags.sub` contains `CMAKE_FLAGS_debug`, `CMAKE_FLAGS_release`,
+and `CMAKE_FLAGS_relwithdebinfo`, plus the test and production instrumentation
+settings. It also derives `MAKE_FLAGS_debug` and `MAKE_FLAGS_production` for
+GNU make test builds from the same option assignments. The test build scripts,
+CMake CI configure steps, and Debian package rules source it. Expand these
+flag variables unquoted so each flag becomes a separate build argument; keep
+paths and other values that may contain spaces in separately quoted arguments.
+
 # NetSim Test Instrumentation
 
 `DIGGER_INSTRUMENTATION` enables NetSim replay tests and fault injection. It

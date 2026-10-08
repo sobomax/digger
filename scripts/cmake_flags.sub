@@ -1,0 +1,18 @@
+# Shared flags for Digger CI and test builds. Values contain whitespace-separated
+# build arguments; expand them unquoted to pass each argument separately.
+CMAKE_FLAGS_COMMON='-DDIGGER_WARNINGS_AS_ERRORS=ON'
+CMAKE_FLAGS_debug="${CMAKE_FLAGS_COMMON} -DCMAKE_BUILD_TYPE=Debug"
+CMAKE_FLAGS_release="${CMAKE_FLAGS_COMMON} -DCMAKE_BUILD_TYPE=Release"
+CMAKE_FLAGS_relwithdebinfo="${CMAKE_FLAGS_COMMON} -DCMAKE_BUILD_TYPE=RelWithDebInfo"
+CMAKE_FLAGS_TEST='-DDIGGER_INSTRUMENTATION=ON'
+CMAKE_FLAGS_PRODUCTION='-DDIGGER_INSTRUMENTATION=OFF'
+
+# GNU make takes the same option assignments without CMake's -D prefix.
+MAKE_FLAGS_TEST=
+for cmake_flag in ${CMAKE_FLAGS_COMMON} ${CMAKE_FLAGS_TEST}
+do
+  MAKE_FLAGS_TEST="${MAKE_FLAGS_TEST:+${MAKE_FLAGS_TEST} }${cmake_flag#-D}"
+done
+unset cmake_flag
+MAKE_FLAGS_debug="BUILD_TYPE=debug ${MAKE_FLAGS_TEST}"
+MAKE_FLAGS_production="BUILD_TYPE=production ${MAKE_FLAGS_TEST}"

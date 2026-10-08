@@ -60,8 +60,8 @@ jobs:
 
       - name: build
         run: |
-          make ARCH=WASM BUILD_TYPE=debug clean all
-          make ARCH=WASM BUILD_TYPE=production clean all
+          make ARCH=WASM BUILD_TYPE=debug DIGGER_WARNINGS_AS_ERRORS=ON clean all
+          make ARCH=WASM BUILD_TYPE=production DIGGER_WARNINGS_AS_ERRORS=ON clean all
 
       - name: Create artifacts
         uses: actions/upload-artifact@v7

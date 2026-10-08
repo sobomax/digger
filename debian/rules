@@ -11,10 +11,11 @@ export DEB_LDFLAGS_MAINT_APPEND = -fuse-ld=lld -Wl,--build-id=sha1
 	dh $@ --buildsystem=cmake --builddirectory=build-debian-production
 
 override_dh_auto_configure:
-	dh_auto_configure --builddirectory=build-debian-production -- \
-		-DCMAKE_BUILD_TYPE=RelWithDebInfo -DDIGGER_INSTRUMENTATION=OFF
-	dh_auto_configure --builddirectory=build-debian-instrumentation -- \
-		-DCMAKE_BUILD_TYPE=RelWithDebInfo -DDIGGER_INSTRUMENTATION=ON
+	. scripts/cmake_flags.sub && \
+		dh_auto_configure --builddirectory=build-debian-production -- \
+			$${CMAKE_FLAGS_relwithdebinfo} $${CMAKE_FLAGS_PRODUCTION} && \
+		dh_auto_configure --builddirectory=build-debian-instrumentation -- \
+			$${CMAKE_FLAGS_relwithdebinfo} $${CMAKE_FLAGS_TEST}
 
 override_dh_auto_build:
 	dh_auto_build --builddirectory=build-debian-production

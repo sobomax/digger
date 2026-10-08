@@ -3,6 +3,7 @@
 set -e
 
 . "${0%/*}/dep-versions.sub"
+. "${0%/*}/cmake_flags.sub"
 SDL_VER=${SDL_VER:-${SDL_VER_DEFAULT}}
 ZLIB_VER=${ZLIB_VER:-${ZLIB_VER_DEFAULT}}
 
@@ -26,11 +27,13 @@ fi
 
 for build_type in debug production
 do
-  make ARCH=LINUX BUILD_TYPE=${build_type} DIGGER_INSTRUMENTATION=ON clean all
+  # POSIX sh has no indirect parameter expansion; build_type is fixed above.
+  eval "make_flags=\${MAKE_FLAGS_${build_type}}"
+  make ARCH=LINUX ${make_flags} clean all
   mv digger *.gcno *.o ${build_type}/
   if [ "${CC}" != "clang" ]
   then
-    make ARCH=MINGW BUILD_TYPE=${build_type} DIGGER_INSTRUMENTATION=ON MINGW_DEPS_ROOT=`pwd`/deps clean all
-    make ARCH=MINGW64 BUILD_TYPE=${build_type} DIGGER_INSTRUMENTATION=ON MINGW_DEPS_ROOT=`pwd`/deps clean all
+    make ARCH=MINGW ${make_flags} MINGW_DEPS_ROOT=`pwd`/deps clean all
+    make ARCH=MINGW64 ${make_flags} MINGW_DEPS_ROOT=`pwd`/deps clean all
   fi
 done

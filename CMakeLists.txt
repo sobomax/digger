@@ -267,7 +267,30 @@ IF ( EMSCRIPTEN )
   )
 ENDIF ( EMSCRIPTEN )
 
+OPTION( DIGGER_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF )
 ADD_EXECUTABLE( digger ${DIGGER_SOURCE})
+IF ( CMAKE_C_COMPILER_ID MATCHES "Clang" )
+  CHECK_C_SOURCE_COMPILES("
+#include <stdatomic.h>
+#if ATOMIC_INT_LOCK_FREE == 2
+#error Integer atomics are always lock-free on this target
+#endif
+int main(void) { return 0; }
+" CLANG_ATOMICS_REQUIRE_LIBCALLS)
+  IF ( CLANG_ATOMICS_REQUIRE_LIBCALLS )
+    # Targets such as ARMv5 use libatomic intentionally. Clang's warning
+    # about the cost of every atomic operation is not actionable there.
+    TARGET_COMPILE_OPTIONS(digger PRIVATE -Wno-atomic-alignment)
+  ENDIF ()
+ENDIF ()
+IF ( DIGGER_WARNINGS_AS_ERRORS )
+  IF ( MSVC )
+    TARGET_COMPILE_OPTIONS(digger PRIVATE /WX)
+  ELSE ()
+    TARGET_COMPILE_OPTIONS(digger PRIVATE -Werror)
+    SET_PROPERTY(TARGET digger APPEND_STRING PROPERTY LINK_FLAGS " -Werror")
+  ENDIF ()
+ENDIF ()
 IF ( DIGGER_INSTRUMENTATION )
   TARGET_COMPILE_DEFINITIONS(digger PRIVATE DIGGER_INSTRUMENTATION)
 ENDIF ()

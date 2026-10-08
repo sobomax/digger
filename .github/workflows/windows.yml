@@ -68,7 +68,7 @@ jobs:
 
       - name: Build
         run: |
-          DIGGER_INSTRUMENTATION=ON \
+          DIGGER_INSTRUMENTATION=ON DIGGER_WARNINGS_AS_ERRORS=ON \
           SDL_VER=${{ env.SDL_VER }} ZLIB_VER=${{ env.ZLIB_VER }} \
             sh -x ./scripts/do-build-windows.sh
 
