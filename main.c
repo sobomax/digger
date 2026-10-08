@@ -559,6 +559,13 @@ int mainprog(void)
       }
       if (edrf_stopped)
         exit(3); /* Not as far as the recording goes */
+      /* Testing: an answer of ours was to go without ACK */
+      if (getenv("DIGGER_NETSIM_EXPECT_NO_ACK") != NULL &&
+          !netsim_no_ack_seen()) {
+        fprintf(stderr, "eDRF: NetSim replay: an answer was to go without "
+          "ACK, none did\n");
+        exit(2);
+      }
       exit(0);
     }
     input_reset_network();

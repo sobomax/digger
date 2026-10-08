@@ -84,6 +84,9 @@ struct netsim_sip {
   size_t ev_head;
   size_t ev_tail;
   size_t ev_len;
+  /* Whether the session (its media) is live, see netsim_sip_set_liveness() */
+  bool (*live)(void *);
+  void *live_arg;
 };
 
 bool local_registrar_mode(const struct netsim_sip *sp);

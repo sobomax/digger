@@ -2206,6 +2206,21 @@ thread_send_ready(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
   return (THREAD_STEP_NEXT);
 }
 
+/* The session is live: the peer's frames keep coming (one within the sync
+   timeout), see netsim_sip_set_liveness() */
+static bool
+thread_session_live(void *arg)
+{
+  const struct netsim_thread_state *tsp = arg;
+  uint32_t now_ms;
+
+  if (!tsp->session_active || !tsp->last_peer_recv_valid)
+    return (false);
+  now_ms = (uint32_t)(netsim_monotonic_ns() / 1000000ULL);
+  return ((uint64_t)(uint32_t)(now_ms - tsp->last_peer_tor_local_ms) *
+    1000000ULL <= netsim_sync_timeout_ns());
+}
+
 static void *
 netsim_thread(void *arg)
 {
@@ -2225,6 +2240,7 @@ netsim_thread(void *arg)
     ctxp->local_host, ctxp->local_port,
     USIPY_SFMT(&ctxp->cfg.sip.server_host), USIPY_SFMT(&ctxp->cfg.sip.server_port),
     (unsigned long long)ts.local_nonce);
+  netsim_sip_set_liveness(ctxp->sip, thread_session_live, &ts);
 
   while (!thread_stop) {
     thread_drain_sip_events(&ts, ctxp);
@@ -2776,6 +2792,14 @@ netsim_session_active(void)
 {
 
   return (netsim_is_started());
+}
+
+/* Whether an answer of ours went without ACK (testing) */
+bool
+netsim_no_ack_seen(void)
+{
+
+  return (netsim_sip_no_ack_seen());
 }
 
 bool
