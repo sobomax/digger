@@ -117,6 +117,9 @@ struct netsim_pkt_meta {
   uint64_t nonce;
 };
 
+/* What ended a session, e.g. for NETSIM_IN_ERROR */
+#define NETSIM_WHY_BUFSIZE 160
+
 struct netsim_in_ev {
   int type;
   uint32_t frame;
@@ -126,6 +129,7 @@ struct netsim_in_ev {
   uint64_t nonce;
   char peer_user_buf[NETSIM_SIP_USER_BUFSIZE];
   struct usipy_str peer_user;
+  char why[NETSIM_WHY_BUFSIZE]; /* NETSIM_IN_ERROR's, or "" */
 };
 
 struct netsim_in_queue {
@@ -1057,12 +1061,23 @@ fill_in_friend_registered(struct netsim_in_ev *evp, const void *arg)
   return (netsim_in_ev_set_peer_user(evp, peer_user));
 }
 
-static void
-push_error(struct netsim_in_queue *inqp)
+static bool
+fill_in_error(struct netsim_in_ev *evp, const void *arg)
 {
-  static const int type = NETSIM_IN_ERROR;
 
-  (void)queue_in_put_fill(inqp, fill_in_type, &type);
+  *evp = (struct netsim_in_ev){
+    .type = NETSIM_IN_ERROR,
+  };
+  snprintf(evp->why, sizeof(evp->why), "%s", (const char *)arg);
+  return (true);
+}
+
+/* The session's over, for why (see netsim_sync_frame()) */
+static void
+push_error(struct netsim_in_queue *inqp, const char *why)
+{
+
+  (void)queue_in_put_fill(inqp, fill_in_error, why);
 }
 
 static bool
@@ -1252,6 +1267,14 @@ send_pending_now(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
   return (true);
 }
 
+/* How long (ms) it's been since it was first tried, for the sync timeout */
+static unsigned long long
+pending_age_ms(const struct pending_tx *ptx)
+{
+
+  return ((netsim_monotonic_ns() - ptx->first_try_ns) / 1000000ULL);
+}
+
 /* How long till the next resend: the round trip (see thread_retry_ms()) at
    first, twice as long as the one before after that, up to a quarter of
    the sync timeout. A peer that doesn't answer gets a few of them (some 8
@@ -1279,7 +1302,8 @@ static bool
 send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
   const netsim_sockaddr_t *addrp,
   uint32_t control_ssrc, uint32_t stream_ssrc,
-  struct pending_tx *ptx, bool *sentp, const struct netsim_send_meta *send_metap)
+  struct pending_tx *ptx, bool *sentp, const struct netsim_send_meta *send_metap,
+  char *why, size_t whylen)
 {
   int err;
   char errbuf[128];
@@ -1312,13 +1336,18 @@ send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
     }
     if ((ptx->type == NETSIM_OUT_FRAME || ptx->type == NETSIM_OUT_EXIT) &&
         !ptx->matched && pending_timed_out(tsp, ptx)) {
-      netsim_log("sync timeout for %s seq=%u frame=%u after send failure",
-        pending_name(ptx->type), (unsigned int)ptx->pkt.tx_seq,
-        (unsigned int)ptx->pkt.frame);
+      snprintf(why, whylen, "retransmit timeout: %s %u not acked in %llu ms "
+        "(%d sends), sending failing: %s", pending_name(ptx->type),
+        (unsigned int)ptx->pkt.frame, pending_age_ms(ptx), ptx->send_count,
+        netsim_socket_strerror(err, errbuf, sizeof(errbuf)));
       return (false);
     }
-    if (!netsim_socket_err_transient(err))
+    if (!netsim_socket_err_transient(err)) {
+      snprintf(why, whylen, "sending %s %u failed: %s",
+        pending_name(ptx->type), (unsigned int)ptx->pkt.frame,
+        netsim_socket_strerror(err, errbuf, sizeof(errbuf)));
       return (false);
+    }
     pending_schedule(ptx, pending_retry_ms(tsp, ptx));
     return (true);
   }
@@ -1349,9 +1378,9 @@ send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
 #endif
   if ((ptx->type == NETSIM_OUT_FRAME || ptx->type == NETSIM_OUT_EXIT) &&
       !ptx->matched && pending_timed_out(tsp, ptx)) {
-    netsim_log("sync timeout for %s seq=%u frame=%u after %d sends",
-      pending_name(ptx->type), (unsigned int)ptx->pkt.tx_seq,
-      (unsigned int)ptx->pkt.frame, ptx->retries);
+    snprintf(why, whylen, "retransmit timeout: %s %u not acked in %llu ms "
+      "(%d sends)", pending_name(ptx->type), (unsigned int)ptx->pkt.frame,
+      pending_age_ms(ptx), ptx->send_count);
     return (false);
   }
   if (ptx->type == NETSIM_OUT_FRAME && ptx->matched) {
@@ -1610,17 +1639,17 @@ thread_begin_session(struct netsim_thread_state *tsp, uint64_t session_nonce,
 
 static void
 thread_fail_session(struct netsim_thread_state *tsp, struct thread_ctx *ctxp,
-  uint32_t frame)
+  const char *why)
 {
 
-  push_error(ctxp->inq);
+  netsim_log("session failed: %s", why);
+  push_error(ctxp->inq, why);
   if (!tsp->session_active || tsp->session_nonce == 0) {
     thread_reset_session(tsp, ctxp->outq);
     return;
   }
-  netsim_sip_hangup(ctxp->sip, "session failed");
+  netsim_sip_hangup(ctxp->sip, why);
   thread_reset_session(tsp, ctxp->outq);
-  (void)frame;
 }
 
 static void
@@ -1872,7 +1901,7 @@ thread_apply_sip_event(struct netsim_thread_state *tsp, struct thread_ctx *ctxp,
   switch (evp->type) {
     case NETSIM_SIP_EVENT_REGISTERED:
       if (!push_friend_registered(ctxp->inq, &evp->peer_user))
-        push_error(ctxp->inq);
+        push_error(ctxp->inq, "couldn't pass on a friend registered");
       break;
     case NETSIM_SIP_EVENT_REMOTE_START:
       thread_begin_session(tsp, evp->session.session_nonce,
@@ -1882,7 +1911,7 @@ thread_apply_sip_event(struct netsim_thread_state *tsp, struct thread_ctx *ctxp,
       tsp->media_target = evp->session.media_addr;
       if (!push_start(ctxp->inq, tsp->local_player, tsp->session_nonce,
           &evp->peer_user)) {
-        push_error(ctxp->inq);
+        push_error(ctxp->inq, "couldn't pass on the peer's start");
         thread_reset_session(tsp, ctxp->outq);
         break;
       }
@@ -1918,7 +1947,7 @@ thread_apply_sip_event(struct netsim_thread_state *tsp, struct thread_ctx *ctxp,
       if (!thread_event_matches_session(tsp, evp))
         break;
       netsim_log("session ended by a SIP error");
-      push_error(ctxp->inq);
+      push_error(ctxp->inq, "a SIP error");
       thread_reset_session(tsp, ctxp->outq);
       break;
     default:
@@ -2000,12 +2029,16 @@ thread_process_rx_packet(struct netsim_thread_state *tsp, struct thread_ctx *ctx
       thread_resend_matching_frame(tsp, pkt.frame, false);
       return;
 
-    case PEER_SEQ_GAP:
-      netsim_log("peer seq overflow peer_seq=%u expected=%u frame=%u last_delivered=%u",
-        (unsigned int)pkt.tx_seq, (unsigned int)(tsp->last_peer_tx_seq + 1),
-        (unsigned int)pkt.frame, (unsigned int)tsp->last_delivered);
-      thread_fail_session(tsp, ctxp, pkt.frame);
+    case PEER_SEQ_GAP: {
+      char why[NETSIM_WHY_BUFSIZE];
+
+      snprintf(why, sizeof(why), "peer seq gap: seq=%u, expected %u "
+        "(frame=%u, last delivered %u)", (unsigned int)pkt.tx_seq,
+        (unsigned int)(tsp->last_peer_tx_seq + 1), (unsigned int)pkt.frame,
+        (unsigned int)tsp->last_delivered);
+      thread_fail_session(tsp, ctxp, why);
       return;
+    }
 
     case PEER_SEQ_ACCEPTED:
       break;
@@ -2035,9 +2068,12 @@ thread_process_rx_packet(struct netsim_thread_state *tsp, struct thread_ctx *ctx
   tsp->last_peer_timing_valid = (pkt.echo_local_tor_ms != 0);
   tsp->peer_frame_seen = true;
   if (pkt.frame > tsp->last_delivered + NETSIM_FRAME_WINDOW) {
-    netsim_log("frame window overflow frame=%u last_delivered=%u",
-      (unsigned int)pkt.frame, (unsigned int)tsp->last_delivered);
-    thread_fail_session(tsp, ctxp, pkt.frame);
+    char why[NETSIM_WHY_BUFSIZE];
+
+    snprintf(why, sizeof(why), "frame window overflow: peer frame=%u, "
+      "last delivered %u", (unsigned int)pkt.frame,
+      (unsigned int)tsp->last_delivered);
+    thread_fail_session(tsp, ctxp, why);
     return;
   }
   if (pkt.repair_valid) {
@@ -2114,9 +2150,14 @@ thread_handle_outgoing(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
   rval = THREAD_STEP_NEXT;
   switch (outev.type) {
     case NETSIM_INT_RX_ERROR:
-      netsim_log("recv failed: %s",
-        netsim_socket_strerror(outev.err, errbuf, sizeof(errbuf)));
-      push_error(ctxp->inq);
+      {
+        char why[NETSIM_WHY_BUFSIZE];
+
+        snprintf(why, sizeof(why), "receiving failed: %s",
+          netsim_socket_strerror(outev.err, errbuf, sizeof(errbuf)));
+        netsim_log("%s", why);
+        push_error(ctxp->inq, why);
+      }
       thread_reset_session(tsp, ctxp->outq);
       rval = THREAD_STEP_CONTINUE;
       break;
@@ -2149,14 +2190,14 @@ thread_handle_outgoing(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
         (unsigned long long)tsp->session_nonce, tsp->local_player + 1);
       if (!push_start(ctxp->inq, tsp->local_player, tsp->session_nonce,
           &outev.peer_user)) {
-        push_error(ctxp->inq);
+        push_error(ctxp->inq, "couldn't pass on the local start");
         thread_reset_session(tsp, ctxp->outq);
         rval = THREAD_STEP_CONTINUE;
         break;
       }
       if (!netsim_sip_start_call(ctxp->sip, &call_in, sip_errbuf, sizeof(sip_errbuf))) {
         netsim_log("SIP start failed: %s", sip_errbuf);
-        push_error(ctxp->inq);
+        push_error(ctxp->inq, "SIP start failed");
         thread_reset_session(tsp, ctxp->outq);
         rval = THREAD_STEP_CONTINUE;
       } else if (sip_errbuf[0] != '\0') {
@@ -2177,7 +2218,7 @@ thread_handle_outgoing(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
         if (!netsim_sip_answer_pending_remote(ctxp->sip, sip_errbuf,
               sizeof(sip_errbuf))) {
           netsim_log("SIP answer failed: %s", sip_errbuf);
-          push_error(ctxp->inq);
+          push_error(ctxp->inq, "SIP answer failed");
           thread_reset_session(tsp, ctxp->outq);
           rval = THREAD_STEP_CONTINUE;
         }
@@ -2277,14 +2318,15 @@ thread_send_ready(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
 {
   bool data_sent;
   struct netsim_send_meta send_meta;
+  char why[NETSIM_WHY_BUFSIZE];
 
   if (!tsp->session_active || tsp->media_target.len == 0)
     return (THREAD_STEP_NEXT);
   thread_fill_send_meta(&send_meta, tsp);
   if (!send_pending(tsp, tsp->sock, &tsp->media_target, tsp->local_ctrl_ssrc,
-        tsp->local_stream_ssrc, &tsp->tx, &data_sent, &send_meta)) {
-    netsim_log("session data send failed permanently, resetting session");
-    thread_fail_session(tsp, ctxp, tsp->tx.pkt.frame);
+        tsp->local_stream_ssrc, &tsp->tx, &data_sent, &send_meta, why,
+        sizeof(why))) {
+    thread_fail_session(tsp, ctxp, why);
     return (THREAD_STEP_CONTINUE);
   }
   return (THREAD_STEP_NEXT);
@@ -2665,6 +2707,8 @@ netsim_handle_prestart_event(const struct netsim_in_ev *inev)
       g_session.state = NETSIM_SESSION_PEER_EXITED;
       break;
     case NETSIM_IN_ERROR:
+      if (inev->why[0] != '\0')
+        netsim_log("session error: %s", inev->why);
       g_session.state = NETSIM_SESSION_ERROR;
       break;
   }
@@ -2875,7 +2919,8 @@ netsim_sync_frame(uint32_t frame, uint8_t local_bits, bool local_freeze,
       return (false);
     }
     if (inev.type == NETSIM_IN_ERROR) {
-      netsim_log("sync frame=%u aborted: internal error", (unsigned int)frame);
+      netsim_log("sync frame=%u aborted: %s", (unsigned int)frame,
+        inev.why[0] != '\0' ? inev.why : "internal error");
       g_session.state = NETSIM_SESSION_ERROR;
       return (false);
     }

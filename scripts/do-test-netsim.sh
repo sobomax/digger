@@ -209,7 +209,7 @@ vanish_test() {
   ok=true
   if [ "${rc}" -eq 0 ] || [ -f "${TMPD}/alice.timeout" ] ||
      ! grep -q 'slow start over.*, by ACK' "${TMPD}/alice.log" ||
-     ! grep -q 'sync timeout for frame' "${TMPD}/alice.log"
+     ! grep -q 'session failed: retransmit timeout: frame' "${TMPD}/alice.log"
   then
     echo "    alice: FAIL (exit status ${rc}, to fail by the sync timeout" \
       "after the ACK)"
