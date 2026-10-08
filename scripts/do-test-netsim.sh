@@ -111,8 +111,10 @@ quit_rec() {
 replay_test() {
   for loss in ${LOSSES}
   do
-    lenv=""
-    test "${loss}" != none && lenv="${loss}"
+    # Both peers' logs in the monotonic clock's time, which then go
+    # together
+    lenv="DIGGER_LOG_T0=0"
+    test "${loss}" != none && lenv="${lenv} ${loss}"
     run_peer alice "DIGGER_NETSIM_REPLAY=${1} ${lenv}" /N:alice-bob@:${PORT}
     sleep 1
     run_peer bob "DIGGER_NETSIM_REPLAY=${2} DIGGER_NETSIM_REPLAY_START=1 \
