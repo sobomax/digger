@@ -31,8 +31,8 @@
    session is given up on, unless DIGGER_NETSIM_SYNC_TIMEOUT (ms) says
    otherwise */
 #define NETSIM_SYNC_TIMEOUT_MS 1000
-/* How often the answering side resends its frame while the caller is yet
-   to be heard from, see thread_slow_start() */
+/* How long the answering side first waits to resend its frame while the
+   caller is yet to be heard from, see thread_slow_start() */
 #define NETSIM_SLOW_START_RETRY_MS 100
 #define NETSIM_RTP_VERSION 2U
 #define NETSIM_RTP_PT 96U
@@ -234,6 +234,7 @@ struct pending_tx {
   uint64_t first_try_ns; /* For the sync timeout, even if not sent */
   int peer_frame_base;
   int peer_frame_count;
+  int retry_ms; /* Till the next resend, see pending_retry_ms() */
   netsim_deadline_t next_tx;
 };
 
@@ -1161,6 +1162,7 @@ set_pending(struct pending_tx *ptx, int type, uint32_t frame, uint8_t bits,
   ptx->first_try_ns = 0;
   ptx->peer_frame_base = 0;
   ptx->peer_frame_count = 0;
+  ptx->retry_ms = 0;
   ptx->next_tx = 0;
   atomic_store_explicit(&g_net_frame, frame, memory_order_relaxed);
   netsim_log("queue %s seq=%u frame=%u bits=0x%02x", pending_name(type),
@@ -1250,6 +1252,29 @@ send_pending_now(netsim_socket_t sock, const netsim_sockaddr_t *addrp,
   return (true);
 }
 
+/* How long till the next resend: the round trip (see thread_retry_ms()) at
+   first, twice as long as the one before after that, up to a quarter of
+   the sync timeout. A peer that doesn't answer gets a few of them (some 8
+   in the sync timeout from a round trip of 10 ms), not one every round
+   trip, which won't help a network, or a machine, already struggling. */
+static int
+pending_retry_ms(const struct netsim_thread_state *tsp, struct pending_tx *ptx)
+{
+  int base_ms, max_ms;
+
+  base_ms = thread_retry_ms(tsp);
+  max_ms = (int)(netsim_sync_timeout_ns() / 4000000ULL);
+  if (max_ms < base_ms)
+    max_ms = base_ms;
+  if (ptx->retry_ms == 0)
+    ptx->retry_ms = base_ms;
+  else if (ptx->retry_ms < max_ms / 2)
+    ptx->retry_ms *= 2;
+  else
+    ptx->retry_ms = max_ms;
+  return (ptx->retry_ms);
+}
+
 static bool
 send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
   const netsim_sockaddr_t *addrp,
@@ -1257,7 +1282,6 @@ send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
   struct pending_tx *ptx, bool *sentp, const struct netsim_send_meta *send_metap)
 {
   int err;
-  int retry_ms;
   char errbuf[128];
   uint32_t rtp_ssrc;
 
@@ -1270,7 +1294,6 @@ send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
     pending_unschedule(ptx);
     return (true);
   }
-  retry_ms = thread_retry_ms(tsp);
   if (ptx->first_try_ns == 0)
     ptx->first_try_ns = netsim_monotonic_ns();
   rtp_ssrc = pending_rtp_ssrc(control_ssrc, stream_ssrc, ptx->type);
@@ -1296,7 +1319,7 @@ send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
     }
     if (!netsim_socket_err_transient(err))
       return (false);
-    pending_schedule(ptx, retry_ms);
+    pending_schedule(ptx, pending_retry_ms(tsp, ptx));
     return (true);
   }
   ptx->retries++;
@@ -1341,7 +1364,7 @@ send_pending(const struct netsim_thread_state *tsp, netsim_socket_t sock,
     pending_unschedule(ptx);
     return (true);
   }
-  pending_schedule(ptx, retry_ms);
+  pending_schedule(ptx, pending_retry_ms(tsp, ptx));
   return (true);
 }
 
@@ -1429,7 +1452,8 @@ thread_update_rtprop_lpf(struct netsim_thread_state *tsp, int32_t sample_us,
 /* The answering side, with the caller yet to be heard from: its frames
    only come once our answer (200 OK) reaches it, which can take a few SIP
    retransmissions, and so SIP is to give up on it, not the sync timeout.
-   Our frame goes out meanwhile, but no more often than this. It's over
+   Our frame goes out meanwhile, the resends from this far apart on (see
+   pending_retry_ms()). It's over
    with the caller's first packet, or its ACK to the answer, after which
    no media is for the sync timeout to end the session over. */
 static bool
@@ -1441,7 +1465,7 @@ thread_slow_start(const struct netsim_thread_state *tsp)
 }
 
 /* Out of the slow start (by what): the sync timeout from now on, and the
-   frame resent at the usual rate, starting right away */
+   frame resent right away, the resends from a round trip apart again */
 static void
 thread_end_slow_start(struct netsim_thread_state *tsp, uint64_t now_ns,
   const char *why)
@@ -1457,6 +1481,7 @@ thread_end_slow_start(struct netsim_thread_state *tsp, uint64_t now_ns,
   netsim_log("slow start over after %llu ms, by %s",
     (unsigned long long)((now_ns - tsp->tx.first_try_ns) / 1000000ULL), why);
   tsp->tx.first_try_ns = now_ns;
+  tsp->tx.retry_ms = 0;
   if (tsp->tx.next_tx != 0 && tsp->tx.next_tx != UINT64_MAX)
     tsp->tx.next_tx = netsim_deadline_after_ms(0);
 }
