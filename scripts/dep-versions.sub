@@ -1,0 +1,6 @@
+# Dependency defaults. Keep plain NAME=value assignments for shell, make,
+# and the AppVeyor batch-file reader.
+SDL_VER_DEFAULT=2.32.10
+ZLIB_VER_DEFAULT=1.3.2
+SDL_SOURCE_SHA256_DEFAULT=5f5993c530f084535c65a6879e9b26ad441169b3e25d789d83287040a9ca5165
+ZLIB_SOURCE_SHA256_DEFAULT=bb329a0a2cd0274d05519d61c667c062e06990d72e125ee2dfa8de64f0119d16

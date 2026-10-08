@@ -77,8 +77,9 @@ ARCH	?= LINUX
 #ARCH	?= FREEBSD
 #ARCH	?= WASM
 #ARCH	?= FooOS
-SDL_VER ?= 2.32.10
-ZLIB_VER ?= 1.3.2
+include scripts/dep-versions.sub
+SDL_VER ?= $(SDL_VER_DEFAULT)
+ZLIB_VER ?= $(ZLIB_VER_DEFAULT)
 MGW_PREF ?= i686-w64-mingw32
 MINGW_DEPS_ROOT ?= ../
 MGW64_PREF ?= x86_64-w64-mingw32

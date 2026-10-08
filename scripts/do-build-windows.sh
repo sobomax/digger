@@ -2,8 +2,9 @@
 
 set -e
 
-SDL_VER=${SDL_VER:-2.32.10}
-ZLIB_VER=${ZLIB_VER:-1.3.2}
+. "${0%/*}/dep-versions.sub"
+SDL_VER=${SDL_VER:-${SDL_VER_DEFAULT}}
+ZLIB_VER=${ZLIB_VER:-${ZLIB_VER_DEFAULT}}
 MGW64_PREF=${MGW64_PREF:-x86_64-w64-mingw32}
 
 mkdir -p deps

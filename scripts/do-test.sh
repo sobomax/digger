@@ -2,6 +2,10 @@
 
 set -e
 
+. "${0%/*}/dep-versions.sub"
+SDL_VER=${SDL_VER:-${SDL_VER_DEFAULT}}
+ZLIB_VER=${ZLIB_VER:-${ZLIB_VER_DEFAULT}}
+
 if [ "${CC}" != "clang" ]
 then
   #sudo apt-get remove -qq -y mingw32
