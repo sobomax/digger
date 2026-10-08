@@ -51,13 +51,15 @@ netsim_shutdown(void)
 
 bool
 netsim_sync_frame(uint32_t frame, uint8_t local_bits, bool local_freeze,
-  uint8_t *remote_bits, bool *remote_freeze, int *remote_lead_ms)
+  uint8_t *remote_bits, bool *remote_freeze, int *remote_lead_ms,
+  bool (*quit_requested)(void))
 {
 
   (void)frame;
   (void)local_bits;
   (void)local_freeze;
   (void)remote_bits;
+  (void)quit_requested;
   if (remote_freeze != NULL)
     *remote_freeze = false;
   if (remote_lead_ms != NULL)

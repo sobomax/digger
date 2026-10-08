@@ -43,6 +43,9 @@
 #define NETSIM_RTP_SSRC_FALLBACK 0x4e53494dU
 #define NETSIM_PKT_REPAIR_PREV 0x01U
 #define NETSIM_IDLE_WAKE_MS 100
+/* How often the wait for the peer's first frame asks if the player quit,
+   see netsim_sync_frame() */
+#define NETSIM_QUIT_POLL_MS 100
 #define NETSIM_BEGIN_WAIT_RETRY_MS 10000
 #define NETSIM_PKT_FRAME 0U
 
@@ -256,6 +259,7 @@ enum netsim_session_state {
 struct netsim_session {
   bool running;
   bool remote_start_pending;
+  bool frame_synced; /* A frame of the peer's came in the session */
   enum netsim_session_state state;
   int local_player;
   uint64_t session_nonce;
@@ -388,6 +392,7 @@ netsim_reset_state(enum netsim_session_state state)
 {
 
   g_session.remote_start_pending = false;
+  g_session.frame_synced = false;
   g_session.state = state;
   g_session.local_player = 0;
   g_session.session_nonce = 0;
@@ -2784,9 +2789,14 @@ netsim_shutdown(void)
   netsim_log("shutdown complete");
 }
 
+/* The frame both ways: ours to the peer, and the peer's back. Until the
+   peer's first frame, which may take as long as SIP does to give up (see
+   thread_slow_start()), quit_requested() (if any) is asked now and then
+   if the player has quit meanwhile, which ends the session. */
 bool
 netsim_sync_frame(uint32_t frame, uint8_t local_bits, bool local_freeze,
-  uint8_t *remote_bits, bool *remote_freeze, int *remote_lead_ms)
+  uint8_t *remote_bits, bool *remote_freeze, int *remote_lead_ms,
+  bool (*quit_requested)(void))
 {
   struct netsim_out_ev outev = {0};
   struct netsim_in_ev inev;
@@ -2804,8 +2814,23 @@ netsim_sync_frame(uint32_t frame, uint8_t local_bits, bool local_freeze,
   queue_out_put(&g_session.outq, &outev);
   netsim_log("submitted local frame frame=%u", (unsigned int)frame);
   for (;;) {
-    queue_in_get(&g_session.inq, &inev);
+    if (g_session.frame_synced || quit_requested == NULL) {
+      queue_in_get(&g_session.inq, &inev);
+    } else if (!queue_in_timedget(&g_session.inq, &inev,
+        NETSIM_QUIT_POLL_MS)) {
+      if (!quit_requested())
+        continue;
+      netsim_log("sync frame=%u aborted: quit waiting for the peer",
+        (unsigned int)frame);
+      outev = (struct netsim_out_ev){
+        .type = NETSIM_INT_ABORT,
+      };
+      queue_out_put(&g_session.outq, &outev);
+      g_session.state = NETSIM_SESSION_ERROR;
+      return (false);
+    }
     if (inev.type == NETSIM_IN_FRAME && inev.frame == frame) {
+      g_session.frame_synced = true;
       *remote_bits = inev.bits & ~NETSIM_CTRL_FREEZE;
       if (remote_freeze != NULL)
         *remote_freeze = (inev.bits & NETSIM_CTRL_FREEZE) != 0;
