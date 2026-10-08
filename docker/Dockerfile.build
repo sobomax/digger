@@ -1,21 +1,42 @@
 # syntax=docker/dockerfile:1.7-labs
 
 ARG BASE_IMAGE="debian:sid-slim"
-FROM ${BASE_IMAGE} AS build
+# The ccache of the last good build (see the CI's Export ccache), or none
+ARG CCACHE_IMAGE=scratch
+FROM ${BASE_IMAGE} AS deps
 LABEL maintainer="Maksym Sobolyev <sobomax@sippysoft.com>"
 
-ARG BUILD_PKGS="cmake make clang libc6-dev openssl"
+ARG BUILD_PKGS="cmake make clang libc6-dev openssl ccache"
 ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends ${BUILD_PKGS}
 WORKDIR /src
 
 RUN --mount=type=bind,source=apt-get-requirement.txt,target=apt-get-requirement.txt \
    xargs -a apt-get-requirement.txt apt-get -yq --no-install-recommends install
+RUN mkdir -p /ccache
 
+# The ccache to start from: that image's, or an empty one
+FROM ${CCACHE_IMAGE} AS ccache
+COPY --from=deps /ccache/ /ccache/
+
+FROM deps AS build
+COPY --from=ccache /ccache /ccache
 ARG CC=clang
-# The binaries kept in the image (the source mounted goes with the RUN)
-RUN --mount=type=bind,target=.,rw sh -x ./scripts/do-test-cmmn.sh && \
+# Built through ccache, its cache for the platform's architecture alone,
+# a cached object told the same by the compiler's version (rather than the
+# size and time of its binary); the binaries kept in the image, as the
+# source mounted goes with the RUN
+RUN --mount=type=bind,target=.,rw \
+  export CCACHE_DIR="/ccache/`dpkg --print-architecture`" \
+    CCACHE_COMPILERCHECK="string:`${CC} --version | head -1`" \
+    CMAKE_C_COMPILER_LAUNCHER=ccache && \
+  find /ccache -mindepth 1 -maxdepth 1 ! -path "${CCACHE_DIR}" \
+    -exec rm -rf {} + && \
+  mkdir -p "${CCACHE_DIR}" && \
+  ccache --max-size=100M && ccache --cleanup && ccache --zero-stats && \
+  sh -x ./scripts/do-test-cmmn.sh && \
   sh -x ./scripts/do-test-cmake.sh && \
+  ccache --show-stats && \
   mkdir -p /build && mv debug production /build/
 
 # The tests, a stage of their own: CI builds all the platforms first
@@ -27,6 +48,10 @@ ARG TEST_TYPES="quick netsim"
 ARG TARGETPLATFORM
 RUN --mount=type=bind,target=.,rw cp -R /build/debug /build/production . && \
   sh ./scripts/do-test-run.sh
+
+# The ccache alone, for the next build to start from (see CCACHE_IMAGE)
+FROM scratch AS ccache_export
+COPY --from=build /ccache /ccache
 #FROM ${BASE_IMAGE} AS clean
 #COPY --from=build /usr/local/lib/libg722.* /usr/local/lib/
 #COPY --from=build --exclude=g722_common.h --exclude=g722_private.h \
