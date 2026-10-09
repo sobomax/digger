@@ -16,6 +16,16 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* SO_REUSEADDR only for a port asked for (one to listen on): for port 0,
+   the kernel may pick one a socket with SO_REUSEADDR has already, to
+   share it with that, and so the peer's packets would go astray */
+static bool
+want_reuseaddr(const char *port)
+{
+
+  return (port != NULL && port[0] != '\0' && strtoul(port, NULL, 10) != 0);
+}
+
 #if defined(_WIN32)
 
 #include <mmsystem.h>
@@ -346,8 +356,9 @@ netsim_socket_open_udp(const char *local_host, const char *local_port,
       if (sock == INVALID_SOCKET)
         continue;
       yes = 1;
-      (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&yes,
-        sizeof(yes));
+      if (want_reuseaddr(local_port))
+        (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&yes,
+          sizeof(yes));
       if (bind(sock, lrp->ai_addr, (int)lrp->ai_addrlen) != 0) {
         closesocket(sock);
         sock = INVALID_SOCKET;
@@ -411,8 +422,9 @@ netsim_socket_open_bound_udp(const char *local_host, const char *local_port,
     return (false);
   }
   yes = 1;
-  (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&yes,
-    sizeof(yes));
+  if (want_reuseaddr(local_port))
+    (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&yes,
+      sizeof(yes));
   if (bind(sock, (const struct sockaddr *)&local_addr, sizeof(local_addr)) != 0) {
     netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
     closesocket(sock);
@@ -910,7 +922,8 @@ netsim_socket_open_udp(const char *local_host, const char *local_port,
       if (sock < 0)
         continue;
       one = 1;
-      (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+      if (want_reuseaddr(local_port))
+        (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
       if (bind(sock, lrp->ai_addr, lrp->ai_addrlen) != 0) {
         close(sock);
         sock = -1;
@@ -973,7 +986,8 @@ netsim_socket_open_bound_udp(const char *local_host, const char *local_port,
     return (false);
   }
   one = 1;
-  (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+  if (want_reuseaddr(local_port))
+    (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
   if (bind(sock, (const struct sockaddr *)&local_addr, sizeof(local_addr)) != 0) {
     netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
     close(sock);
