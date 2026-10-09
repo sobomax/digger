@@ -89,7 +89,6 @@ void drawstatics(struct digger_draw_api *ddap)
         field[y*MWIDTH+x]=field1[y*MWIDTH+x];
       else
         field[y*MWIDTH+x]=field2[y*MWIDTH+x];
-  setretr(true);
   ddap->gpal(0);
   ddap->ginten(0);
   drawbackg(levplan());
