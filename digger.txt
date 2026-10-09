@@ -409,7 +409,7 @@ The command line options are:
             couldn't be read.
   /O      = Go back to the beginning of the command line and start again. Handy
             for playing recorded games as screensavers.
-  /K      = Redefine keyboard. To redefine all the redefinable keys, use /KA.
+  /K      = Redefine keyboard.
   /G:time = Gauntlet mode.
   /2      = Put two diggers on screen at once.
   /N:user-peer[@[localip][:port]] or /N:user[:password]@host[:port]-peer
