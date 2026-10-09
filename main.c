@@ -361,7 +361,6 @@ void maininit(void)
   calibrate();
   ddap->ginit();
   ddap->gpal(0);
-  setretr(true);
   initkeyb();
   detectjoy();
   initsound();

@@ -9,8 +9,6 @@
 #include "hardware.h"
 #include "draw_api.h"
 
-static bool retrflag=true;
-
 static bool sprrdrwf[SPRITES+1];
 static bool sprrecf[SPRITES+1];
 static bool sprenf[SPRITES];
@@ -74,11 +72,6 @@ static void
 gflush_sync(void)
 {
   doscreenupdate(true);
-}
-
-void setretr(bool f)
-{
-  retrflag=f;
 }
 
 void createspr(int16_t n,int16_t ch,uint8_t *mov,int16_t wid,int16_t hei,int16_t bwid,

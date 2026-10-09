@@ -288,7 +288,6 @@ void endofgame(struct digger_draw_api *ddap)
     for (i=0;i<50 && !escape;i++)
       newframe();
     erasetext(ddap, 9, 104,0,3);
-    setretr(true);
   }
 }
 
@@ -393,7 +392,6 @@ void getinitials(struct digger_draw_api *ddap)
   ddap->gclear();
   ddap->gpal(0);
   ddap->ginten(0);
-  setretr(true);
   recputinit(scoreinit[0]);
 }
 
@@ -403,7 +401,6 @@ void flashywait(struct digger_draw_api *ddap, int16_t n)
   int8_t gap=19;
 
   gethrt(true, 1);
-  setretr(false);
   for (i=0;i<(n<<1);i++)
     for (cx=0;cx<volume;cx++) {
       ddap->gpal(p=1-p);
