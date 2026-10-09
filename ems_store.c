@@ -52,7 +52,7 @@ ems_store_save(const char *path)
 		var path = UTF8ToString($0);
 		try {
 			var bytes = FS.readFile(path);
-			var bin = '';
+			var bin = "";
 			for (var i = 0; i < bytes.length; i++)
 				bin += String.fromCharCode(bytes[i]);
 			window.localStorage.setItem('digger:' + path, btoa(bin));
