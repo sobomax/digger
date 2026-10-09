@@ -16,16 +16,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* SO_REUSEADDR only for a port asked for (one to listen on): for port 0,
-   the kernel may pick one a socket with SO_REUSEADDR has already, to
-   share it with that, and so the peer's packets would go astray */
-static bool
-want_reuseaddr(const char *port)
-{
-
-  return (port != NULL && port[0] != '\0' && strtoul(port, NULL, 10) != 0);
-}
-
 #if defined(_WIN32)
 
 #include <mmsystem.h>
@@ -324,7 +314,6 @@ netsim_socket_open_udp(const char *local_host, const char *local_port,
   struct sockaddr_in local_addr, peer_addr;
   SOCKET sock;
   int gres, lgres;
-  int yes;
   int salen;
 
   memset(&hints, '\0', sizeof(hints));
@@ -355,10 +344,6 @@ netsim_socket_open_udp(const char *local_host, const char *local_port,
       sock = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
       if (sock == INVALID_SOCKET)
         continue;
-      yes = 1;
-      if (want_reuseaddr(local_port))
-        (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&yes,
-          sizeof(yes));
       if (bind(sock, lrp->ai_addr, (int)lrp->ai_addrlen) != 0) {
         closesocket(sock);
         sock = INVALID_SOCKET;
@@ -410,7 +395,6 @@ netsim_socket_open_bound_udp(const char *local_host, const char *local_port,
 {
   struct sockaddr_in local_addr, bound_addr;
   SOCKET sock;
-  int yes;
   int salen;
 
   if (!resolve_udp_addr(local_host, local_port, true, &local_addr, errbuf,
@@ -421,10 +405,6 @@ netsim_socket_open_bound_udp(const char *local_host, const char *local_port,
     netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
     return (false);
   }
-  yes = 1;
-  if (want_reuseaddr(local_port))
-    (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&yes,
-      sizeof(yes));
   if (bind(sock, (const struct sockaddr *)&local_addr, sizeof(local_addr)) != 0) {
     netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
     closesocket(sock);
@@ -891,7 +871,7 @@ netsim_socket_open_udp(const char *local_host, const char *local_port,
   struct addrinfo hints, local_hints, *res, *rp, *lres, *lrp;
   struct sockaddr_in local_addr, peer_addr;
   socklen_t salen;
-  int sock, gres, lgres, one;
+  int sock, gres, lgres;
 
   memset(&hints, '\0', sizeof(hints));
   hints.ai_family = AF_INET;
@@ -921,9 +901,6 @@ netsim_socket_open_udp(const char *local_host, const char *local_port,
       sock = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
       if (sock < 0)
         continue;
-      one = 1;
-      if (want_reuseaddr(local_port))
-        (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
       if (bind(sock, lrp->ai_addr, lrp->ai_addrlen) != 0) {
         close(sock);
         sock = -1;
@@ -975,7 +952,7 @@ netsim_socket_open_bound_udp(const char *local_host, const char *local_port,
 {
   struct sockaddr_in local_addr, bound_addr;
   socklen_t salen;
-  int sock, one;
+  int sock;
 
   if (!resolve_udp_addr(local_host, local_port, true, &local_addr, errbuf,
         errbuf_len))
@@ -985,9 +962,6 @@ netsim_socket_open_bound_udp(const char *local_host, const char *local_port,
     netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
     return (false);
   }
-  one = 1;
-  if (want_reuseaddr(local_port))
-    (void)setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
   if (bind(sock, (const struct sockaddr *)&local_addr, sizeof(local_addr)) != 0) {
     netsim_socket_strerror(netsim_socket_last_error(), errbuf, errbuf_len);
     close(sock);
