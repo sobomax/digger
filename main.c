@@ -138,7 +138,7 @@ void game(void)
   uint64_t sbase=seedbase();
   uint32_t round=0;
 
-  resetframe();
+  resetframe(true);
   dgstate.ticks=0;
   twoplayers=dgstate.nplayers==2 || dgstate.diggers==2;
   if (dgstate.gauntlet) {
@@ -585,6 +585,9 @@ int mainprog(void)
       exit(0);
     }
 #endif
+    /* No game on till the next one: none of its frames or ticks to log */
+    resetframe(false);
+    dgstate.ticks=0;
     input_reset_network();
     gotgame=true;
     if (gotname) {

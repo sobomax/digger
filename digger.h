@@ -40,4 +40,5 @@ extern bool bonusvisible,digonscr,bonusmode;
 extern uint32_t frame;
 #endif
 uint32_t getframe(void);
-void resetframe(void);
+void resetframe(bool running);
+bool gamerunning(void);

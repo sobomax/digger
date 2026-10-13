@@ -1,6 +1,7 @@
 /* Digger Remastered
    Copyright (c) Andrew Jenner 1998-2004 */
 
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -132,6 +133,9 @@ void initdigger(void)
 #if defined(INTDRF) || 1
 static uint32_t frame;
 #endif
+/* A game going on, for its frame (see getframe()) to mean anything: one
+   the title screen goes on counting otherwise */
+static atomic_bool framesrunning;
 static bool syncframe(bool local_freeze, bool local_pause,
   bool use_pause_latch, bool *remote_freezep, bool *remote_pausep);
 static bool digger_deathmusic_pending(int n);
@@ -144,11 +148,21 @@ getframe(void)
   return (frame);
 }
 
+/* The frames counted from 0 again: a game's from its start (running),
+   or none as one is over */
 void
-resetframe(void)
+resetframe(bool running)
 {
 
   frame = 0;
+  atomic_store_explicit(&framesrunning, running, memory_order_relaxed);
+}
+
+bool
+gamerunning(void)
+{
+
+  return (atomic_load_explicit(&framesrunning, memory_order_relaxed));
 }
 
 void

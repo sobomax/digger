@@ -464,12 +464,17 @@ netsim_log(const char *fmt, ...)
   vsnprintf(buf, sizeof(buf), fmt, ap);
   va_end(ap);
   /* Where the game is: the frame the NetSim thread has got to, and the
-     game's own if it's another one, and the game tick */
+     game's own if it's another one, and the game tick; but the NetSim
+     thread's alone with no game going on (the title screen's frames
+     counted then) */
   net_frame = (uint32_t)atomic_load_explicit(&g_net_frame,
     memory_order_relaxed);
   game_frame = getframe();
   digger_log_ts(ts, sizeof(ts));
-  if (net_frame == game_frame)
+  if (!gamerunning())
+    digger_log_printf("[%s] netsim: %s (net frame=%u)\n", ts, buf,
+      (unsigned int)net_frame);
+  else if (net_frame == game_frame)
     digger_log_printf("[%s] netsim: %s (frame=%u tick=%u)\n", ts, buf,
       (unsigned int)net_frame, (unsigned int)dgstate.ticks);
   else
@@ -1571,6 +1576,8 @@ thread_clear_session(struct netsim_thread_state *tsp)
   clear_peer_seq_slots(tsp->peer_seq);
   tsp->local_player = 0;
   tsp->remote_player = 1;
+  /* None queued in the next session yet, for netsim_log() */
+  atomic_store_explicit(&g_net_frame, 0, memory_order_relaxed);
 }
 
 static bool
