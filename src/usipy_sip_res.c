@@ -372,14 +372,23 @@ struct usipy_msg *
 usipy_sip_res_ctor_fromreq(const struct usipy_msg *reqp,
   const struct usipy_sip_status *slp)
 {
+
+    return (usipy_sip_res_ctor_fromreq_tagged(reqp, slp, NULL));
+}
+
+/* Its To with tagp as the tag, if given */
+struct usipy_msg *
+usipy_sip_res_ctor_fromreq_tagged(const struct usipy_msg *reqp,
+  const struct usipy_sip_status *slp, const struct usipy_str *tagp)
+{
     struct usipy_msg *rp;
-    const size_t tlen = usipy_sip_res_alloc_size_build(reqp, NULL);
+    const size_t tlen = usipy_sip_res_alloc_size_build(reqp, tagp);
 
     rp = malloc(tlen);
     if (rp == NULL) {
         return (NULL);
     }
-    if (usipy_sip_res_init_fromreq(rp, tlen, reqp, slp, NULL) != 0) {
+    if (usipy_sip_res_init_fromreq(rp, tlen, reqp, slp, tagp) != 0) {
         free(rp);
         return (NULL);
     }

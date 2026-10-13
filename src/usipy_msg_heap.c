@@ -49,7 +49,7 @@ usipy_msg_heap_init(struct usipy_msg_heap *hp, void *bp, size_t len, size_t *che
     if ((void *)ralgn != hp->first) {
         hp->first = (void *)(ralgn + (1 << USIPY_MEM_ALIGNOF));
     }
-    hp->tsize = USIPY_REALIGN(len - (hp->first - bp));
+    hp->tsize = USIPY_REALIGN(len - ((char *)hp->first - (char *)bp));
 }
 
 size_t

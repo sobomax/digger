@@ -364,7 +364,7 @@ usipy_sip_msg_get_tid(struct usipy_msg *mp, struct usipy_sip_tid *tp)
         case USIPY_HF_VIA:
             for (j = 0; j < shp->parsed.via->nparams; j++) {
                 const struct usipy_tvpair *pp = &shp->parsed.via->params[j];
-                if (pp->token.l != 6 && memcmp(pp->token.s.ro, "branch", 6) != 0)
+                if (pp->token.l != 6 || memcmp(pp->token.s.ro, "branch", 6) != 0)
                    continue;
                 if (pp->value.l == 0)
                    return (-1);
@@ -377,7 +377,7 @@ usipy_sip_msg_get_tid(struct usipy_msg *mp, struct usipy_sip_tid *tp)
         case USIPY_HF_FROM:
             for (j = 0; j < shp->parsed.from->nparams; j++) {
                 const struct usipy_tvpair *pp = &shp->parsed.from->params[j];
-                if (pp->token.l != 3 && memcmp(pp->token.s.ro, "tag", 3) != 0)
+                if (pp->token.l != 3 || memcmp(pp->token.s.ro, "tag", 3) != 0)
                    continue;
                 if (pp->value.l == 0)
                    return (-1);
