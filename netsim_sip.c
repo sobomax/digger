@@ -566,6 +566,35 @@ resolve_local_tm_addr_for_peer(const struct netsim_sip *sp,
   return (true);
 }
 
+/*
+ * The SIP ids the transactions take, fresh each time they're asked for (a
+ * transaction keeps the ones it got first): a Call-ID and a tag of its own
+ * for each call, a branch of its own for each transaction. With the same
+ * ones for all of them, as microsippy's production policy has them (for its
+ * tools, one call each), one call's BYE retransmitted late would hang up
+ * the next one, the same dialog as far as the peer could tell.
+ */
+static int
+id_policy(void *arg, struct usipy_msg_heap *mhp,
+  const struct usipy_sip_tm_id_policy_in *inp,
+  struct usipy_sip_tm_id_policy_out *outp)
+{
+  struct netsim_sip *sp = arg;
+  const struct usipy_tm_uac_production_ids *idsp = &sp->production_ids;
+  unsigned long seq;
+
+  (void)inp;
+  seq = (unsigned long)++sp->id_seq;
+  if (usipy_msg_heap_sprintf(mhp, &outp->branch, "z9hG4bK-%s-%lx",
+        idsp->branch_seed, seq) != 0 ||
+      usipy_msg_heap_sprintf(mhp, &outp->local_tag, "%s-%lx",
+        idsp->local_tag, seq) != 0 ||
+      usipy_msg_heap_sprintf(mhp, &outp->call_id, "%.*s-%lx",
+        USIPY_SFMT(&idsp->call_id_s), seq) != 0)
+    return (-1);
+  return (0);
+}
+
 static int
 init_tm_ua(struct netsim_sip *sp, char *errbuf, size_t errbuf_len)
 {
@@ -573,16 +602,16 @@ init_tm_ua(struct netsim_sip *sp, char *errbuf, size_t errbuf_len)
     .arg = sp,
     .incoming_request = incoming_request,
   };
-  const struct usipy_sip_tm_id_policy id_policy = {
-    .arg = &sp->production_ids,
-    .cb = usipy_tm_uac_production_id_policy,
+  const struct usipy_sip_tm_id_policy ids = {
+    .arg = sp,
+    .cb = id_policy,
   };
   struct usipy_sip_tm_ctor_params tm_ctorp = {
     .sock = (int)sp->sock,
     .transport = USIPY_SIP_TM_TRANSPORT_UDP,
     .max_transactions = NETSIM_SIP_MAX_TX,
     .callbacks = &callbacks,
-    .id_policy = &id_policy,
+    .id_policy = &ids,
   };
 
   sp->tm = usipy_sip_tm_ctor(&tm_ctorp);

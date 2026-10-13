@@ -56,6 +56,7 @@ struct netsim_sip {
   netsim_socket_t sock;
   struct netsim_sip_config cfg;
   struct usipy_tm_uac_production_ids production_ids;
+  uint32_t id_seq; /* See id_policy() */
   struct usipy_sip_tm *tm;
   struct usipy_sip_ua *ua;
   struct usipy_str username;
