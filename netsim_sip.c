@@ -780,8 +780,16 @@ start_pending_call(struct netsim_sip *sp)
   const struct netsim_sip_peer_binding *bp = NULL;
   const struct usipy_str *to_user;
   struct usipy_sip_tm_addr target;
+  /* A peer that doesn't answer at all is soon given up on: 5s of no
+     response (Timer B), rather than RFC 3261's 32s */
+  struct usipy_sip_tm_timer_policy invite_timers = {
+    .timer_b_ms = NETSIM_SIP_INVITE_TIMER_B_MS,
+  };
   size_t tx_index;
 
+#ifdef DIGGER_INSTRUMENTATION
+  netsim_loss_timers_sip(&invite_timers, NETSIM_SIP_INVITE_TIMER_B_MS);
+#endif
   if (!sp->pending_call.valid || sp->ua == NULL ||
       usipy_sip_ua_get_state(sp->ua) != USIPY_SIP_UA_STATE_IDLE)
     return (USIPY_SIP_TM_ERR_UNSUPPORTED);
@@ -835,11 +843,7 @@ start_pending_call(struct netsim_sip *sp)
         .response = outgoing_response,
         .timeout = outgoing_timeout,
       },
-      /* A peer that doesn't answer at all is soon given up on: 5s of no
-         response (Timer B), rather than RFC 3261's 32s */
-      .timers = &(const struct usipy_sip_tm_timer_policy){
-        .timer_b_ms = NETSIM_SIP_INVITE_TIMER_B_MS,
-      },
+      .timers = &invite_timers,
     },
     .to_user = &sp->pending_call.target_user,
     .auth = &(struct usipy_sip_ua_credentials){
@@ -1411,6 +1415,9 @@ netsim_deadline_t
 netsim_sip_next_wakeup(const struct netsim_sip *sp, netsim_deadline_t fallback)
 {
   netsim_deadline_t deadline;
+#ifdef DIGGER_INSTRUMENTATION
+  uint32_t retry_ms;
+#endif
 
   deadline = fallback;
   if (sp->reg.next_refresh_at_ms != 0 && sp->reg.next_refresh_at_ms < deadline)
@@ -1418,6 +1425,14 @@ netsim_sip_next_wakeup(const struct netsim_sip *sp, netsim_deadline_t fallback)
   if (sp->pending_call.valid && sp->pending_call.retry_at_ms != 0 &&
       sp->pending_call.retry_at_ms < deadline)
     deadline = sp->pending_call.retry_at_ms;
+#ifdef DIGGER_INSTRUMENTATION
+  /* Testing: SIP's timers aren't looked at here, the thread's idle wake up
+     does for them, but for those of netsim_loss_retry_sip() */
+  retry_ms = netsim_loss_retry_sip(NETSIM_SIP_INVITE_TIMER_B_MS);
+  if (retry_ms != 0 &&
+      netsim_deadline_after_ms((int)retry_ms) < deadline)
+    deadline = netsim_deadline_after_ms((int)retry_ms);
+#endif
   return (deadline);
 }
 
@@ -1464,6 +1479,7 @@ netsim_sip_handle_packet(struct netsim_sip *sp, const void *buf, size_t len,
       timer_l_ms = (int)NETSIM_SIP_TIMER_L_MS;
   }
   timers.timer_l_ms = (uint32_t)timer_l_ms;
+  netsim_loss_timers_sip(&timers, NETSIM_SIP_INVITE_TIMER_B_MS);
 #else
   timers.timer_l_ms = NETSIM_SIP_TIMER_L_MS;
 #endif

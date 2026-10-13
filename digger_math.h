@@ -28,6 +28,8 @@
 #ifndef _DIGGER_MATH_H_
 #define _DIGGER_MATH_H_
 
+#include <stdint.h>
+
 #ifdef MIN
 #undef MIN
 #endif
@@ -63,6 +65,18 @@ struct bqd_filter {
     double z0;
     double z1;
 };
+
+/* splitmix64: the n'th of the pseudo-random numbers base gives rise to */
+static inline uint64_t
+splitmix64(uint64_t base, uint32_t n)
+{
+    uint64_t z;
+
+    z = base + (uint64_t)(n + 1) * 0x9e3779b97f4a7c15ull;
+    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ull;
+    z = (z ^ (z >> 27)) * 0x94d049bb133111ebull;
+    return (z ^ (z >> 31));
+}
 
 /* Function prototypes */
 double sigmoid(double);

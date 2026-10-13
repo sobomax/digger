@@ -4,6 +4,7 @@
 #include "def.h"
 #include "netsim.h"
 #include "netsim_friends.h"
+#include "netsim_instrument.h"
 #include "netsim_platform.h"
 #include "netsim_rx.h"
 #include "netsim_sip.h"
@@ -1303,6 +1304,12 @@ pending_retry_ms(const struct netsim_thread_state *tsp, struct pending_tx *ptx)
 
   base_ms = thread_retry_ms(tsp);
   max_ms = (int)(netsim_sync_timeout_ns() / 4000000ULL);
+#ifdef DIGGER_INSTRUMENTATION
+  /* Testing: as many resends as netsim_loss_frame_sends() says */
+  if (netsim_loss_frame_sends() > 4)
+    max_ms = (int)(netsim_sync_timeout_ns() / 1000000ULL) /
+      netsim_loss_frame_sends();
+#endif
   if (max_ms < base_ms)
     max_ms = base_ms;
   if (ptx->retry_ms == 0)
@@ -1533,15 +1540,22 @@ thread_end_slow_start(struct netsim_thread_state *tsp, uint64_t now_ns,
 static int
 thread_retry_ms(const struct netsim_thread_state *tsp)
 {
-  uint32_t retry_ms;
+  uint32_t retry_ms, min_ms;
 
   if (thread_slow_start(tsp))
     return (NETSIM_SLOW_START_RETRY_MS);
+  min_ms = NETSIM_RETRY_MIN_MS;
+#ifdef DIGGER_INSTRUMENTATION
+  /* Testing: no sooner than the loopback takes, see
+     netsim_loss_frame_sends() */
+  if (netsim_loss_frame_sends() != 0)
+    min_ms = 1;
+#endif
   if (!tsp->rtprop_lpf_valid || tsp->rtprop_lpf_us <= 0)
-    return (NETSIM_RETRY_MIN_MS);
+    return ((int)min_ms);
   retry_ms = (uint32_t)(tsp->rtprop_lpf_us + 999) / 1000;
-  if (retry_ms < NETSIM_RETRY_MIN_MS)
-    retry_ms = NETSIM_RETRY_MIN_MS;
+  if (retry_ms < min_ms)
+    retry_ms = min_ms;
   return ((int)retry_ms);
 }
 

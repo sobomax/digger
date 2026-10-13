@@ -29,6 +29,7 @@ static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.
 #include "draw_api.h"
 #include "game.h"
 #include "digger_log.h"
+#include "digger_math.h"
 #include "netsim.h"
 #include "netsim_game.h"
 #include "netsim_debug.h"
@@ -122,13 +123,8 @@ seedbase(void)
 static int32_t
 roundseed(uint64_t base, uint32_t round)
 {
-  uint64_t z;
 
-  /* splitmix64 */
-  z=base+(uint64_t)(round+1)*0x9e3779b97f4a7c15ull;
-  z=(z^(z>>30))*0xbf58476d1ce4e5b9ull;
-  z=(z^(z>>27))*0x94d049bb133111ebull;
-  return ((int32_t)(uint32_t)(z^(z>>31)));
+  return ((int32_t)(uint32_t)splitmix64(base, round));
 }
 
 void game(void)

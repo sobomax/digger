@@ -143,7 +143,8 @@ The option controls these environment variables and their supporting code:
 - `DIGGER_NETSIM_REPLAY`, `DIGGER_NETSIM_REPLAY_START`: feed a two-player
   eDRF recording over the network and optionally start the session.
 - `DIGGER_NETSIM_RX_DROP_EVERY`, `DIGGER_NETSIM_TX_DROP_EVERY`: synthetic
-  packet loss.
+  packet loss, 1 in N packets at random; `DIGGER_NETSIM_LOSS_SEED` replays
+  the losses of a run (each run logs the seed it used).
 - `DIGGER_NETSIM_SIP_DROP_2XX`, `DIGGER_NETSIM_SIP_NO_ACK`,
   `DIGGER_NETSIM_MUTE_AFTER_ACK`: simulate lost SIP answers, missing ACKs,
   or a vanished peer.

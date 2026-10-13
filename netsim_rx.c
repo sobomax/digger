@@ -15,6 +15,7 @@ netsim_rx_thread(void *arg)
 #ifdef DIGGER_INSTRUMENTATION
   uint32_t drop_every;
   uint32_t recv_count;
+  uint64_t loss_seed;
 #endif
   uint8_t *buf;
   int rlen, err;
@@ -23,8 +24,10 @@ netsim_rx_thread(void *arg)
 #ifdef DIGGER_INSTRUMENTATION
   drop_every = netsim_rx_drop_every_env();
   recv_count = 0;
+  loss_seed = 0;
   if (drop_every != 0) {
-    digger_log_printf("netsim-rx: synthetic loss enabled, dropping every %uth packet\n",
+    loss_seed = netsim_loss_seed(2);
+    digger_log_printf("netsim-rx: synthetic loss enabled, dropping 1 in %u packets\n",
       (unsigned int)drop_every);
   }
 #endif
@@ -49,7 +52,7 @@ netsim_rx_thread(void *arg)
     }
 #ifdef DIGGER_INSTRUMENTATION
     recv_count++;
-    if (drop_every != 0 && recv_count % drop_every == 0) {
+    if (drop_every != 0 && netsim_loss_roll(loss_seed, recv_count, drop_every)) {
       digger_log_printf("netsim-rx: synthetic drop packet=%u len=%d\n",
         (unsigned int)recv_count, rlen);
       free(buf);
