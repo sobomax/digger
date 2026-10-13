@@ -9,7 +9,9 @@
 # both on the same frame, which both have to leave on the same frame, one
 # whose call is never ACKed, which goes on all the same, one whose answer
 # is lost twice, which only starts late, and one whose caller is gone
-# right after its ACK, which the answering side has to give up on.
+# right after its ACK, which the answering side has to give up on. And
+# the game quit half way through, played over and over again in as many
+# sessions one after another, which have to start afresh each time.
 
 set -e
 
@@ -29,6 +31,10 @@ NETSIM_SPEED=${NETSIM_SPEED:-0}
 # all of the run's files in
 NETSIM_TAIL=${NETSIM_TAIL:-30}
 NETSIM_KEEP=${NETSIM_KEEP:-}
+# How many games in a row the repeated one goes for, and of which recording
+# (one is enough for the SIP side, each one takes as long as so many games)
+NETSIM_REPEAT=${NETSIM_REPEAT:-50}
+NETSIM_REPEAT_REC=${NETSIM_REPEAT_REC:-2test01.edrf}
 
 # Packet loss variants, as environment settings for both peers
 LOSSES="none DIGGER_NETSIM_RX_DROP_EVERY=7 DIGGER_NETSIM_TX_DROP_EVERY=5"
@@ -240,6 +246,16 @@ vanish_test() {
   test_result "${2} (netsim)" "${ok}"
 }
 
+# repeated line n: line, n times over
+repeated() {
+  i=0
+  while [ "${i}" -lt "${2}" ]
+  do
+    echo "${1}"
+    i=$((i + 1))
+  done
+}
+
 NFAILED=0
 for rec in tests/data/*.edrf
 do
@@ -258,6 +274,21 @@ do
   replay_test "${q0}" "${q0}" "${expected}" "${name} quit by player 1"
   replay_test "${q1}" "${q1}" "${expected}" "${name} quit by player 2"
   replay_test "${q1}" "${q0}" "${expected}" "${name} quit by both players"
+  # The same game, each in a session of its own: nothing of one session
+  # (the SIP stack's transactions, say) is to be left over for the next
+  if [ "${name}" = "${NETSIM_REPEAT_REC}" ]
+  then
+    rep="DIGGER_NETSIM_REPLAY_REPEAT=${NETSIM_REPEAT}"
+    # The watchdog (see run_peer()) given as long for every 10 games as for
+    # a test of one, as it watches all of them: an emulated platform plays
+    # some 5 s a game
+    watchdog=${NETSIM_TIMEOUT}
+    NETSIM_TIMEOUT=$((NETSIM_TIMEOUT * ((NETSIM_REPEAT + 9) / 10)))
+    replay_test "${q0}" "${q0}" "`repeated "${expected}" ${NETSIM_REPEAT}`" \
+      "${name} quit by player 1, ${NETSIM_REPEAT} games in a row" "${rep}" \
+      "${rep}"
+    NETSIM_TIMEOUT=${watchdog}
+  fi
   # Bob never ACKs alice's answer to his INVITE: once its (short) Timer L
   # is up, alice keeps the call, as it's live (bob's frames coming in by
   # then, even on a slow, emulated machine), and has to have been told.

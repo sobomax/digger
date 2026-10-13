@@ -17,6 +17,8 @@
 
 bool edrf_feeding=false;
 static int feedslot=-1;
+static char *feedname; /* The recording, for edrf_netfeed_again() */
+static unsigned long feedgames=1; /* Games it's been replayed in so far */
 
 /*
  * Replaying a two Digger recording over NetSim: the recording's header sets
@@ -54,6 +56,10 @@ edrf_netfeed_open(const char *name)
   bonusscore = atoi(line);
 #undef GETLINE
   edrf_playopen(fp);
+  if (feedname != name) {
+    free(feedname);
+    feedname = strdup(name);
+  }
   edrf_feeding = true;
   feedslot = -1;
   return (true);
@@ -61,6 +67,30 @@ out:
   fclose(fp);
   errno = 0; /* Not one to replay, see main() */
   return (false);
+}
+
+/*
+ * Testing: the recording replayed in as many games one after another as
+ * DIGGER_NETSIM_REPLAY_REPEAT says (one by default), each in a session of
+ * its own, so that whatever a session leaves behind gets to the next one.
+ * Whether there's another one to go, the recording open again for it then.
+ */
+bool
+edrf_netfeed_again(void)
+{
+  const char *cp;
+
+  cp = getenv("DIGGER_NETSIM_REPLAY_REPEAT");
+  if (cp == NULL || feedgames >= strtoul(cp, NULL, 10))
+    return (false);
+  edrf_stopplay(); /* The game's own maps back */
+  if (!edrf_netfeed_open(feedname)) {
+    fprintf(stderr, "eDRF: can't replay %s over NetSim again: %s\n",
+      feedname, errno != 0 ? strerror(errno) : "not a two Digger eDRF");
+    exit(1);
+  }
+  feedgames++;
+  return (true);
 }
 
 /* The NetSim session decided which player this peer is */

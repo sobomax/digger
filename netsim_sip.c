@@ -48,6 +48,10 @@ static const struct usipy_sip_status netsim_sip_res_forbidden = {
 /* How long an answer of ours waits for its ACK (Timer L), rather than the
    64*T1 of RFC 3261: the other side's game won't wait for it that long */
 #define NETSIM_SIP_TIMER_L_MS 5000u
+/* Testing: a peer busy with our last call still, its BYE lost, called
+   again so often, for so long (see busy_retry()) */
+#define NETSIM_SIP_BUSY_RETRY_MS 250ULL
+#define NETSIM_SIP_BUSY_RETRY_FOR_MS 3000ULL
 
 static uint64_t
 netsim_sip_now_ms(void)
@@ -1048,6 +1052,44 @@ incoming_request(void *arg, const struct usipy_sip_tm_handle_incoming_in *hin,
     }){sp, &peer_addr});
 }
 
+/*
+ * Testing, for a recording replayed in one game after another (see
+ * edrf_netfeed_again()): our INVITE answered busy (486), the peer may still
+ * be in our last call, its BYE lost and retransmitted, which our next one
+ * has overtaken, so it's called again a little later, for a while. Whether
+ * it's to be.
+ */
+static bool
+busy_retry(struct netsim_sip *sp, const struct usipy_sip_ua_emit *emitp)
+{
+#ifdef DIGGER_INSTRUMENTATION
+  static int repeating = -1;
+  uint64_t now_ms;
+
+  if (repeating < 0)
+    repeating = getenv("DIGGER_NETSIM_REPLAY_REPEAT") != NULL;
+  if (!repeating || emitp->role != USIPY_SIP_TM_ROLE_UAC || emitp->message == NULL ||
+      emitp->message->kind != USIPY_SIP_MSG_RES ||
+      emitp->message->sline.parsed.sl.status.code != 486 ||
+      !sp->pending_call.valid)
+    return (false);
+  now_ms = netsim_sip_now_ms();
+  if (sp->pending_call.busy_until_ms == 0)
+    sp->pending_call.busy_until_ms = now_ms + NETSIM_SIP_BUSY_RETRY_FOR_MS;
+  if (now_ms + NETSIM_SIP_BUSY_RETRY_MS > sp->pending_call.busy_until_ms)
+    return (false);
+  sp->pending_call.retry_at_ms = now_ms + NETSIM_SIP_BUSY_RETRY_MS;
+  sip_log("peer busy, calling again in %llu ms session=0x%016llx",
+    NETSIM_SIP_BUSY_RETRY_MS,
+    (unsigned long long)sp->pending_call.session_nonce);
+  return (true);
+#else
+  (void)sp;
+  (void)emitp;
+  return (false);
+#endif
+}
+
 static void
 ua_emit(void *arg, const struct usipy_sip_ua_emit *emitp)
 {
@@ -1168,6 +1210,10 @@ ua_emit(void *arg, const struct usipy_sip_ua_emit *emitp)
         sip_log("UA disconnected role=%d: %.*s from the peer",
           (int)emitp->role,
           USIPY_SFMT(&emitp->message->sline.parsed.rl.method->name));
+      if (busy_retry(sp, emitp)) {
+        sp->ua_reset_needed = true;
+        return;
+      }
       {
         struct netsim_sip_session session;
 
@@ -1304,6 +1350,7 @@ netsim_sip_run(struct netsim_sip *sp)
   }
   if (sp->pending_call.valid && sp->ua != NULL &&
       usipy_sip_ua_get_state(sp->ua) == USIPY_SIP_UA_STATE_IDLE &&
+      now_ms >= sp->pending_call.retry_at_ms &&
       (!local_registrar_mode(sp) ||
        peer_binding_find_const(sp, &sp->pending_call.target_user) != NULL)) {
     int rval;
@@ -1339,6 +1386,9 @@ netsim_sip_next_wakeup(const struct netsim_sip *sp, netsim_deadline_t fallback)
   deadline = fallback;
   if (sp->reg.next_refresh_at_ms != 0 && sp->reg.next_refresh_at_ms < deadline)
     deadline = sp->reg.next_refresh_at_ms;
+  if (sp->pending_call.valid && sp->pending_call.retry_at_ms != 0 &&
+      sp->pending_call.retry_at_ms < deadline)
+    deadline = sp->pending_call.retry_at_ms;
   return (deadline);
 }
 

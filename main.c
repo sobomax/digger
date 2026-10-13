@@ -563,9 +563,12 @@ int mainprog(void)
       netsim_drain_frames();
     netsim_end_game_session(!escape);
 #ifdef DIGGER_INSTRUMENTATION
-    /* Replayed a recording over NetSim: report how it went, and that's it */
-    if (edrf_feeding) {
+    /* Replayed a recording over NetSim: report how it went, and that's it,
+       but for one to replay over again (see edrf_netfeed_again()) */
+    if (edrf_feeding)
       game_dbg_info_emit();
+    if (edrf_feeding &&
+        (edrf_failed || edrf_stopped || !edrf_netfeed_again())) {
       netsim_shutdown();
       finish();
       if (edrf_failed) {

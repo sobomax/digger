@@ -11,6 +11,7 @@
 extern bool edrf_feeding; /* Feeding a recording to a NetSim game */
 
 bool edrf_netfeed_open(const char *name);
+bool edrf_netfeed_again(void);
 void edrf_feedslot(int slot);
 uint8_t edrf_feedpeek(void);
 void edrf_feed_checkinput(int slot, uint8_t bits, uint32_t recorded);

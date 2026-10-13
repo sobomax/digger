@@ -27,6 +27,10 @@ struct netsim_sip_call_req {
   struct usipy_str target_user;
   char sdp_buf[NETSIM_SIP_SDP_BUFSIZE];
   struct usipy_str sdp;
+  /* Busy (486), see busy_retry(): when to call again (0 for right away),
+     and till when it's worth it */
+  uint64_t retry_at_ms;
+  uint64_t busy_until_ms;
 };
 
 struct netsim_sip_peer_binding {
