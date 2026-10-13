@@ -1400,6 +1400,7 @@ netsim_sip_handle_packet(struct netsim_sip *sp, const void *buf, size_t len,
   hin.len = len;
   rval = usipy_sip_tm_handle_incoming(&hin, &hout);
   if (rval != USIPY_SIP_TM_OK && hout.error != USIPY_SIP_TM_ERR_NOT_FOUND) {
+    sip_log("incoming message failed rval=%d error=%d", rval, hout.error);
     tm_addr_cleanup(&peer);
     tm_addr_cleanup(&local);
     event_push(sp, NETSIM_SIP_EVENT_ERROR, NULL);
