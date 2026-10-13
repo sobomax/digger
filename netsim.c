@@ -699,14 +699,20 @@ queue_out_clear_session(struct netsim_out_queue *qp)
 {
   struct netsim_out_ev tmp[NETSIM_QUEUE_LEN];
   size_t i, out_len;
+  bool next;
 
   netsim_mutex_lock(&qp->mutex);
   out_len = 0;
+  next = false;
   for (i = 0; i < qp->len; i++) {
     struct netsim_out_ev cur;
 
     cur = qp->items[(qp->head + i) % NETSIM_QUEUE_LEN];
-    if (cur.type == NETSIM_OUT_SHUTDOWN) {
+    /* The next session's start, and what follows it, queued already
+       (as the game may go straight on to it) */
+    if (cur.type == NETSIM_OUT_START || cur.type == NETSIM_OUT_START_ACK)
+      next = true;
+    if (next || cur.type == NETSIM_OUT_SHUTDOWN) {
       tmp[out_len++] = cur;
       continue;
     }
