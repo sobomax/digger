@@ -474,14 +474,24 @@ monai(struct digger_draw_api *ddap, int16_t mon)
 
   if (clfirst[4]!=-1 && isalive()) {
     if (bonusmode) {
-      killmon(mon);
+      /* Eaten by a live Digger only: the other one's gravestone, if it
+         runs into that, does it no harm */
+      bool eaten=false;
+
       i=clfirst[4];
       while (i!=-1) {
-        if (digalive(i-FIRSTDIGGER+dgstate.curplayer))
-          sceatm(ddap, i-FIRSTDIGGER+dgstate.curplayer);
+        dig=i-FIRSTDIGGER+dgstate.curplayer;
+        if (digalive(dig)) {
+          if (!eaten) {
+            killmon(mon);
+            eaten=true;
+          }
+          sceatm(ddap, dig);
+        }
         i=clcoll[i];
       }
-      soundeatm(); /* Collision in bonus mode */
+      if (eaten)
+        soundeatm(); /* Collision in bonus mode */
     }
     else {
       i=clfirst[4];
