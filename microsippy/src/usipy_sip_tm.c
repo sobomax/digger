@@ -71,23 +71,78 @@ usipy_sip_tm_transport_name(enum usipy_sip_tm_transport transport)
     }
 }
 
+/*
+ * Whether a transaction is done but for absorbing the peer's retransmissions
+ * (Timers D, I, J, K, and L of a 2xx ACKed), or done altogether: one that
+ * can go early when the slots run out, as if its timer had fired. A child
+ * goes with its parent only, and an abandoned INVITE still has its BYE to
+ * see through.
+ */
+static int
+usipy_sip_tm_tx_evictable(const struct usipy_sip_tm_txi *tp)
+{
+    const struct usipy_sip_tm_tx *txp = &tp->pub;
+
+    if (!tp->active || tp->parent_index != USIPY_SIP_TM_TX_INDEX_NONE) {
+        return (0);
+    }
+    if (txp->state == USIPY_SIP_TM_STATE_TERMINATED) {
+        return (1);
+    }
+    if ((txp->common.flags & USIPY_SIP_TM_F_ABANDONED) != 0) {
+        return (0);
+    }
+    switch (txp->role) {
+    case USIPY_SIP_TM_ROLE_UAC:
+        return (usipy_sip_tm_uac_evictable(tp));
+    case USIPY_SIP_TM_ROLE_UAS:
+        return (usipy_sip_tm_uas_evictable(tp));
+    default:
+        return (0);
+    }
+}
+
+/*
+ * A free slot, or failing that one made free: of the evictable transaction
+ * that would go first anyway (along with its children)
+ */
 struct usipy_sip_tm_txi *
 usipy_sip_tm_alloc_slot(struct usipy_sip_tm *tm, size_t *indexp)
 {
-    for (size_t i = 0; i < tm->max_transactions; i++) {
-        if (tm->transactions[i].active) {
+    size_t i, victim = USIPY_SIP_TM_TX_INDEX_NONE;
+    uint64_t due, victim_due = 0;
+
+    for (i = 0; i < tm->max_transactions; i++) {
+        const struct usipy_sip_tm_txi *tp = &tm->transactions[i];
+
+        if (!tp->active) {
+            break;
+        }
+        if (!usipy_sip_tm_tx_evictable(tp)) {
             continue;
         }
-        usipy_sip_tm_tx_reset(&tm->transactions[i]);
-        if (indexp != NULL) {
-            *indexp = i;
+        due = tp->pub.state == USIPY_SIP_TM_STATE_TERMINATED ? 0 :
+          tp->pub.common.timer.due_at_ms;
+        if (victim == USIPY_SIP_TM_TX_INDEX_NONE || due < victim_due) {
+            victim = i;
+            victim_due = due;
         }
-        return (&tm->transactions[i]);
     }
+    if (i == tm->max_transactions) {
+        if (victim == USIPY_SIP_TM_TX_INDEX_NONE ||
+          usipy_sip_tm_drop_transaction(tm, victim) != USIPY_SIP_TM_OK) {
+            if (indexp != NULL) {
+                *indexp = USIPY_SIP_TM_TX_INDEX_NONE;
+            }
+            return (NULL);
+        }
+        i = victim;
+    }
+    usipy_sip_tm_tx_reset(&tm->transactions[i]);
     if (indexp != NULL) {
-        *indexp = USIPY_SIP_TM_TX_INDEX_NONE;
+        *indexp = i;
     }
-    return (NULL);
+    return (&tm->transactions[i]);
 }
 
 static int
@@ -216,17 +271,15 @@ usipy_sip_tm_tx_reset(struct usipy_sip_tm_txi *tp)
     tp->pub.common.timer.due_at_ms = 0;
     memset(&tp->callbacks, '\0', sizeof(tp->callbacks));
     memset(&tp->uas_callbacks, '\0', sizeof(tp->uas_callbacks));
+    memset(&tp->uas_owner, '\0', sizeof(tp->uas_owner));
     memset(&tp->outbound, '\0', sizeof(tp->outbound));
     tp->outbound.checkpoint = USIPY_MSG_HEAP_CHECKPOINT_NONE;
     tp->outbound.pub.raw = USIPY_STR_NULL;
     tp->outbound.pub.next_send_at_ms = USIPY_SIP_TM_TIME_NONE;
     tp->parent_index = USIPY_SIP_TM_TX_INDEX_NONE;
     tp->child_index = USIPY_SIP_TM_TX_INDEX_NONE;
-    tp->invite_timeout_at_ms = USIPY_SIP_TM_TIME_NONE;
+    tp->invite = NULL;
     tp->final_reported = 0;
-    tp->invite_provisional_seen = 0;
-    tp->invite_cancel_state = USIPY_SIP_TM_INVITE_CANCEL_NONE;
-    tp->invite_timeout_id = USIPY_SIP_TM_TIMEOUT_NONE;
     tp->pub.common.outbound = tp->outbound.pub;
     usipy_msg_heap_init(&tp->scratch, tp->scratch_buf, tp->scratch_capacity,
       tp->scratch_checkpoints, USIPY_SIP_TM_TX_NCHECKPOINTS);
@@ -358,6 +411,32 @@ usipy_sip_tm_drop_transaction(struct usipy_sip_tm *tm, size_t index)
     return (USIPY_SIP_TM_OK);
 }
 
+/*
+ * A timer policy as the transactions use it, field by field: its base
+ * timers (T1, T2, T4) left 0 are RFC 3261's, and the other timers left 0
+ * stay so, for them to be derived from the base ones. No policy at all is
+ * RFC 3261's.
+ */
+void
+usipy_sip_tm_timer_policy_resolve(struct usipy_sip_tm_timer_policy *dstp,
+  const struct usipy_sip_tm_timer_policy *srcp)
+{
+    static const struct usipy_sip_tm_timer_policy rfc3261 =
+      USIPY_SIP_TM_TIMER_POLICY_RFC3261;
+
+    USIPY_DASSERT(dstp != NULL);
+    *dstp = srcp != NULL ? *srcp : rfc3261;
+    if (dstp->t1_ms == 0) {
+        dstp->t1_ms = rfc3261.t1_ms;
+    }
+    if (dstp->t2_ms == 0) {
+        dstp->t2_ms = rfc3261.t2_ms;
+    }
+    if (dstp->t4_ms == 0) {
+        dstp->t4_ms = rfc3261.t4_ms;
+    }
+}
+
 int
 usipy_sip_tm_set_timer_policy(struct usipy_sip_tm *tm, size_t index,
   const struct usipy_sip_tm_timer_policy *policy)
@@ -368,7 +447,8 @@ usipy_sip_tm_set_timer_policy(struct usipy_sip_tm *tm, size_t index,
     if (!tm->transactions[index].active) {
         return (USIPY_SIP_TM_ERR_NOT_FOUND);
     }
-    tm->transactions[index].pub.common.timers = *policy;
+    usipy_sip_tm_timer_policy_resolve(&tm->transactions[index].pub.common.timers,
+      policy);
     return (USIPY_SIP_TM_OK);
 }
 
