@@ -430,12 +430,15 @@ socket_send_to(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
   memcpy(hostbuf, outp->target.host.s.ro, outp->target.host.l);
   hostbuf[outp->target.host.l] = '\0';
   snprintf(portbuf, sizeof(portbuf), "%u", (unsigned int)outp->target.port);
+  /* What can't go now (no network, say) is as good as lost: it goes again
+     as SIP's timers have it, rather than right away, over and over again,
+     and the rest of the transactions with it held up */
   if (!netsim_sockaddr_resolve_udp(hostbuf, portbuf, &target, errbuf,
         sizeof(errbuf))) {
     sip_log("send resolve failed host='%.*s' port=%u",
       (int)outp->target.host.l, outp->target.host.s.ro,
       (unsigned int)outp->target.port);
-    return (-1);
+    return (0);
   }
 #ifdef DIGGER_INSTRUMENTATION
   /* Testing: a side that never ACKs an answered INVITE */
@@ -469,7 +472,7 @@ socket_send_to(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
       (int)outp->target.host.l, outp->target.host.s.ro,
       (unsigned int)outp->target.port, sent, (unsigned long)outp->raw.l);
   }
-  return (sent == (int)outp->raw.l ? 0 : -1);
+  return (0); /* Sent, or lost, see above */
 }
 
 static int
@@ -1420,7 +1423,10 @@ netsim_sip_next_wakeup(const struct netsim_sip *sp, netsim_deadline_t fallback)
 #endif
 
   deadline = fallback;
-  if (sp->reg.next_refresh_at_ms != 0 && sp->reg.next_refresh_at_ms < deadline)
+  /* Not while it's being refreshed: past by then, the time to refresh it
+     would have the thread spin for as long as the REGISTER goes on */
+  if (!sp->reg.registering && sp->reg.next_refresh_at_ms != 0 &&
+      sp->reg.next_refresh_at_ms < deadline)
     deadline = sp->reg.next_refresh_at_ms;
   if (sp->pending_call.valid && sp->pending_call.retry_at_ms != 0 &&
       sp->pending_call.retry_at_ms < deadline)
