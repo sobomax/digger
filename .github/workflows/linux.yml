@@ -168,7 +168,7 @@ jobs:
         then \
           CACHE_SPEC="type=registry,ref=${{ env.GHCR_REPO }}:${GIT_BRANCH}-${OS_TAG}-buildcache"; \
         else \
-          CACHE_SPEC="gha"; \
+          CACHE_SPEC="type=gha"; \
         fi
         echo "CACHE_SPEC=${CACHE_SPEC}" >> $GITHUB_ENV
 
