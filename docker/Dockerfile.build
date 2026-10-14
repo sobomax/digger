@@ -41,18 +41,39 @@ RUN --mount=type=bind,target=.,rw \
   ccache --show-stats && \
   mkdir -p /build && mv debug production /build/
 
-# The tests, a stage of their own: CI builds all the platforms first
-# (--target build), and only then tests them, as the tests of a platform
-# going on while others were still building were starved of CPU
-FROM build AS test
-ARG TEST_TYPES="quick netsim"
-# For the NetSim tests of the platforms tested at once to keep apart
-ARG TARGETPLATFORM
-# Their peers at a frame rate (/S:2, 4 ms a frame) rather than as fast as
-# they can, the platforms' tests going on at once (see do-test-netsim.sh)
-ARG DIGGER_NETSIM_SYNC_TIMEOUT=5000
-RUN --mount=type=bind,target=.,rw cp -R /build/debug /build/production . && \
-  sh ./scripts/do-test-run.sh
+# The packages of the libraries the binaries load (as ldd tells, and dpkg
+# whose they are), for the test image to have them, and what they load in
+# turn (sdl2-compat's SDL3, say), but none of the build's
+FROM build AS test_pkgs
+RUN for b in /build/debug/digger /build/production/digger; do ldd "${b}"; done | \
+  awk '$2 == "=>" { print $1 }' | sort -u | \
+  while read so; do dpkg -S "*/${so}" || echo "${so}: no package" >&2; done | \
+  grep -v '^diversion ' | sed 's/[:,].*//' | sort -u > /test-pkgs.txt && \
+  cat /test-pkgs.txt
+
+# The tests as CI runs them, each platform in a container of its own on a
+# runner of its own (see test_in_docker in .github/workflows/linux.yml),
+# rather than all of them at once in the build, where they went short of
+# CPU: the base image, with the build's binaries and the packages of the
+# libraries they load, and the scripts and recordings the tests go by
+FROM ${BASE_IMAGE} AS test_image
+ARG DEBIAN_FRONTEND=noninteractive
+COPY --from=test_pkgs /test-pkgs.txt /tmp/
+RUN apt-get update && \
+  xargs -a /tmp/test-pkgs.txt apt-get install -y --no-install-recommends && \
+  rm -rf /var/lib/apt/lists/* /tmp/test-pkgs.txt
+WORKDIR /src
+COPY scripts scripts
+COPY tests tests
+COPY --from=build /build/debug debug
+COPY --from=build /build/production production
+# Every library the binaries load to be there, or the image is no good
+RUN for b in debug/digger production/digger; do ldd "${b}"; done | \
+  tee /dev/stderr | (! grep 'not found')
+# The NetSim peers given longer to wait for each other, as an emulated
+# platform needs (see do-test-netsim.sh)
+ENV TEST_TYPES="quick netsim" DIGGER_NETSIM_SYNC_TIMEOUT=5000
+CMD ["sh", "./scripts/do-test-run.sh"]
 
 # The ccache alone, for the next build to start from (see CCACHE_IMAGE)
 FROM scratch AS ccache_export

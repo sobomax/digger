@@ -195,14 +195,59 @@ jobs:
         parallel-finished: true
         path-to-lcov: ./digger_lcov/digger.info
 
-  build_in_docker:
+  # The base images built on, and the platforms of each: built for all of
+  # them at once, each tested on a runner of its own (see test_in_docker)
+  docker_platforms:
     needs: [build, ubsan, memory_sanitizers]
+    runs-on: ubuntu-latest
+    outputs:
+      bases: ${{ steps.list.outputs.bases }}
+      platforms: ${{ steps.list.outputs.platforms }}
+      tests: ${{ steps.list.outputs.tests }}
+    steps:
+    - name: List the platforms
+      id: list
+      run: |
+        set -eu
+        bases='[]'
+        platforms='{}'
+        tests='[]'
+        for base in debian:sid-slim debian:13-slim debian:12-slim ubuntu:latest
+        do
+          # mips64 seems to be broken at the moment...
+          if [ "${base}" = "debian:sid-slim" ]
+          then
+            FILT="grep -v mips64le"
+          else
+            FILT="cat"
+          fi
+          PLATFORMS="`docker manifest inspect ${base} | \
+           jq -r '.manifests[] | "\(.platform.os)/\(.platform.architecture)\(if .platform.variant != null then "/\(.platform.variant)" else "" end)"' | \
+           sort -u | grep -v unknown | ${FILT}`"
+          os_tag="`echo ${base} | sed 's|:|_|g'`"
+          bases="`echo "${bases}" | jq -c --arg b "${base}" '. + [$b]'`"
+          platforms="`echo "${platforms}" | jq -c --arg b "${base}" \
+           --arg p "\`echo "${PLATFORMS}" | paste -sd ','\`" '. + {($b): $p}'`"
+          for platform in ${PLATFORMS}
+          do
+            tests="`echo "${tests}" | jq -c --arg b "${base}" --arg t "${os_tag}" \
+             --arg p "${platform}" --arg pt "\`echo ${platform} | sed 's|/|_|g'\`" \
+             --arg a "${platform#linux/}" \
+             '. + [{base_image: $b, os_tag: $t, platform: $p, platform_tag: $pt, arch: $a}]'`"
+          done
+        done
+        echo "bases=${bases}" >> $GITHUB_OUTPUT
+        echo "platforms=${platforms}" >> $GITHUB_OUTPUT
+        echo "tests=${tests}" >> $GITHUB_OUTPUT
+
+  build_in_docker:
+    needs: [docker_platforms]
     runs-on: ubuntu-latest
     permissions:
       packages: write
     strategy:
       matrix:
-        base_image: ['debian:sid-slim', 'debian:13-slim', 'debian:12-slim', 'ubuntu:latest']
+        base_image: ${{ fromJSON(needs.docker_platforms.outputs.bases) }}
     env:
       BASE_IMAGE: ${{ matrix.base_image }}
       DOCKER_RW: ${{ (github.repository == format('{0}/digger', github.repository_owner) && github.event_name != 'pull_request') && 'true' || 'false' }}
@@ -230,17 +275,7 @@ jobs:
 
     - name: Set environments
       run: |
-        # mips64 seems to be broken at the moment...
-        if [ "${{ env.BASE_IMAGE }}" = "debian:sid-slim" ]
-        then
-          FILT="grep -v mips64le"
-        else
-          FILT="cat"
-        fi
-        PLATFORMS="`docker manifest inspect ${{ env.BASE_IMAGE }} | \
-         jq -r '.manifests[] | "\(.platform.os)/\(.platform.architecture)\(if .platform.variant != null then "/\(.platform.variant)" else "" end)"' | \
-         sort -u | grep -v unknown | ${FILT} | paste -sd ','`"
-        echo "PLATFORMS=${PLATFORMS}" >> $GITHUB_ENV
+        echo "PLATFORMS=${{ fromJSON(needs.docker_platforms.outputs.platforms)[matrix.base_image] }}" >> $GITHUB_ENV
         GIT_BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
         GIT_BRANCH="${GIT_BRANCH#refs/tags/}"
         echo "GIT_BRANCH=${GIT_BRANCH}" >> $GITHUB_ENV
@@ -288,20 +323,34 @@ jobs:
         cache-from: ${{ env.CACHE_SPEC }}
         cache-to: ${{ env.CACHE_SPEC }},mode=max
 
-    # The same builder, whose cache has them built already
-    - name: Test Docker image
+    # What the platforms are tested with (see test_in_docker), from the same
+    # builder, whose cache has them built already: all of them in an OCI
+    # archive, for each test job to take its own platform's from
+    - name: Export test image
       uses: docker/build-push-action@v7
+      env:
+        DOCKER_BUILD_SUMMARY: false
+        DOCKER_BUILD_RECORD_UPLOAD: false
       with:
         context: .
         file: ./docker/Dockerfile.build
-        target: test
+        target: test_image
         build-args: |
           BASE_IMAGE=${{ env.BASE_IMAGE }}
           CCACHE_IMAGE=${{ env.CCACHE_BIMAGE }}
         platforms: ${{ env.PLATFORMS }}
-        push: false
+        tags: digger-test:${{ env.OS_TAG }}
+        outputs: type=oci,dest=/tmp/digger-test-image.tar
         cache-from: ${{ env.CACHE_SPEC }}
-        cache-to: ${{ env.CACHE_SPEC }},mode=max
+
+    # By the run alone (not its attempt), for the tests re-run alone to
+    # find it too
+    - name: Save test image
+      uses: actions/cache/save@v6
+      with:
+        path: /tmp/digger-test-image.tar
+        key: digger-test-image-${{ env.OS_TAG }}-${{ github.run_id }}
+      continue-on-error: true
 
     # Save ccache after a successful build, even if its tests fail
     - name: Export ccache
@@ -318,3 +367,77 @@ jobs:
         tags: ${{ env.CCACHE_IMAGE }}
         push: true
         cache-from: ${{ env.CACHE_SPEC }}
+
+  # Each platform tested on a runner of its own, in a container of the image
+  # built for it (see build_in_docker): all of them tested at once in the
+  # build, mostly emulated, they went short of CPU
+  test_in_docker:
+    name: Test ${{ matrix.arch }} on ${{ matrix.base_image }}
+    needs: [docker_platforms, build_in_docker]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.docker_platforms.outputs.tests) }}
+    env:
+      TEST_IMAGE: digger-test:${{ matrix.os_tag }}
+    steps:
+    - name: Set up QEMU
+      if: ${{ matrix.platform != 'linux/amd64' && matrix.platform != 'linux/386' }}
+      uses: docker/setup-qemu-action@v4
+
+    - name: Restore test image
+      uses: actions/cache/restore@v6
+      with:
+        path: /tmp/digger-test-image.tar
+        key: digger-test-image-${{ matrix.os_tag }}-${{ github.run_id }}
+        fail-on-cache-miss: true
+
+    - name: Load ${{ matrix.arch }} test image
+      env:
+        TARGETPLATFORM: ${{ matrix.platform }}
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends skopeo
+        target_os="${TARGETPLATFORM%%/*}"
+        target_arch_variant="${TARGETPLATFORM#*/}"
+        target_arch="${target_arch_variant%%/*}"
+        copy_args="--override-os ${target_os} --override-arch ${target_arch}"
+        if [ "${target_arch_variant}" != "${target_arch}" ]
+        then
+          copy_args="${copy_args} --override-variant ${target_arch_variant#*/}"
+        fi
+        skopeo copy ${copy_args} oci-archive:/tmp/digger-test-image.tar \
+          docker-daemon:${TEST_IMAGE}
+
+    # The runs of the NetSim tests that fail kept (NETSIM_KEEP), for their
+    # logs; an emulated platform's CPU QEMU's most capable (QEMU_CPU), on
+    # those its emulator has the max model for (not ppc64le's or mips's)
+    - name: Run tests
+      timeout-minutes: 60
+      run: |
+        CTR="digger-test-${{ github.run_id }}-${{ strategy.job-index }}"
+        trap 'docker rm -f "${CTR}" > /dev/null 2>&1 || true' EXIT
+        case "${{ matrix.platform }}" in
+        linux/arm/*|linux/arm64*|linux/riscv64|linux/s390x)
+          QEMU_CPU_ENV="-e QEMU_CPU=max"
+          ;;
+        *)
+          QEMU_CPU_ENV=""
+          ;;
+        esac
+        docker create --platform "${{ matrix.platform }}" --name "${CTR}" \
+          -e TARGETPLATFORM="${{ matrix.platform }}" ${QEMU_CPU_ENV} \
+          -e NETSIM_KEEP=/tmp/netsim-keep "${TEST_IMAGE}"
+        TEST_RES="ok"
+        docker start -a "${CTR}" || TEST_RES="fail"
+        docker cp "${CTR}:/tmp/netsim-keep" ./netsim-keep > /dev/null 2>&1 || true
+        test "${TEST_RES}" = "ok"
+
+    - name: Upload NetSim logs
+      if: ${{ failure() }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: netsim-logs_${{ matrix.os_tag }}_${{ matrix.platform_tag }}
+        path: netsim-keep
+        if-no-files-found: ignore
