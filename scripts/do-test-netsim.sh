@@ -41,10 +41,14 @@ LOSSES="none DIGGER_NETSIM_RX_DROP_EVERY=7 DIGGER_NETSIM_TX_DROP_EVERY=5"
 
 # A port of its own, as other runs may share the network (e.g. those for
 # the other platforms of a multi-platform docker build, which passes
-# TARGETPLATFORM): from the platform's name, so the same one every time
+# TARGETPLATFORM): from the platform's name, so the same one every time.
+# Below 10000, out of the ports the system picks for a socket it binds
+# itself (one sending a DNS query, say), from 10000 (FreeBSD's), 32768
+# (Linux's) or 49152 up: one of those taken for a while had alice's port
+# in use, the peer gone by the time she got it.
 PLATFORM=${PLATFORM:-${TARGETPLATFORM:-`uname -s`/`uname -m`}}
 if command -v md5sum >/dev/null 2>&1; then MD5=md5sum; else MD5=md5; fi
-PORT=$((1024 + 0x`printf '%s' "${PLATFORM}" | ${MD5} | cut -c1-4` % 64512))
+PORT=$((1024 + 0x`printf '%s' "${PLATFORM}" | ${MD5} | cut -c1-4` % 8976))
 
 TMPD=`mktemp -d`
 trap 'rm -rf "${TMPD}"' EXIT
