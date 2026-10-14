@@ -715,6 +715,10 @@ edrf_roundend(void)
   /* The tick it ends on too, that it be the same */
   h = game_state_hash_tick(dgstate.ticks);
   putstate('E', h);
+  /* Stopped before the end of the recording (see edrf_gameend()), and so
+     of this round as it has it: nothing to check it against */
+  if (escape && reading() && !edrf_exhausted())
+    return;
   verify(&ply_rend, "end of round", h);
 }
 
