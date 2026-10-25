@@ -413,6 +413,8 @@ int usipy_sip_tm_gen_authz_hf(const struct usipy_sip_tm *, size_t, uint8_t,
   const struct usipy_str *, struct usipy_sip_tm_extra_header *);
 int usipy_sip_tm_send_uas_response(struct usipy_sip_tm *, size_t,
   const struct usipy_sip_tm_uas_response_params *);
+int usipy_sip_tm_uas_cancel_ok(struct usipy_sip_tm *,
+  const struct usipy_msg *, size_t);
 int usipy_sip_tm_uas_tr_cancelled(struct usipy_sip_tm *,
   const struct usipy_msg *, size_t,
   const struct usipy_sip_tm_uas_response_params *);

@@ -60,6 +60,12 @@ usipy_sip_ua_idle_on_event(struct usipy_sip_ua *uap,
         usipy_sip_ua_clear_dialing_request(uap);
         return (rval);
     }
+    rval = usipy_sip_ua_bind_dialing_tx(uap, tx_index);
+    if (rval != USIPY_SIP_TM_OK) {
+        (void)usipy_sip_tm_drop_transaction(uap->tm, tx_index);
+        usipy_sip_ua_clear_dialing_request(uap);
+        return (rval);
+    }
     uap->role = USIPY_SIP_TM_ROLE_UAC;
     uap->tx_index = tx_index;
     usipy_sip_ua_transition(uap, USIPY_SIP_UA_STATE_DIALING);

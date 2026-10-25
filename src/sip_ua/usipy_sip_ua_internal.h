@@ -70,3 +70,4 @@ int usipy_sip_ua_store_dialing_request(struct usipy_sip_ua *,
 void usipy_sip_ua_fill_new_uac_tr_params(const struct usipy_sip_ua_dialing_request *,
   struct usipy_sip_tm_new_uac_tr_params *);
 void usipy_sip_ua_clear_dialing_request(struct usipy_sip_ua *);
+int usipy_sip_ua_bind_dialing_tx(struct usipy_sip_ua *, size_t);

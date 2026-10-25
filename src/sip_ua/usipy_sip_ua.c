@@ -258,6 +258,28 @@ usipy_sip_ua_store_dialing_request(struct usipy_sip_ua *uap,
     return (USIPY_SIP_TM_OK);
 }
 
+/* The INVITE of the dialing request, at tx_index: given the Call-ID the
+ * TM has for it, if the request had none of its own, for DISCONNECT to tell
+ * it from another one in its slot since */
+int
+usipy_sip_ua_bind_dialing_tx(struct usipy_sip_ua *uap, size_t tx_index)
+{
+    const struct usipy_sip_tm_tx *txp;
+
+    USIPY_DASSERT(uap != NULL);
+    USIPY_DASSERT(uap->dialingp != NULL);
+
+    if (uap->dialingp->request_call_id.l != 0) {
+        return (USIPY_SIP_TM_OK);
+    }
+    txp = usipy_sip_tm_get_transaction(uap->tm, tx_index);
+    if (txp == NULL) {
+        return (USIPY_SIP_TM_ERR_NOT_FOUND);
+    }
+    return (usipy_sip_ua_heap_str_dup_nullable(uap,
+      &uap->dialingp->request_call_id, &txp->common.id.call_id));
+}
+
 const struct usipy_sip_ua_state_ops *
 usipy_sip_ua_state_ops_get(enum usipy_sip_ua_state state)
 {

@@ -1076,16 +1076,14 @@ usipy_sip_tm_send_uas_response(struct usipy_sip_tm *tm, size_t index,
     return (USIPY_SIP_TM_OK);
 }
 
+/* The CANCEL of the INVITE at index answered (200), the INVITE left alone:
+ * for its UA to end it, with the final response it has for it then */
 int
-usipy_sip_tm_uas_tr_cancelled(struct usipy_sip_tm *tm,
-  const struct usipy_msg *cancelp, size_t index,
-  const struct usipy_sip_tm_uas_response_params *rpp)
+usipy_sip_tm_uas_cancel_ok(struct usipy_sip_tm *tm, const struct usipy_msg *cancelp,
+  size_t index)
 {
     const struct usipy_sip_tm_uas_response_params cancel_ok = {
       .status = &usipy_sip_res_ok,
-    };
-    const struct usipy_sip_tm_uas_response_params def_resp = {
-      .status = &usipy_sip_res_req_term,
     };
     struct usipy_sip_tm_new_uas_tr_params tpp;
     const struct usipy_sip_tm_tx *txp;
@@ -1116,7 +1114,20 @@ usipy_sip_tm_uas_tr_cancelled(struct usipy_sip_tm *tm,
     if (rval != USIPY_SIP_TM_OK) {
         return (rval);
     }
-    rval = usipy_sip_tm_send_uas_response(tm, cancel_index, &cancel_ok);
+    return (usipy_sip_tm_send_uas_response(tm, cancel_index, &cancel_ok));
+}
+
+int
+usipy_sip_tm_uas_tr_cancelled(struct usipy_sip_tm *tm,
+  const struct usipy_msg *cancelp, size_t index,
+  const struct usipy_sip_tm_uas_response_params *rpp)
+{
+    const struct usipy_sip_tm_uas_response_params def_resp = {
+      .status = &usipy_sip_res_req_term,
+    };
+    int rval;
+
+    rval = usipy_sip_tm_uas_cancel_ok(tm, cancelp, index);
     if (rval != USIPY_SIP_TM_OK) {
         return (rval);
     }
