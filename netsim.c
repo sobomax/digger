@@ -60,7 +60,8 @@ enum netsim_in_type {
   NETSIM_IN_ERROR = 204,
   NETSIM_IN_GAMESTART = 205,
   NETSIM_IN_START_ACK = 206,
-  NETSIM_IN_FRIEND_REGISTERED = 207
+  NETSIM_IN_FRIEND_REGISTERED = 207,
+  NETSIM_IN_RINGING = 208
 };
 
 struct netsim_pkt {
@@ -268,6 +269,8 @@ enum netsim_session_state {
 struct netsim_session {
   bool running;
   bool remote_start_pending;
+  bool ringing; /* The peer's player asked to take our call, see
+                   netsim_call_poll() */
   bool frame_synced; /* A frame of the peer's came in the session */
   enum netsim_session_state state;
   int local_player;
@@ -401,6 +404,7 @@ netsim_reset_state(enum netsim_session_state state)
 {
 
   g_session.remote_start_pending = false;
+  g_session.ringing = false;
   g_session.frame_synced = false;
   g_session.state = state;
   g_session.local_player = 0;
@@ -1139,6 +1143,14 @@ static void
 push_start_ack(struct netsim_in_queue *inqp)
 {
   static const int type = NETSIM_IN_START_ACK;
+
+  (void)queue_in_put_fill(inqp, fill_in_type, &type);
+}
+
+static void
+push_ringing(struct netsim_in_queue *inqp)
+{
+  static const int type = NETSIM_IN_RINGING;
 
   (void)queue_in_put_fill(inqp, fill_in_type, &type);
 }
@@ -1964,6 +1976,13 @@ thread_apply_sip_event(struct netsim_thread_state *tsp, struct thread_ctx *ctxp,
       thread_end_slow_start(tsp, netsim_monotonic_ns(), "ACK");
       tsp->peer_acked = true;
       break;
+    case NETSIM_SIP_EVENT_RINGING:
+      if (!thread_event_matches_session(tsp, evp))
+        break;
+      netsim_log("session ringing session=0x%016llx",
+        (unsigned long long)tsp->session_nonce);
+      push_ringing(ctxp->inq);
+      break;
     case NETSIM_SIP_EVENT_DISCONNECTED:
       if (!thread_event_matches_session(tsp, evp))
         break;
@@ -2287,8 +2306,17 @@ thread_handle_outgoing(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
       rval = THREAD_STEP_CONTINUE;
       break;
 
+    case NETSIM_OUT_RINGING:
+      if (tsp->session_nonce == 0 || tsp->session_active)
+        break;
+      if (!netsim_sip_ring(ctxp->sip))
+        netsim_log("SIP ringing not sent");
+      break;
+
     case NETSIM_INT_ABORT:
-      netsim_log("abort requested");
+    case NETSIM_OUT_DECLINE:
+      netsim_log("%s requested", outev.type == NETSIM_OUT_DECLINE ?
+        "decline" : "abort");
       tsp->exiting = true;
       tsp->session_active = false;
       tsp->tx.active = false;
@@ -2296,7 +2324,10 @@ thread_handle_outgoing(struct netsim_thread_state *tsp, struct thread_ctx *ctxp)
       tsp->pending_frame_valid = false;
       clear_frame_slots(tsp->slots);
       clear_peer_seen_slots(tsp->peer_seen);
-      netsim_sip_hangup(ctxp->sip, "abort requested");
+      if (outev.type == NETSIM_OUT_DECLINE)
+        netsim_sip_decline(ctxp->sip, "decline requested");
+      else
+        netsim_sip_hangup(ctxp->sip, "abort requested");
       thread_reset_session(tsp, ctxp->outq);
       rval = THREAD_STEP_CONTINUE;
       break;
@@ -2712,6 +2743,9 @@ netsim_handle_prestart_event(const struct netsim_in_ev *inev)
     case NETSIM_IN_START_ACK:
       g_session.state = NETSIM_SESSION_START_ACK;
       break;
+    case NETSIM_IN_RINGING:
+      g_session.ringing = true;
+      break;
     case NETSIM_IN_FRIEND_REGISTERED:
       netsim_friend_registered(&inev->peer_user);
       redraw = true;
@@ -2742,6 +2776,118 @@ netsim_pump_prestart(void)
   return (redraw);
 }
 
+/* The call (ours or the peer's) not to go on: the thread told to end it,
+   with an abort or, for the peer's, a decline (see NETSIM_OUT_DECLINE) */
+static void
+netsim_call_end(int type)
+{
+  struct netsim_out_ev outev = {0};
+
+  if (g_session.running &&
+      (g_session.session_nonce != 0 ||
+       g_session.state != NETSIM_SESSION_WAITING)) {
+    outev.type = type;
+    queue_out_put(&g_session.outq, &outev);
+  }
+  queue_in_clear_session(&g_session.inq);
+  netsim_reset_state(NETSIM_SESSION_WAITING);
+}
+
+/* Call the friend selected (or the peer of the configuration): see
+   netsim_call_poll() for how it goes, netsim_start_session() for its game */
+bool
+netsim_call_start(void)
+{
+  struct netsim_out_ev outev = {0};
+  const struct usipy_str *peer_user;
+
+  if (!g_cfg.configured || !g_session.running)
+    return (false);
+  queue_in_clear_session(&g_session.inq);
+  netsim_reset_state(NETSIM_SESSION_WAITING);
+  peer_user = netsim_friend_selected_name();
+  outev.type = NETSIM_OUT_START;
+  outev.frame = 0;
+  outev.nonce = make_nonce();
+  if (!netsim_out_ev_set_peer_user(&outev, peer_user))
+    return (false);
+  g_session.session_nonce = outev.nonce;
+  if (outev.peer_user.l != 0)
+    netsim_session_set_peer_user(&g_session, &outev.peer_user);
+  queue_out_put(&g_session.outq, &outev);
+  {
+    const struct usipy_str *target_peer = outev.peer_user.l != 0 ?
+      &outev.peer_user : &g_cfg.sip.peer_user;
+
+    netsim_log("call_start session=0x%016llx peer=%.*s",
+      (unsigned long long)g_session.session_nonce, USIPY_SFMT(target_peer));
+  }
+  return (true);
+}
+
+/* How our call (see netsim_call_start()), or the peer's (see
+   netsim_remote_start_requested()), is going before its game */
+enum netsim_call_state
+netsim_call_poll(void)
+{
+
+  (void)netsim_pump_prestart();
+  if (netsim_is_error() || netsim_is_peer_exited())
+    return (NETSIM_CALL_GONE);
+  if (netsim_has_start_ack() || netsim_is_started())
+    return (NETSIM_CALL_ANSWERED);
+  if (g_session.ringing)
+    return (NETSIM_CALL_RINGING);
+  return (NETSIM_CALL_WAITING);
+}
+
+/* The peer's call is being put to our player: the peer told (180) */
+void
+netsim_call_ring(void)
+{
+  struct netsim_out_ev outev = {
+    .type = NETSIM_OUT_RINGING,
+  };
+
+  if (!g_session.running || g_session.session_nonce == 0)
+    return;
+  queue_out_put(&g_session.outq, &outev);
+}
+
+/* Our player wouldn't take the peer's call */
+void
+netsim_call_decline(void)
+{
+
+  netsim_log("call declined session=0x%016llx",
+    (unsigned long long)g_session.session_nonce);
+  netsim_call_end(NETSIM_OUT_DECLINE);
+}
+
+/* The call over: our player gave up on ours, or either's gone (see
+   netsim_call_poll()) */
+void
+netsim_call_hangup(void)
+{
+
+  netsim_log("call ended session=0x%016llx",
+    (unsigned long long)g_session.session_nonce);
+  netsim_call_end(NETSIM_INT_ABORT);
+}
+
+/* Whom the call's with, as namebuf */
+void
+netsim_call_peer(char *namebuf, size_t namebuf_len)
+{
+  const struct usipy_str *peer_user;
+
+  peer_user = g_session.peer_user.l != 0 ? &g_session.peer_user :
+    &g_cfg.sip.peer_user;
+  snprintf(namebuf, namebuf_len, "%.*s", USIPY_SFMT(peer_user));
+}
+
+/* The game of the call answered: ours (see netsim_call_start()) once the
+   peer has answered it, or the peer's once we answer it here */
 bool
 netsim_start_session(bool initiated_locally)
 {
@@ -2754,36 +2900,16 @@ netsim_start_session(bool initiated_locally)
     return (false);
   if (!g_session.running)
     return (false);
-  if (initiated_locally) {
-    queue_in_clear_session(&g_session.inq);
-    netsim_reset_state(NETSIM_SESSION_WAITING);
-  }
   (void)netsim_pump_prestart();
   if (netsim_is_error() || netsim_is_peer_exited())
     goto fail;
   if (netsim_is_started())
     return (true);
-  if (initiated_locally) {
-    const struct usipy_str *peer_user = netsim_friend_selected_name();
-
-    g_session.state = NETSIM_SESSION_WAITING;
-    g_session.session_nonce = make_nonce();
-    outev.type = NETSIM_OUT_START;
-    outev.frame = 0;
-    outev.nonce = g_session.session_nonce;
-    if (!netsim_out_ev_set_peer_user(&outev, peer_user))
-      return (false);
-    queue_out_put(&g_session.outq, &outev);
-    {
-      const struct usipy_str *target_peer = outev.peer_user.l != 0 ?
-        &outev.peer_user : &g_cfg.sip.peer_user;
-
-      netsim_log("start_session waiting for start ack session=0x%016llx peer=%.*s",
-        (unsigned long long)g_session.session_nonce, USIPY_SFMT(target_peer));
-    }
-  } else {
+  if (initiated_locally)
+    netsim_log("start_session waiting for start ack session=0x%016llx",
+      (unsigned long long)g_session.session_nonce);
+  else
     netsim_log("start_session waiting for remote start");
-  }
   for (;;) {
     if (!ack_queued && netsim_is_ready_to_ack()) {
       outev.type = NETSIM_OUT_START_ACK;
@@ -2796,10 +2922,6 @@ netsim_start_session(bool initiated_locally)
     }
     if (netsim_has_start_ack()) {
       g_session.state = NETSIM_SESSION_STARTED;
-      /* Whom it's with, for its game to count once it's on, see
-         netsim_sync_frame() */
-      if (initiated_locally && outev.peer_user.l != 0)
-        netsim_session_set_peer_user(&g_session, &outev.peer_user);
       netsim_log("session started local_player=%d session=0x%016llx",
         g_session.local_player + 1, (unsigned long long)g_session.session_nonce);
       return (true);
@@ -2820,16 +2942,7 @@ netsim_start_session(bool initiated_locally)
   }
 fail:
   netsim_log("session start failed");
-  if (g_session.running &&
-      (g_session.session_nonce != 0 ||
-       g_session.state != NETSIM_SESSION_WAITING)) {
-    outev = (struct netsim_out_ev){
-      .type = NETSIM_INT_ABORT,
-    };
-    queue_out_put(&g_session.outq, &outev);
-  }
-  queue_in_clear_session(&g_session.inq);
-  netsim_reset_state(NETSIM_SESSION_WAITING);
+  netsim_call_end(NETSIM_INT_ABORT);
   return (false);
 }
 

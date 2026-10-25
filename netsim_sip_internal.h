@@ -72,6 +72,9 @@ struct netsim_sip {
   char request_uri_buf[NETSIM_SIP_URI_BUFSIZE];
   uint32_t next_invite_cseq;
   size_t invite_index;
+  /* The peer's INVITE, for as long as it's not been answered (see
+     netsim_sip_ring()) */
+  size_t incoming_index;
   struct usipy_sip_register_state reg;
   bool reg_active;
   bool ua_reset_needed;

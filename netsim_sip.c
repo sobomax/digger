@@ -43,6 +43,11 @@ static const struct usipy_sip_status netsim_sip_res_forbidden = {
   .reason_phrase = USIPY_2STR("Forbidden"),
 };
 
+static const struct usipy_sip_status netsim_sip_res_decline = {
+  .code = 603,
+  .reason_phrase = USIPY_2STR("Decline"),
+};
+
 #define NETSIM_SIP_REGISTER_RETRY_MS 5000ULL
 #define NETSIM_SIP_INVITE_TIMER_B_MS 5000u
 /* How long an answer of ours waits for its ACK (Timer L), rather than the
@@ -122,6 +127,8 @@ static void outgoing_response(void *, size_t, const struct usipy_sip_tm_tx *,
 static void outgoing_timeout(void *, size_t, const struct usipy_sip_tm_tx *,
   enum usipy_sip_tm_uac_timeout_id);
 static int invite_no_ack(void *, size_t, const struct usipy_sip_tm_tx *);
+static void invite_cancelled(void *, size_t, const struct usipy_sip_tm_tx *,
+  const struct usipy_msg *);
 
 #ifdef DIGGER_INSTRUMENTATION
 /* A 2xx of ours went without ACK, see netsim_sip_no_ack_seen() */
@@ -718,6 +725,7 @@ answer_incoming_invite(struct netsim_sip *sp, char *errbuf, size_t errbuf_len)
     snprintf(errbuf, errbuf_len, "cannot send INVITE answer");
     return (false);
   }
+  sp->incoming_index = USIPY_SIP_TM_TX_INDEX_NONE;
   errbuf[0] = '\0';
   return (true);
 }
@@ -896,8 +904,14 @@ outgoing_response(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
     return;
   }
   sip_log("INVITE response %u cseq=%u", scode, txp->common.id.cseq);
-  if (msg->kind == USIPY_SIP_MSG_RES && scode > 100 && scode < 200)
+  if (msg->kind == USIPY_SIP_MSG_RES && scode > 100 && scode < 200) {
+    struct netsim_sip_session session;
+
+    /* The peer's player asked whether to take the call */
+    if (scode == 180 && select_role_session(sp, USIPY_SIP_TM_ROLE_UAC, &session))
+      event_push(sp, NETSIM_SIP_EVENT_RINGING, &session);
     return;
+  }
   rval = usipy_sip_ua_on_tx_response(sp->ua, tx_index, msg);
   if (rval != USIPY_SIP_TM_OK) {
     struct netsim_sip_session session;
@@ -930,6 +944,31 @@ outgoing_timeout(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
     if (select_role_session(sp, USIPY_SIP_TM_ROLE_UAC, &session))
       event_push(sp, NETSIM_SIP_EVENT_ERROR, &session);
   }
+}
+
+/* The peer's INVITE CANCELed, before we answered it: the CANCEL answered,
+   and the call ended (487) */
+static void
+invite_cancelled(void *arg, size_t tx_index, const struct usipy_sip_tm_tx *txp,
+  const struct usipy_msg *msg)
+{
+  struct netsim_sip *sp = arg;
+  struct usipy_sip_ua_event ev = {
+    .type = USIPY_SIP_UA_EVENT_DISCONNECT,
+    .data.response.status = &usipy_sip_res_req_term,
+  };
+  int rval;
+
+  sip_log("INVITE cseq=%u CANCELed by the peer tx=%lu", txp->common.id.cseq,
+    (unsigned long)tx_index);
+  rval = usipy_sip_tm_uas_cancel_ok(sp->tm, msg, tx_index);
+  if (rval != USIPY_SIP_TM_OK)
+    sip_log("CANCEL not answered rval=%d", rval);
+  if (tx_index != sp->incoming_index ||
+      usipy_sip_ua_get_state(sp->ua) != USIPY_SIP_UA_STATE_TRYING)
+    return;
+  sp->incoming_index = USIPY_SIP_TM_TX_INDEX_NONE;
+  (void)usipy_sip_ua_on_event(sp->ua, &ev, NULL);
 }
 
 /* Our answer to the peer's INVITE never got its ACK. */
@@ -1042,11 +1081,16 @@ incoming_request(void *arg, const struct usipy_sip_tm_handle_incoming_in *hin,
   }
   if (method_type == USIPY_SIP_METHOD_INVITE) {
     const struct usipy_sip_tm_addr *localp = hin->local;
+    const struct usipy_sip_tm_uas_callbacks uas_callbacks = {
+      .arg = sp,
+      .cancel = invite_cancelled,
+    };
     struct usipy_sip_tm_new_uas_tr_params tp = {
       .request = msg,
       .timers = hin->timers,
       .peer = hin->peer,
       .local = localp,
+      .callbacks = &uas_callbacks,
     };
     size_t tx_index;
 
@@ -1064,10 +1108,13 @@ incoming_request(void *arg, const struct usipy_sip_tm_handle_incoming_in *hin,
       tp.local = localp;
       strcpy(sp->incoming_local_host, local_host);
     }
-    if (usipy_sip_tm_new_uas_tr(sp->tm, &tp, &tx_index) != USIPY_SIP_TM_OK ||
-        usipy_sip_ua_on_transaction(sp->ua, tx_index, msg) != USIPY_SIP_TM_OK) {
+    if (usipy_sip_tm_new_uas_tr(sp->tm, &tp, &tx_index) != USIPY_SIP_TM_OK) {
       event_push(sp, NETSIM_SIP_EVENT_ERROR, NULL);
+      return;
     }
+    sp->incoming_index = tx_index;
+    if (usipy_sip_ua_on_transaction(sp->ua, tx_index, msg) != USIPY_SIP_TM_OK)
+      event_push(sp, NETSIM_SIP_EVENT_ERROR, NULL);
     return;
   }
   /* An ACK no transaction takes (e.g. of a 2xx past its Timer L): never
@@ -1289,6 +1336,7 @@ netsim_sip_create(const struct netsim_sip_config *cfgp, netsim_socket_t sock,
   sp->reg.next_cseq = 1;
   sp->next_invite_cseq = 1;
   sp->invite_index = USIPY_SIP_TM_TX_INDEX_NONE;
+  sp->incoming_index = USIPY_SIP_TM_TX_INDEX_NONE;
   strcpy(sp->local_host, local_host);
   strcpy(sp->local_port, local_port);
   sp->username = sp->cfg.username;
@@ -1576,6 +1624,27 @@ netsim_sip_answer_pending_remote(struct netsim_sip *sp, char *errbuf,
   return (answer_incoming_invite(sp, errbuf, errbuf_len));
 }
 
+/* The peer told its call is being put to our player (180), see
+   netsim_sip_answer_pending_remote() for the answer */
+bool
+netsim_sip_ring(struct netsim_sip *sp)
+{
+  const struct usipy_sip_tm_uas_response_params ringing = {
+    .status = &usipy_sip_res_ringing,
+  };
+  int rval;
+
+  if (!sp->pending_remote.valid ||
+      sp->incoming_index == USIPY_SIP_TM_TX_INDEX_NONE ||
+      usipy_sip_ua_get_state(sp->ua) != USIPY_SIP_UA_STATE_TRYING)
+    return (false);
+  rval = usipy_sip_tm_send_uas_response(sp->tm, sp->incoming_index, &ringing);
+  sip_log("ringing tx=%lu rval=%d", (unsigned long)sp->incoming_index, rval);
+  if (rval == USIPY_SIP_TM_OK)
+    rval = run_tm_now(sp, netsim_sip_now_ms());
+  return (rval == USIPY_SIP_TM_OK);
+}
+
 #ifdef DIGGER_INSTRUMENTATION
 /* Whether a 2xx of ours has gone without ACK (testing, see
    DIGGER_NETSIM_EXPECT_NO_ACK) */
@@ -1598,11 +1667,15 @@ netsim_sip_set_liveness(struct netsim_sip *sp, bool (*live)(void *),
   sp->live_arg = arg;
 }
 
-void
-netsim_sip_hangup(struct netsim_sip *sp, const char *why)
+/* The call ended here: the peer's INVITE, if not answered yet, answered
+   with status */
+static void
+hangup_with(struct netsim_sip *sp, const char *why,
+  const struct usipy_sip_status *status)
 {
   struct usipy_sip_ua_event ev = {
     .type = USIPY_SIP_UA_EVENT_DISCONNECT,
+    .data.response.status = status,
   };
   enum usipy_sip_ua_state uastate;
   bool need_ua_disconnect;
@@ -1636,9 +1709,25 @@ netsim_sip_hangup(struct netsim_sip *sp, const char *why)
   }
   sp->pending_call.valid = false;
   sp->pending_remote.valid = false;
+  sp->incoming_index = USIPY_SIP_TM_TX_INDEX_NONE;
   if (!need_ua_disconnect)
     return;
   (void)usipy_sip_ua_on_event(sp->ua, &ev, &tx_index);
+}
+
+void
+netsim_sip_hangup(struct netsim_sip *sp, const char *why)
+{
+
+  hangup_with(sp, why, &usipy_sip_res_req_term);
+}
+
+/* Our player wouldn't take the peer's call */
+void
+netsim_sip_decline(struct netsim_sip *sp, const char *why)
+{
+
+  hangup_with(sp, why, &netsim_sip_res_decline);
 }
 
 bool
@@ -1751,6 +1840,22 @@ netsim_sip_hangup(struct netsim_sip *sp, const char *why)
 
   (void)sp;
   (void)why;
+}
+
+void
+netsim_sip_decline(struct netsim_sip *sp, const char *why)
+{
+
+  (void)sp;
+  (void)why;
+}
+
+bool
+netsim_sip_ring(struct netsim_sip *sp)
+{
+
+  (void)sp;
+  return (false);
 }
 
 void

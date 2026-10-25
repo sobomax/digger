@@ -29,6 +29,7 @@ static bool aleft2pressed=false,aright2pressed=false,
      aup2pressed=false,adown2pressed=false,af12pressed=false;
 static bool anykeyf=false;
 static bool updown_start_enabled=true;
+static bool leftright_start_enabled=true;
 
 enum input_source {
   INPUT_SOURCE_PRIMARY = 0,
@@ -58,12 +59,20 @@ void readjoy(void);
 static void apply_network_controls(int n);
 static void edrf_controls(int n, bool *u, bool *d, bool *l, bool *r, bool *f);
 static bool key_is_title_updown(int16_t key);
+static bool key_is_title_leftright(int16_t key);
 
 static bool
 key_is_title_updown(int16_t key)
 {
 
   return (key == keycodes[PKEY_UP][0] || key == keycodes[PKEY_DOWN][0]);
+}
+
+static bool
+key_is_title_leftright(int16_t key)
+{
+
+  return (key == keycodes[PKEY_LEFT][0] || key == keycodes[PKEY_RIGHT][0]);
 }
 
 /* The standard ASCII keyboard is also checked so that very short keypresses
@@ -149,7 +158,8 @@ void checkkeyb(void)
         break;
     }
     if (!mode_change && !keyredef &&
-        (updown_start_enabled || !key_is_title_updown(akeypressed)))
+        (updown_start_enabled || !key_is_title_updown(akeypressed)) &&
+        (leftright_start_enabled || !key_is_title_leftright(akeypressed)))
       start=true;                                /* Change number of players */
   }
 }
@@ -210,6 +220,15 @@ input_set_updown_start(bool enabled)
 {
 
   updown_start_enabled = enabled;
+}
+
+/* Whether left and right start the game too, or are for a choice of the
+   title's (see netsim_dialog_run()) */
+void
+input_set_leftright_start(bool enabled)
+{
+
+  leftright_start_enabled = enabled;
 }
 
 void

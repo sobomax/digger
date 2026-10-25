@@ -29,7 +29,7 @@ OBJS	= main.o digger.o drawing.o sprite.o scores.o record.o edrf.o edrf_feed.o s
 	digger_math.o monster_obj.o digger_obj.o bullet_obj.o title_anim.o \
 	cgagrafx.o keyboard.o soundgen.o spinlock.o game.o digger_log.o \
 	netsim.o netsim_rx.o netsim_friends.o netsim_sip.o netsim_sip_registrar.o netsim_sip_sdp.o netsim_platform.o \
-	netsim_instrument.o netsim_debug.o netsim_game.o state_hash.o $(MSRC)/external/mackron_md5/md5.o
+	netsim_instrument.o netsim_debug.o netsim_game.o netsim_dialog.o state_hash.o $(MSRC)/external/mackron_md5/md5.o
 NETSIM_OBJ = netsim.o
 MSIP	= microsippy
 MSRC	= $(MSIP)/src

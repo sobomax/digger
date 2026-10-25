@@ -56,7 +56,9 @@ enum netsim_sip_event_type {
   NETSIM_SIP_EVENT_DISCONNECTED,
   NETSIM_SIP_EVENT_ERROR,
   /* The ACK to our answer: the caller has the call, media or not */
-  NETSIM_SIP_EVENT_ACKED
+  NETSIM_SIP_EVENT_ACKED,
+  /* Our call's being put to the peer's player (180) */
+  NETSIM_SIP_EVENT_RINGING
 };
 
 struct netsim_sip_event {
@@ -91,7 +93,9 @@ bool netsim_sip_start_call(struct netsim_sip *sp,
   const struct netsim_sip_start_call_in *inp, char *errbuf, size_t errbuf_len);
 bool netsim_sip_answer_pending_remote(struct netsim_sip *sp, char *errbuf,
   size_t errbuf_len);
+bool netsim_sip_ring(struct netsim_sip *sp);
 void netsim_sip_hangup(struct netsim_sip *sp, const char *why);
+void netsim_sip_decline(struct netsim_sip *sp, const char *why);
 void netsim_sip_set_liveness(struct netsim_sip *sp, bool (*live)(void *),
   void *arg);
 #ifdef DIGGER_INSTRUMENTATION

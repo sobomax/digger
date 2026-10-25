@@ -33,6 +33,7 @@ static const char copyright[]="Portions Copyright(c) 1983 Windmill Software Inc.
 #include "netsim.h"
 #include "netsim_game.h"
 #include "netsim_debug.h"
+#include "netsim_dialog.h"
 #include "netsim_friends.h"
 #include "title_anim.h"
 #include "edrf.h"
@@ -391,12 +392,15 @@ int main(int argc,char *argv[])
 
 int mainprog(void)
 {
-  int16_t frame,t;
+  int16_t frame;
   struct title_anim title_anim;
   bool started_by_remote;
   enum netsim_title_status title_netsim_status;
   enum netsim_title_status cur_netsim_status;
   bool title_up_pressed, title_down_pressed;
+  enum netsim_dialog_result dres;
+  /* The NetSim call just failed: the Digger's death for it, on the title */
+  bool call_failed=false;
 
 #ifdef DIGGER_INSTRUMENTATION
   /* Testing: replay a recording over NetSim, see edrf_netfeed_open() */
@@ -435,6 +439,10 @@ int mainprog(void)
     title_netsim_status = netsim_title_status_get();
     sync_netsim_waiter();
     showtable(ddap);
+    if (call_failed) {
+      soundddie();
+      call_failed=false;
+    }
     started=false;
     started_by_remote=false;
     keyredef=false;
@@ -528,20 +536,23 @@ int mainprog(void)
     }
     input_reset_network();
     if (dgstate.netsim) {
-      cleartopline();
-      outtext(ddap, "WAITING FOR PEER",68,0,3);
-      ddap->gflush();
-      if (!netsim_start_session(!started_by_remote)) {
+      /* The call taken, by our player or the peer's, or not */
+      dres=netsim_dialog_run(ddap, started_by_remote);
+      if (dres==NETSIM_DIALOG_DECLINED)
+        continue;
+      if (dres==NETSIM_DIALOG_GO) {
+        cleartopline();
+        outtext(ddap, "WAITING FOR PEER",68,0,3);
+        ddap->gflush();
+      }
+      if (dres!=NETSIM_DIALOG_GO || !netsim_start_session(!started_by_remote)) {
 #ifdef DIGGER_INSTRUMENTATION
         if (edrf_feeding) {
           fprintf(stderr, "eDRF: NetSim replay: no session with the peer\n");
           exit(3);
         }
 #endif
-        soundstop();
-        soundddie();
-        for (t=0;t<15 && !escape;t++)
-          newframe();
+        call_failed=true;
         continue;
       }
       input_enable_network_mode();

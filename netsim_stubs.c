@@ -30,6 +30,43 @@ netsim_sync_enabled(bool enabled)
 }
 
 bool
+netsim_call_start(void)
+{
+
+  return (false);
+}
+
+enum netsim_call_state
+netsim_call_poll(void)
+{
+
+  return (NETSIM_CALL_GONE);
+}
+
+void
+netsim_call_ring(void)
+{
+}
+
+void
+netsim_call_decline(void)
+{
+}
+
+void
+netsim_call_hangup(void)
+{
+}
+
+void
+netsim_call_peer(char *namebuf, size_t namebuf_len)
+{
+
+  if (namebuf_len > 0)
+    namebuf[0] = '\0';
+}
+
+bool
 netsim_start_session(bool initiated_locally)
 {
 

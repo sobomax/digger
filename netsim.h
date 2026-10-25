@@ -27,6 +27,20 @@ size_t netsim_friend_selected(void);
 bool netsim_friend_get(size_t index, char *namebuf, size_t namebuf_len,
   unsigned int *games_playedp);
 void netsim_friend_move(int delta);
+/* A call before its game, see netsim_call_poll() */
+enum netsim_call_state {
+  NETSIM_CALL_WAITING = 0,
+  NETSIM_CALL_RINGING, /* Put to the peer's player, ours */
+  NETSIM_CALL_ANSWERED, /* Ours, its game to start */
+  NETSIM_CALL_GONE /* Hung up, declined or failed */
+};
+
+bool netsim_call_start(void);
+enum netsim_call_state netsim_call_poll(void);
+void netsim_call_ring(void);
+void netsim_call_decline(void);
+void netsim_call_hangup(void);
+void netsim_call_peer(char *namebuf, size_t namebuf_len);
 bool netsim_start_session(bool initiated_locally);
 void netsim_stop_session(void);
 bool netsim_await_peer_hangup(void);

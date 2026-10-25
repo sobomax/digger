@@ -15,6 +15,7 @@ bool input_get_fire_active(int n);
 uint8_t input_snapshot_primary_controls(void);
 bool input_consume_anykey(void);
 void input_set_updown_start(bool enabled);
+void input_set_leftright_start(bool enabled);
 void input_reset_network(void);
 void input_enable_network_mode(void);
 void input_set_network_controls(int slot, uint8_t bits);

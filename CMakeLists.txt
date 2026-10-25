@@ -225,6 +225,7 @@ SET( DIGGER_SOURCE
      netsim_instrument.c
      netsim_debug.c
      netsim_game.c
+     netsim_dialog.c
      state_hash.c
      ${MSRC}/external/mackron_md5/md5.c
 )
