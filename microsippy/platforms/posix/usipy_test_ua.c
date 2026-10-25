@@ -1276,6 +1276,89 @@ test_ua_disconnect_after_abandon(int deadline, int gone)
     close(sock);
 }
 
+/* Dialled without a Call-ID of its own (the TM's then), hung up while it
+ * rings: CANCELed, as for one with */
+static void
+test_ua_outgoing_cancel_tm_call_id(void)
+{
+    struct usipy_sip_ua_ctor_params ucp = {0};
+    struct usipy_sip_ua_event ev = {0};
+    struct emit_log elog = {0};
+    struct usipy_sip_tm *tm;
+    struct usipy_sip_ua *uap;
+    const struct usipy_sip_tm_tx *txp, *ctxp;
+    struct usipy_msg *reqp, *respp;
+    size_t invite_index, i;
+    int sock, ncancels;
+
+    tm = make_tm(&sock);
+    elog.tm = tm;
+    ucp.tm = tm;
+    ucp.emit = capture_emit;
+    ucp.emit_arg = &elog;
+    uap = usipy_sip_ua_ctor(&ucp);
+    assert(uap != NULL);
+
+    ev.type = USIPY_SIP_UA_EVENT_DIAL;
+    ev.data.dial = (struct usipy_sip_ua_dial_params){
+      .request = &(struct usipy_sip_tm_new_uac_tr_params){
+        .request_id = &(struct usipy_sip_tm_request_id){
+        .cseq = 1,
+        .method_type = USIPY_SIP_METHOD_INVITE,
+        },
+        .request_target = &(struct usipy_sip_tm_request_target){
+        .request_uri = &(struct usipy_str)USIPY_2STR("sip:bob@example.test"),
+        .target = &(struct usipy_sip_tm_addr){
+          .af = AF_INET,
+          .port = 5060,
+          .transport = USIPY_SIP_TM_TRANSPORT_UDP,
+          .host = USIPY_2STR("198.51.100.10"),
+        },
+        },
+        .parties_by_username = &(struct usipy_sip_tm_request_parties){
+        .from = &(struct usipy_str)USIPY_2STR("alice"),
+        .to = &(struct usipy_str)USIPY_2STR("bob"),
+        .contact = &(struct usipy_str)USIPY_2STR("alice"),
+        },
+        .invite_expires = 60,
+        .callbacks = &(struct usipy_sip_tm_uac_callbacks){0},
+      },
+    };
+    ASSERT_CALL_EQ(usipy_sip_ua_on_event(uap, &ev, &invite_index),
+      USIPY_SIP_TM_OK);
+    run_tm_once(tm, 0);
+    txp = usipy_sip_tm_get_transaction(tm, invite_index);
+    assert(txp != NULL && txp->common.id.call_id.l != 0);
+    reqp = dup_tx_request(txp);
+    respp = build_response(reqp, &usipy_sip_res_ringing, "uas180", NULL);
+    handle_incoming_msg(tm, txp, respp, 1);
+    ASSERT_CALL_EQ(usipy_sip_ua_on_tx_response(uap, invite_index, respp),
+      USIPY_SIP_TM_OK);
+    assert(usipy_sip_ua_get_state(uap) == USIPY_SIP_UA_STATE_DIALING);
+
+    ev.type = USIPY_SIP_UA_EVENT_DISCONNECT;
+    ASSERT_CALL_EQ(usipy_sip_ua_on_event(uap, &ev, NULL), USIPY_SIP_TM_OK);
+    assert(usipy_sip_ua_get_state(uap) == USIPY_SIP_UA_STATE_DISCONNECTED);
+    assert((txp->common.flags & USIPY_SIP_TM_F_ABANDONED) != 0);
+    ncancels = 0;
+    for (i = 0; i < 64; i++) {
+        ctxp = usipy_sip_tm_get_transaction(tm, i);
+        if (ctxp != NULL && ctxp->role == USIPY_SIP_TM_ROLE_UAC &&
+          ctxp->common.id.method_type == USIPY_SIP_METHOD_CANCEL &&
+          usipy_str_eq(&ctxp->common.id.call_id, &txp->common.id.call_id)) {
+            ncancels += 1;
+        }
+    }
+    assert(ncancels == 1);
+    assert(elog.count == 1 && elog.emits[0].type == USIPY_SIP_UA_EMIT_DISCONNECT);
+
+    usipy_sip_msg_dtor(respp);
+    usipy_sip_msg_dtor(reqp);
+    usipy_sip_ua_dtor(uap);
+    usipy_sip_tm_dtor(tm);
+    close(sock);
+}
+
 int
 main(void)
 {
@@ -1286,6 +1369,7 @@ main(void)
     test_ua_disconnect_after_abandon(1, 0);
     test_ua_disconnect_after_abandon(1, 1);
     test_ua_disconnect_after_abandon(1, 2);
+    test_ua_outgoing_cancel_tm_call_id();
     test_ua_incoming_connect_bye(0);
     test_ua_incoming_connect_bye(1);
     test_ua_accepted_ack(USIPY_SIP_TM_TRANSPORT_UDP);
